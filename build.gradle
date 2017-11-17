@@ -1,0 +1,14 @@
+allprojects {
+    version '0.1.0'
+
+    apply plugin: 'java'
+    sourceCompatibility = 1.8
+
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+        compileOnly 'org.projectlombok:lombok:1.16.18'
+    }
+}

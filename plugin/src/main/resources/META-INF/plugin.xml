@@ -1,0 +1,57 @@
+<idea-plugin url="https://github.com/woru/options-completion-phpstorm-plugin">
+
+    <id>in.1ton.idea.spring.boot.autoconfiguration.suggestions</id>
+    <name>Spring boot auto configuration suggestions</name>
+    <version>0.1.0</version>
+    <vendor email="dev@1ton.in" url="http://1ton.in/">Development Team @ 1Ton Technologies</vendor>
+
+    <description>
+        <![CDATA[
+
+        ]]>
+    </description>
+
+    <change-notes>
+    </change-notes>
+
+    <idea-version since-build="107.105"/>
+
+    <!-- please see http://confluence.jetbrains.com/display/IDEADEV/Plugin+Compatibility+with+IntelliJ+Platform+Products
+     on how to target different products -->
+    <depends>com.intellij.modules.lang</depends>
+    <depends>org.jetbrains.plugins.yaml</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <completion.contributor language="yaml"
+                                implementationClass="in.oneton.idea.spring.boot.config.autosuggest.plugin.completion.YamlCompletionContributor"/>
+
+        <documentationProvider
+                implementation="in.oneton.idea.spring.boot.config.autosuggest.plugin.completion.YamlDocumentationProvider"/>
+
+        <!--<annotator-->
+        <!--implementationClass="in.oneton.idea.spring.boot.config.autosuggest.plugin.annotator.DuplicateKeyAnnotator"-->
+        <!--language="yaml"/>-->
+        <!--<annotator-->
+        <!--implementationClass="in.oneton.idea.spring.boot.config.autosuggest.plugin.annotator.DataTypeCheckerAnnotator"-->
+        <!--language="yaml"/>-->
+        <!--<annotator-->
+        <!--implementationClass="in.oneton.idea.spring.boot.config.autosuggest.plugin.annotator.PropertyNotInModelAnnotator"-->
+        <!--language="yaml"/>-->
+
+        <projectService
+                serviceInterface="in.oneton.idea.spring.boot.config.autosuggest.plugin.service.SuggestionIndexService"
+                serviceImplementation="in.oneton.idea.spring.boot.config.autosuggest.plugin.service.SuggestionIndexServiceImpl"/>
+    </extensions>
+
+    <project-components>
+        <component>
+            <interface-class>
+                in.oneton.idea.spring.boot.config.autosuggest.plugin.component.Bootstrap
+            </interface-class>
+            <implementation-class>
+                in.oneton.idea.spring.boot.config.autosuggest.plugin.component.BootstrapImpl
+            </implementation-class>
+        </component>
+    </project-components>
+
+</idea-plugin>
