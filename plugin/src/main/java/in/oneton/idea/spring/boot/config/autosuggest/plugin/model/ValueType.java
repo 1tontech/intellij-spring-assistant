@@ -2,10 +2,6 @@ package in.oneton.idea.spring.boot.config.autosuggest.plugin.model;
 
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.icons.AllIcons;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.codeStyle.CodeStyleSettings;
-import com.intellij.psi.codeStyle.CodeStyleSettingsManager;
-import com.intellij.psi.codeStyle.CommonCodeStyleSettings;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -13,6 +9,8 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static in.oneton.idea.spring.boot.config.autosuggest.plugin.Util.getCodeStyleIntent;
 
 public enum ValueType {
   BOOLEAN, INTEGER, NUMBER, CHARACTER, STRING, ENUM, ARRAY, OBJECT, UNKNOWN;
@@ -22,8 +20,8 @@ public enum ValueType {
   private static final Pattern PACKAGE_REMOVAL_PATTERN =
       Pattern.compile("[a-zA-Z_][a-zA-Z_0-9]*\\.");
   private static final Pattern GENERIC_SECTION_REMOVAL_PATTERN = Pattern.compile("<[^>]+>");
-  private static final Pattern CLASSNAME_MATCH_PATTERN =
-      Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*(?:\\.[a-zA-Z_][a-zA-Z_0-9]*)*)");
+  @SuppressWarnings("unused")
+  private static final Pattern CLASSNAME_MATCH_PATTERN = Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*(?:\\.[a-zA-Z_][a-zA-Z_0-9]*)*)");
 
   public static ValueType parse(String type, ClassLoader classLoader) {
     if (type == null) {
@@ -120,26 +118,15 @@ public enum ValueType {
   @NotNull
   public String getPlaceholderSufixForArray(InsertionContext insertionContext,
       String existingIndentation) {
-    final String additionalIndent = getAdditionalIndent(insertionContext);
+    final String additionalIndent = getCodeStyleIntent(insertionContext);
     return ":\n" + existingIndentation + additionalIndent + "- " + CARET;
   }
 
   @NotNull
   public String getPlaceholderSufixForObject(InsertionContext insertionContext,
       String existingIndentation) {
-    final String additionalIndent = getAdditionalIndent(insertionContext);
+    final String additionalIndent = getCodeStyleIntent(insertionContext);
     return ":\n" + existingIndentation + additionalIndent + CARET;
-  }
-
-  @NotNull
-  private String getAdditionalIndent(InsertionContext insertionContext) {
-    final CodeStyleSettings currentSettings =
-        CodeStyleSettingsManager.getSettings(insertionContext.getProject());
-    final CommonCodeStyleSettings.IndentOptions indentOptions =
-        currentSettings.getIndentOptions(insertionContext.getFile().getFileType());
-    return indentOptions.USE_TAB_CHARACTER ?
-        "\t" :
-        StringUtil.repeatSymbol(' ', indentOptions.INDENT_SIZE);
   }
 
 }

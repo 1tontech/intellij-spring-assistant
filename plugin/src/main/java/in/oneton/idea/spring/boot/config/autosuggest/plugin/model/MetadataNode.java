@@ -1,5 +1,6 @@
 package in.oneton.idea.spring.boot.config.autosuggest.plugin.model;
 
+import com.intellij.openapi.diagnostic.Logger;
 import in.oneton.idea.spring.boot.config.autosuggest.plugin.model.json.SpringConfigurationMetadataGroup;
 import in.oneton.idea.spring.boot.config.autosuggest.plugin.model.json.SpringConfigurationMetadataProperty;
 import lombok.AllArgsConstructor;
@@ -14,6 +15,7 @@ import org.apache.commons.collections4.trie.PatriciaTrie;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -21,6 +23,7 @@ import java.util.Set;
 import java.util.SortedMap;
 
 import static in.oneton.idea.spring.boot.config.autosuggest.plugin.model.json.SpringConfigurationMetadataDeprecationLevel.error;
+import static java.lang.System.arraycopy;
 
 /**
  * Represents a node in the hierarchy of suggestions
@@ -63,6 +66,9 @@ import static in.oneton.idea.spring.boot.config.autosuggest.plugin.model.json.Sp
 @ToString(of = "originalName")
 @EqualsAndHashCode(of = "name")
 public class MetadataNode {
+
+  private static final Logger log = Logger.getInstance(MetadataNode.class);
+
   /**
    * Sanitised name used for lookup. `-`, `_` are removed, upper cased characters are converted to lower case
    */
@@ -98,14 +104,14 @@ public class MetadataNode {
   /**
    * Set of sources these suggestions belong to
    */
-  private Set<SuggestionSourcePathAndTimestamp> belongsTo;
+  private Set<String> belongsTo;
 
   public static MetadataNode newInstance(String name, @Nullable MetadataNode parent,
-      SuggestionSourcePathAndTimestamp sourcePathAndTimestamp) {
+      String metadataFileOrLibraryPath) {
     MetadataNodeBuilder builder =
         MetadataNode.builder().name(sanitize(name)).originalName(name).parent(parent);
-    HashSet<SuggestionSourcePathAndTimestamp> belongsTo = new HashSet<>();
-    belongsTo.add(sourcePathAndTimestamp);
+    HashSet<String> belongsTo = new HashSet<>();
+    belongsTo.add(metadataFileOrLibraryPath);
     builder.belongsTo(belongsTo);
     return builder.build();
   }
@@ -151,9 +157,9 @@ public class MetadataNode {
   }
 
   public void addChildren(SpringConfigurationMetadataGroup group, String[] pathSegments,
-      SuggestionSourcePathAndTimestamp sourcePathAndTimestamp) {
+      String metadataFileOrLibraryPath) {
     int startIndex = computeStartIndexAndAddSourcePath();
-    addSourcePathTillRoot(sourcePathAndTimestamp);
+    addSourcePathTillRoot(metadataFileOrLibraryPath);
 
     // Case where alpha.childNode11.charlie is already added via source 1 & source2 tries to add a group for alpha.childNode11
     if (startIndex >= pathSegments.length) {
@@ -168,7 +174,8 @@ public class MetadataNode {
 
       String pathSegment = pathSegments[startIndex];
       String sanitizedPathSegment = sanitize(pathSegment);
-      MetadataNode childNode = MetadataNode.newInstance(pathSegment, this, sourcePathAndTimestamp);
+      MetadataNode childNode =
+          MetadataNode.newInstance(pathSegment, this, metadataFileOrLibraryPath);
 
       // If this is the last segment, lets set group
       boolean noMoreSegmentsLeft = startIndex == pathSegments.length - 1;
@@ -178,14 +185,14 @@ public class MetadataNode {
       children.add(childNode);
       childNode.setParent(this);
       sanitisedChildTrie.put(sanitizedPathSegment, childNode);
-      childNode.addChildren(group, pathSegments, sourcePathAndTimestamp);
+      childNode.addChildren(group, pathSegments, metadataFileOrLibraryPath);
     }
   }
 
   public void addChildren(SpringConfigurationMetadataProperty property, String[] pathSegments,
-      SuggestionSourcePathAndTimestamp sourcePathAndTimestamp) {
+      String metadataFileOrLibraryPath) {
     int startIndex = computeStartIndexAndAddSourcePath();
-    addSourcePathTillRoot(sourcePathAndTimestamp);
+    addSourcePathTillRoot(metadataFileOrLibraryPath);
 
     // Case where alpha.childNode11.charlie is already added via source 1 & source2 tries to add a group for alpha.childNode11
     if (startIndex >= pathSegments.length) {
@@ -200,7 +207,8 @@ public class MetadataNode {
 
       String pathSegment = pathSegments[startIndex];
       String sanitizedPathSegment = sanitize(pathSegment);
-      MetadataNode childNode = MetadataNode.newInstance(pathSegment, this, sourcePathAndTimestamp);
+      MetadataNode childNode =
+          MetadataNode.newInstance(pathSegment, this, metadataFileOrLibraryPath);
 
       // If this is the last segment, lets set path
       boolean noMoreSegmentsLeft = startIndex == pathSegments.length - 1;
@@ -210,49 +218,53 @@ public class MetadataNode {
       children.add(childNode);
       childNode.setParent(this);
       sanitisedChildTrie.put(sanitizedPathSegment, childNode);
-      childNode.addChildren(property, pathSegments, sourcePathAndTimestamp);
+      childNode.addChildren(property, pathSegments, metadataFileOrLibraryPath);
     }
   }
 
   @Nullable
   public Set<Suggestion> findSuggestions(String[] querySegments, int startWith,
-      ClassLoader classLoader) {
+      ClassLoader classLoader, boolean forceSearchAcrossTree) {
     if (isGroup() && startWith >= querySegments.length) {
+      log.info(
+          "Group matched: " + this + ". Args matched against: " + Arrays.toString(querySegments)
+              + " at element with index: " + startWith);
       assert group != null;
       return newSingleElementSet(
           group.newSuggestion(this, computeSuggestion(startWith), classLoader));
     } else if (isLeaf() && validSuggestion() && startWith >= querySegments.length) {
+      log.info(
+          "Property matched: " + this + ". Args matched against: " + Arrays.toString(querySegments)
+              + " at element with index: " + startWith);
       assert property != null;
       return newSingleElementSet(
           property.newSuggestion(this, computeSuggestion(startWith), classLoader));
     } else {
-      return findChildSuggestions(querySegments, startWith, classLoader);
+      return findChildSuggestions(querySegments, startWith, classLoader, forceSearchAcrossTree);
     }
   }
 
   @Nullable
   public Set<Suggestion> findChildSuggestions(String[] querySegments, int startWith,
-      ClassLoader classLoader) {
+      ClassLoader classLoader, boolean forceSearchAcrossTree) {
+    log.info("Searching children with arguments " + Arrays.toString(querySegments) + " at index "
+        + startWith + " within " + this);
     Set<Suggestion> suggestions = null;
+    // If we are searching for `spring` & spring does not have a group/property associated, we would want to go deep till we find all next level descendants that are either groups & properties, so that user dont get bombarded with too many or too little values
     if (startWith >= querySegments.length) {
       if (children == null || sanitisedChildTrie == null) {
         return null;
       } else {
-        Set<Suggestion> firstSetOfSuggestions = null;
-        for (MetadataNode child : children) {
+        suggestions =
+            findChildSuggestionsDeepWithin(querySegments, startWith + 1, classLoader, false);
+        if (suggestions == null && forceSearchAcrossTree) {
+          // Since the search did not match any results, lets ask all the children if any of their have matches
           Set<Suggestion> childSuggestions =
-              child.findSuggestions(querySegments, startWith + 1, classLoader);
+              findChildSuggestionsDeepWithin(querySegments, startWith, classLoader, true);
           if (childSuggestions != null) {
-            // If more than one child is willing to offer suggestions, lets add this intermediate node as a suggestion, instead of child suggestions
-            if (firstSetOfSuggestions != null) {
-              firstSetOfSuggestions = newSingleElementSet(
-                  Suggestion.builder().suggestion(computeSuggestion(startWith)).ref(this).build());
-              break;
-            }
-            firstSetOfSuggestions = childSuggestions;
+            return new HashSet<>(childSuggestions);
           }
         }
-        suggestions = firstSetOfSuggestions;
       }
     } else {
       if (sanitisedChildTrie != null) {
@@ -261,9 +273,18 @@ public class MetadataNode {
             sanitisedChildTrie.prefixMap(sanitisedQuerySegment);
         Collection<MetadataNode> childNodes = sortedPrefixToMetadataNode.values();
         if (childNodes.size() != 0) {
-          for (MetadataNode child : childNodes) {
-            Set<Suggestion> childSuggestions =
-                child.findSuggestions(querySegments, startWith + 1, classLoader);
+          suggestions = findChildSuggestionsDeepWithin(querySegments, startWith + 1, classLoader,
+              forceSearchAcrossTree, childNodes);
+        }
+
+        if (suggestions == null && forceSearchAcrossTree) {
+          // Since the search did not match any results, lets ask all the children if any of their children have matches
+          for (MetadataNode metadataNode : sanitisedChildTrie.values()) {
+            String[] newQuerySegments = new String[querySegments.length + 1];
+            newQuerySegments[0] = metadataNode.originalName;
+            arraycopy(querySegments, 0, newQuerySegments, 1, querySegments.length);
+            Set<Suggestion> childSuggestions = metadataNode
+                .findChildSuggestions(newQuerySegments, startWith + 1, classLoader, true);
             if (childSuggestions != null) {
               if (suggestions == null) {
                 suggestions = new HashSet<>();
@@ -272,17 +293,51 @@ public class MetadataNode {
             }
           }
         }
+        return suggestions;
+      }
+    }
+    return null;
+  }
+
+  private Set<Suggestion> findChildSuggestionsDeepWithin(String[] querySegments, int startWith,
+      ClassLoader classLoader, boolean b) {
+    Set<Suggestion> suggestions = null;
+    assert children != null;
+    for (MetadataNode child : children) {
+      Set<Suggestion> childSuggestions =
+          child.findSuggestions(querySegments, startWith, classLoader, b);
+      if (childSuggestions != null) {
+        if (suggestions == null) {
+          suggestions = new HashSet<>();
+        }
+        suggestions.addAll(childSuggestions);
+      }
+    }
+    return suggestions;
+  }
+
+  private Set<Suggestion> findChildSuggestionsDeepWithin(String[] querySegments, int startWith,
+      ClassLoader classLoader, boolean forceSearchAcrossTree, Collection<MetadataNode> childNodes) {
+    Set<Suggestion> suggestions = null;
+    for (MetadataNode child : childNodes) {
+      Set<Suggestion> childSuggestions =
+          child.findSuggestions(querySegments, startWith, classLoader, forceSearchAcrossTree);
+      if (childSuggestions != null) {
+        if (suggestions == null) {
+          suggestions = new HashSet<>();
+        }
+        suggestions.addAll(childSuggestions);
       }
     }
     return suggestions;
   }
 
   /**
-   * @param sourcePathAndTimestamp
+   * @param metadataFileOrLibraryPath Represents either path to the library (or) metadata file
    * @return true if no children left & this item does not belong to any other source
    */
-  public boolean removeRef(SuggestionSourcePathAndTimestamp sourcePathAndTimestamp) {
-    belongsTo.remove(sourcePathAndTimestamp);
+  public boolean removeRef(String metadataFileOrLibraryPath) {
+    belongsTo.remove(metadataFileOrLibraryPath);
     // If the current node & all its children belong to a single file, lets remove the whole tree
     if (belongsTo.size() == 0) {
       return true;
@@ -293,7 +348,7 @@ public class MetadataNode {
       Iterator<MetadataNode> iterator = children.iterator();
       while (iterator.hasNext()) {
         MetadataNode child = iterator.next();
-        boolean canRemoveReference = child.removeRef(sourcePathAndTimestamp);
+        boolean canRemoveReference = child.removeRef(metadataFileOrLibraryPath);
         if (canRemoveReference) {
           iterator.remove();
         }
@@ -343,9 +398,10 @@ public class MetadataNode {
   }
 
   @Nullable
-  public Set<Suggestion> getSuggestionValues(ClassLoader classLoader) {
+  public Set<Suggestion> getSuggestionValues(ClassLoader classLoader,
+      boolean forceSearchAcrossTree) {
     assert property != null;
-    return property.getValueSuggestions(this, classLoader);
+    return property.getValueSuggestions(this, classLoader, forceSearchAcrossTree);
   }
 
   @NotNull
@@ -361,13 +417,13 @@ public class MetadataNode {
         || property.getDeprecation().getLevel() != error;
   }
 
-  private void addSourcePathTillRoot(SuggestionSourcePathAndTimestamp sourcePathAndTimestamp) {
+  private void addSourcePathTillRoot(String metadataFileOrLibraryPath) {
     MetadataNode node = this;
     do {
-      if (node.belongsTo.contains(sourcePathAndTimestamp)) {
+      if (node.belongsTo.contains(metadataFileOrLibraryPath)) {
         break;
       }
-      node.belongsTo.add(sourcePathAndTimestamp);
+      node.belongsTo.add(metadataFileOrLibraryPath);
       node = node.parent;
     } while (node != null && !node.isRoot());
   }
@@ -394,6 +450,37 @@ public class MetadataNode {
       numOfHops--;
     }
 
+    return builder.toString();
+  }
+
+  public String getSuggestionReplacement(String existingIndentation, String indent, int maxDepth) {
+    int numOfHops = 0;
+    MetadataNode currentNode = this;
+
+    StringBuilder builder = new StringBuilder(
+        existingIndentation + getIndent(indent, (maxDepth - 1)) + currentNode.originalName);
+
+    currentNode = currentNode.parent;
+    numOfHops++;
+    while (currentNode != null && numOfHops < maxDepth) {
+      builder.insert(0, existingIndentation + getIndent(indent, (maxDepth - numOfHops - 1))
+          + currentNode.originalName + ":\n");
+      currentNode = currentNode.parent;
+      numOfHops++;
+    }
+
+    return builder.delete(0, existingIndentation.length()).toString();
+  }
+
+  public String getNewOverallIndent(String existingIndentation, String indent, int maxDepth) {
+    return existingIndentation + getIndent(indent, (maxDepth - 1));
+  }
+
+  public String getIndent(String indent, int numOfHops) {
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < numOfHops; i++) {
+      builder.append(indent);
+    }
     return builder.toString();
   }
 

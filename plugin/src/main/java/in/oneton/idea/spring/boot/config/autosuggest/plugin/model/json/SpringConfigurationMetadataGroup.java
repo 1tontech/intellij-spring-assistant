@@ -9,6 +9,8 @@ import lombok.EqualsAndHashCode;
 
 import javax.annotation.Nullable;
 
+import static in.oneton.idea.spring.boot.config.autosuggest.plugin.Util.methodForDocumentationNavigation;
+import static in.oneton.idea.spring.boot.config.autosuggest.plugin.Util.typeForDocumentationNavigation;
 import static in.oneton.idea.spring.boot.config.autosuggest.plugin.model.ValueType.removeGenerics;
 
 /**
@@ -41,7 +43,8 @@ public class SpringConfigurationMetadataGroup {
 
     if (type != null) {
       StringBuilder buffer = new StringBuilder();
-      DocumentationManager.createHyperlink(buffer, type, type, false);
+      DocumentationManager
+          .createHyperlink(buffer, typeForDocumentationNavigation(type), type, false);
       String typeInJavadocFormat = buffer.toString();
 
       builder.append(" (").append(typeInJavadocFormat).append(")");
@@ -59,7 +62,8 @@ public class SpringConfigurationMetadataGroup {
       }
       StringBuilder buffer = new StringBuilder();
       DocumentationManager
-          .createHyperlink(buffer, sourceTypeInJavadocFormat, sourceTypeInJavadocFormat, false);
+          .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
+              sourceTypeInJavadocFormat, false);
       sourceTypeInJavadocFormat = buffer.toString();
 
       builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");

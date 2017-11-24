@@ -1,8 +1,14 @@
 package in.oneton.idea.spring.boot.config.autosuggest.plugin.model;
 
+import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.codeInsight.lookup.LookupElementPresentation;
+import com.intellij.codeInsight.lookup.LookupElementRenderer;
+import com.intellij.openapi.editor.colors.EditorColorsManager;
+import com.intellij.openapi.editor.markup.TextAttributes;
 import in.oneton.idea.spring.boot.config.autosuggest.plugin.insert.handler.YamlKeyInsertHandler;
 import in.oneton.idea.spring.boot.config.autosuggest.plugin.insert.handler.YamlValueInsertHandler;
+import in.oneton.idea.spring.boot.config.autosuggest.plugin.model.json.SpringConfigurationMetadataDeprecationLevel;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -11,46 +17,102 @@ import lombok.Setter;
 import javax.annotation.Nullable;
 import javax.swing.*;
 
+import static com.intellij.openapi.util.text.StringUtil.shortenTextWithEllipsis;
+import static com.intellij.ui.JBColor.RED;
+import static in.oneton.idea.spring.boot.config.autosuggest.plugin.Util.PERIOD_DELIMITER;
+import static in.oneton.idea.spring.boot.config.autosuggest.plugin.Util.getFirstSentenceWithoutDot;
+import static in.oneton.idea.spring.boot.config.autosuggest.plugin.model.json.SpringConfigurationMetadataDeprecationLevel.error;
+import static java.awt.Color.YELLOW;
+import static org.jetbrains.yaml.YAMLHighlighter.SCALAR_TEXT;
+
 @Getter
 @Builder
 @EqualsAndHashCode(of = "suggestion")
 public class Suggestion {
+
+  private static final LookupElementRenderer<LookupElement> CUSTOM_SUGGESTION_RENDERER =
+      new LookupElementRenderer<LookupElement>() {
+        public void renderElement(LookupElement element, LookupElementPresentation presentation) {
+          Suggestion suggestion = (Suggestion) element.getObject();
+          if (suggestion.icon != null) {
+            presentation.setIcon(suggestion.icon);
+          }
+
+          presentation.setStrikeout(suggestion.deprecationLevel != null);
+          if (suggestion.deprecationLevel != null) {
+            if (suggestion.deprecationLevel == error) {
+              presentation.setItemTextForeground(RED);
+            } else {
+              presentation.setItemTextForeground(YELLOW);
+            }
+          }
+
+          String lookupString = element.getLookupString();
+          presentation.setItemText(lookupString);
+          if (!lookupString.equals(suggestion.suggestion)) {
+            presentation.setItemTextBold(true);
+          }
+
+          String shortDescription;
+          if (suggestion.defaultValue != null) {
+            shortDescription = shortenTextWithEllipsis(suggestion.defaultValue, 60, 0, true);
+            TextAttributes attrs =
+                EditorColorsManager.getInstance().getGlobalScheme().getAttributes(SCALAR_TEXT);
+            presentation.setTailText("=" + shortDescription, attrs.getForegroundColor());
+          }
+
+          if (suggestion.description != null) {
+            presentation
+                .appendTailText(" (" + getFirstSentenceWithoutDot(suggestion.description) + ")",
+                    true);
+          }
+
+          if (suggestion.shortType != null) {
+            presentation.setTypeText(suggestion.shortType);
+          }
+        }
+      };
+
   @Nullable
   private Icon icon;
   private String suggestion;
   @Nullable
   private String description;
+  @Nullable
+  private String shortType;
+  @Nullable
+  private String defaultValue;
+  @Nullable
+  private SpringConfigurationMetadataDeprecationLevel deprecationLevel;
   private MetadataNode ref;
-  private boolean deprecated;
   /**
    * Whether or not the suggestion corresponds to value (with key -> value pair)
    */
   private boolean referringToValue;
   /**
-   * Whether teh current value represents the default value
+   * Whether the current value represents the default value
    */
   @Setter
-  private boolean defaultValue;
+  private boolean representingDefaultValue;
 
   public LookupElementBuilder newLookupElement(ClassLoader classLoader) {
     LookupElementBuilder builder = LookupElementBuilder.create(this, suggestion);
-    if (icon != null) {
-      builder = builder.withIcon(icon);
-    }
-    if (description != null) {
-      builder = builder.withTypeText(description, true);
-    }
-    if (deprecated) {
-      builder = builder.strikeout();
-    }
     if (referringToValue) {
-      if (defaultValue) {
+      if (description != null) {
+        builder = builder.withTypeText(description, true);
+      }
+      if (representingDefaultValue) {
         builder = builder.bold();
       }
       builder = builder.withInsertHandler(new YamlValueInsertHandler());
     } else {
-      builder = builder.withInsertHandler(new YamlKeyInsertHandler(ref, classLoader));
+      builder = builder.withRenderer(CUSTOM_SUGGESTION_RENDERER)
+          .withInsertHandler(new YamlKeyInsertHandler(ref, classLoader));
     }
     return builder;
+  }
+
+  public int getMaxDepth() {
+    return suggestion.split(PERIOD_DELIMITER).length;
   }
 }

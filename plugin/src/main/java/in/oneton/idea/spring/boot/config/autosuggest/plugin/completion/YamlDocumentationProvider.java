@@ -41,11 +41,14 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       // Only group & leaf are expected to have documentation
       if (target != null && (target.isGroup() || target.isLeaf())) {
         if (requestedForTargetValue) {
+          assert target.getProperty() != null;
           return target.getProperty()
               .getDocumentationForValue(target, value, element.getClass().getClassLoader());
         } else if (target.isGroup()) {
+          assert target.getGroup() != null;
           return target.getGroup().getDocumentation(target);
         } else {
+          assert target.getProperty() != null;
           return target.getProperty().getDocumentationForKey(target);
         }
       }

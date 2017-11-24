@@ -34,24 +34,24 @@ public interface SuggestionIndexService {
   boolean canProvideSuggestions(Project project, Module module);
 
   /**
-   * @param project           project to which these suggestions should be shown
-   * @param containerElements hierarchy of element from where the suggestion is requested. i.e if in yml user is trying to get suggestions for `s.a` under `spring:\n\trabbitmq.listener:` element, then this value would ['spring', 'rabbitmq.listener']
-   * @param queryString       query string user is trying to search for. In the above example, the value for this would be `s.a`
+   * @param project       project to which these suggestions should be shown
+   * @param ancestralKeys hierarchy of element from where the suggestion is requested. i.e if in yml user is trying to get suggestions for `s.a` under `spring:\n\trabbitmq.listener:` element, then this value would ['spring', 'rabbitmq.listener']
+   * @param queryString   query string user is trying to search for. In the above example, the value for this would be `s.a`
    * @return results matching query string (without the containerElementsLeafToRoot). In the above example the values would be `simple.acknowledge-mode` & `simple.auto-startup`
    */
   @Nullable
   List<LookupElementBuilder> computeSuggestions(Project project, ClassLoader classLoader,
-      @Nullable List<String> containerElements, String queryString);
+      @Nullable List<String> ancestralKeys, String queryString);
 
   /**
-   * @param project           project to which these suggestions should be shown
-   * @param module            module to which these suggestions should be shown
-   * @param containerElements hierarchy of element from where the suggestion is requested. i.e if in yml user is trying to get suggestions for `s.a` under `spring:\n\trabbitmq.listener:` element, then this value would ['spring', 'rabbitmq.listener']
-   * @param queryString       query string user is trying to search for. In the above example, the value for this would be `s.a`
+   * @param project       project to which these suggestions should be shown
+   * @param module        module to which these suggestions should be shown
+   * @param ancestralKeys hierarchy of element from where the suggestion is requested. i.e if in yml user is trying to get suggestions for `s.a` under `spring:\n\trabbitmq.listener:` element, then this value would ['spring', 'rabbitmq.listener']
+   * @param queryString   query string user is trying to search for. In the above example, the value for this would be `s.a`
    * @return results matching query string (without the containerElementsLeafToRoot). In the above example the values would be `simple.acknowledge-mode` & `simple.auto-startup`
    */
   @Nullable
   List<LookupElementBuilder> computeSuggestions(Project project, Module module,
-      ClassLoader classLoader, @Nullable List<String> containerElements, String queryString);
+      ClassLoader classLoader, @Nullable List<String> ancestralKeys, String queryString);
 
 }
