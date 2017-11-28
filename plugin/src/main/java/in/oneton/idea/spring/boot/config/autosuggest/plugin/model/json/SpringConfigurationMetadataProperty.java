@@ -76,7 +76,8 @@ public class SpringConfigurationMetadataProperty
 
   public Suggestion newSuggestion(MetadataNode ref, String suggestion, ClassLoader classLoader) {
     Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().icon(parse(type, classLoader).getIcon()).suggestion(suggestion)
+        Suggestion.builder().icon(parse(type, classLoader).getIcon(hasNonObjectDefaultValue()))
+            .suggestion(suggestion)
             .description(this.description).shortType(shortenedType(type))
             .defaultValue(defaultValueAsStr(defaultValue)).ref(ref);
     if (deprecation != null) {
@@ -86,8 +87,7 @@ public class SpringConfigurationMetadataProperty
   }
 
   @Nullable
-  public Set<Suggestion> getValueSuggestions(MetadataNode propertyNode, ClassLoader classLoader,
-      boolean forceSearchAcrossTree) {
+  public Set<Suggestion> getValueSuggestions(MetadataNode propertyNode, ClassLoader classLoader) {
     Set<Suggestion> suggestions = null;
 
     if (hint != null && hint.getValues() != null) {
@@ -144,8 +144,8 @@ public class SpringConfigurationMetadataProperty
     }
 
     if (suggestions != null && defaultValue != null && valueType != ARRAY) {
-      suggestions.stream().filter(v -> v.getSuggestion().equals(defaultValue)).findFirst()
-          .ifPresent(v -> v.setRepresentingDefaultValue(true));
+      suggestions.stream().filter(v -> v.getSuggestion().equals(defaultValue.toString()))
+          .findFirst().ifPresent(v -> v.setRepresentingDefaultValue(true));
     }
 
     return suggestions;
@@ -166,11 +166,12 @@ public class SpringConfigurationMetadataProperty
     StringBuilder builder =
         new StringBuilder().append("<b>").append(propertyNode.getFullPath()).append("</b>");
 
+    String typeInJavadocFormat = null;
     if (type != null) {
       StringBuilder buffer = new StringBuilder();
       DocumentationManager
           .createHyperlink(buffer, typeForDocumentationNavigation(type), type, false);
-      String typeInJavadocFormat = buffer.toString();
+      typeInJavadocFormat = buffer.toString();
 
       builder.append(" (").append(typeInJavadocFormat).append(")");
     }
@@ -185,13 +186,17 @@ public class SpringConfigurationMetadataProperty
 
     if (sourceType != null) {
       String sourceTypeInJavadocFormat = ValueType.removeGenerics(sourceType);
-      StringBuilder buffer = new StringBuilder();
-      DocumentationManager
-          .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
-              sourceTypeInJavadocFormat, false);
-      sourceTypeInJavadocFormat = buffer.toString();
 
-      builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");
+      // lets show declaration point only if does not match the type
+      if (typeInJavadocFormat == null || !sourceTypeInJavadocFormat.equals(typeInJavadocFormat)) {
+        StringBuilder buffer = new StringBuilder();
+        DocumentationManager
+            .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
+                sourceTypeInJavadocFormat, false);
+        sourceTypeInJavadocFormat = buffer.toString();
+
+        builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");
+      }
     }
 
     if (isDeprecated()) {
@@ -229,7 +234,7 @@ public class SpringConfigurationMetadataProperty
     String trimmedValue = unescapeValue(value);
     builder.append("<p>").append(trimmedValue).append("</p>");
 
-    Set<Suggestion> choices = getValueSuggestions(propertyNode, classLoader, false);
+    Set<Suggestion> choices = getValueSuggestions(propertyNode, classLoader);
     if (choices != null) {
       choices.stream().filter(choice -> choice.getSuggestion().equals(trimmedValue)).findFirst()
           .ifPresent(suggestion -> {
@@ -254,4 +259,7 @@ public class SpringConfigurationMetadataProperty
     return null;
   }
 
+  public boolean hasNonObjectDefaultValue() {
+    return defaultValue != null && defaultValue instanceof String;
+  }
 }

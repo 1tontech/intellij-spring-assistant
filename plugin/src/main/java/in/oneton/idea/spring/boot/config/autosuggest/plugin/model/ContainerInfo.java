@@ -6,6 +6,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.ToString;
 
 import javax.annotation.Nullable;
 
@@ -15,6 +16,7 @@ import static java.util.Objects.requireNonNull;
 
 @Getter
 @Builder
+@ToString
 public class ContainerInfo {
   /**
    * Can point to archive/directory containing the metadata file
@@ -55,13 +57,14 @@ public class ContainerInfo {
 
   public static ContainerInfo newInstance(VirtualFile fileContainer) {
     VirtualFile containerFile = getContainerFile(fileContainer);
-    ContainerInfoBuilder builder = ContainerInfo.builder().containerPath(containerFile.getUrl())
-        .archive(fileContainer.getFileType() == ARCHIVE);
+    boolean archive = fileContainer.getFileType() == ARCHIVE;
+    ContainerInfoBuilder builder =
+        ContainerInfo.builder().containerPath(containerFile.getUrl()).archive(archive);
     VirtualFile metadataFile = findMetadataFile(fileContainer);
     if (metadataFile != null) {
-      builder.path(metadataFile.getUrl()).timestamp(metadataFile.getModificationStamp());
+      builder.path(metadataFile.getUrl()).timestamp(metadataFile.getModificationCount());
     } else {
-      builder.timestamp(containerFile.getTimeStamp());
+      builder.timestamp(containerFile.getModificationCount());
     }
     return builder.build();
   }

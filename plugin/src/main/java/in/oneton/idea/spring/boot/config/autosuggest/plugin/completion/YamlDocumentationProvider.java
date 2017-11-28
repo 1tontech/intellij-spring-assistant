@@ -56,9 +56,11 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
     return super.generateDoc(element, originalElement);
   }
 
+  /*
+   * This will called if the user tries to lookup documentation for the choices being shown (ctrl+q within suggestion dialog)
+   */
   @Override
-  public PsiElement getDocumentationElementForLookupItem(PsiManager psiManager, Object object,
-      @Nullable PsiElement element) {
+  public PsiElement getDocumentationElementForLookupItem(PsiManager psiManager, Object object, @Nullable PsiElement element) {
     if (object instanceof Suggestion) {
       Suggestion suggestion = Suggestion.class.cast(object);
       MetadataNode target = suggestion.getRef();

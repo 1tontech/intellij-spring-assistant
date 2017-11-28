@@ -39,7 +39,7 @@ public class Util {
   }
 
   public static String methodForDocumentationNavigation(String typeAndMethod) {
-    return typeForDocumentationNavigation(typeAndMethod).replaceAll("\\(.+\\)", "");
+    return typeForDocumentationNavigation(typeAndMethod).replaceAll("\\(.*\\)", "");
   }
 
   public static boolean isArrayStringElement(final PsiElement psiElement) {

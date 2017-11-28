@@ -3,17 +3,17 @@ package in.oneton.idea.spring.boot.config.autosuggest.plugin.component;
 import com.intellij.openapi.compiler.CompilationStatusListener;
 import com.intellij.openapi.compiler.CompileContext;
 import com.intellij.openapi.compiler.CompileScope;
-import com.intellij.openapi.compiler.CompilerTopics;
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.messages.MessageBusConnection;
 import in.oneton.idea.spring.boot.config.autosuggest.plugin.service.SuggestionIndexService;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+
+import static com.intellij.openapi.compiler.CompilerTopics.COMPILATION_STATUS;
 
 public class BootstrapImpl implements Bootstrap, ProjectComponent {
 
@@ -44,7 +44,7 @@ public class BootstrapImpl implements Bootstrap, ProjectComponent {
       log.error(e);
     }
     connection = project.getMessageBus().connect();
-    connection.subscribe(CompilerTopics.COMPILATION_STATUS, new CompilationStatusListener() {
+    connection.subscribe(COMPILATION_STATUS, new CompilationStatusListener() {
       @Override
       public void compilationFinished(boolean aborted, int errors, int warnings,
           CompileContext compileContext) {
@@ -54,9 +54,7 @@ public class BootstrapImpl implements Bootstrap, ProjectComponent {
           if (projectCompileScope == compileScope) {
             service.reIndex(project);
           } else {
-            for (Module module : compileContext.getCompileScope().getAffectedModules()) {
-              service.reindex(project, module);
-            }
+            service.reindex(project, compileContext.getCompileScope().getAffectedModules());
           }
         }
       }

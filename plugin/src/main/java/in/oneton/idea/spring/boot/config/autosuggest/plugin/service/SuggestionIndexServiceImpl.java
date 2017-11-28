@@ -28,10 +28,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.concurrent.Future;
 
 import static com.intellij.openapi.application.ApplicationManager.getApplication;
 import static in.oneton.idea.spring.boot.config.autosuggest.plugin.Util.PERIOD_DELIMITER;
@@ -48,11 +50,10 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
   protected final Map<String, ContainerInfo> projectSeenContainerPathToContainerInfo;
   protected final Trie<String, MetadataNode> projectSanitisedRootSearchIndex;
-
   protected final Map<String, Map<String, ContainerInfo>>
       moduleNameToSeenContainerPathToContainerInfo;
   protected final Map<String, Trie<String, MetadataNode>> moduleNameToSanitisedRootSearchIndex;
-
+  private Future<?> currentExecution;
   private volatile boolean indexingInProgress;
 
   SuggestionIndexServiceImpl() {
@@ -70,49 +71,55 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
   @Override
   public void reIndex(Project project) {
-    if (!indexingInProgress) {
-      getApplication().executeOnPooledThread(() -> {
-        getApplication().runReadAction(() -> {
-          indexingInProgress = true;
-          try {
-            log.info("Indexing requested for project " + project.getName());
-            OrderEnumerator projectOrderEnumerator = OrderEnumerator.orderEntries(project);
-            List<ContainerInfo> newProjectContainersToProcess =
-                computeNewContainersToProcess(projectOrderEnumerator,
-                    projectSeenContainerPathToContainerInfo);
-            List<ContainerInfo> projectContainersToRemove =
-                computeContainersToRemove(projectOrderEnumerator,
-                    projectSeenContainerPathToContainerInfo);
-
-            processContainers(newProjectContainersToProcess, projectContainersToRemove,
-                projectSeenContainerPathToContainerInfo, projectSanitisedRootSearchIndex);
-
-            Module[] modules = ModuleManager.getInstance(project).getModules();
-            for (Module module : modules) {
-              reindexModule(newProjectContainersToProcess, emptyList(), module);
-            }
-          } finally {
-            indexingInProgress = false;
-          }
-        });
-      });
+    if (indexingInProgress) {
+      currentExecution.cancel(true);
     }
+    currentExecution = getApplication().executeOnPooledThread(() -> {
+      getApplication().runReadAction(() -> {
+        indexingInProgress = true;
+        try {
+          log.debug("Indexing requested for project " + project.getName());
+          OrderEnumerator projectOrderEnumerator = OrderEnumerator.orderEntries(project);
+          List<ContainerInfo> newProjectContainersToProcess =
+              computeNewContainersToProcess(projectOrderEnumerator,
+                  projectSeenContainerPathToContainerInfo);
+          List<ContainerInfo> projectContainersToRemove =
+              computeContainersToRemove(projectOrderEnumerator,
+                  projectSeenContainerPathToContainerInfo);
+
+          processContainers(newProjectContainersToProcess, projectContainersToRemove,
+              projectSeenContainerPathToContainerInfo, projectSanitisedRootSearchIndex);
+
+          Module[] modules = ModuleManager.getInstance(project).getModules();
+          for (Module module : modules) {
+            reindexModule(newProjectContainersToProcess, emptyList(), module);
+          }
+        } finally {
+          indexingInProgress = false;
+        }
+      });
+    });
   }
 
   @Override
-  public void reindex(Project project, Module module) {
-    if (!indexingInProgress) {
-      getApplication().executeOnPooledThread(() -> {
-        getApplication().runReadAction(() -> {
-          indexingInProgress = true;
-          try {
-            reindexModule(emptyList(), emptyList(), module);
-          } finally {
-            indexingInProgress = false;
-          }
-        });
-      });
+  public void reindex(Project project, Module[] modules) {
+    if (indexingInProgress) {
+      if (currentExecution != null) {
+        currentExecution.cancel(true);
+      }
     }
+    currentExecution = getApplication().executeOnPooledThread(() -> {
+      getApplication().runReadAction(() -> {
+        indexingInProgress = true;
+        try {
+          for (Module module : modules) {
+            reindexModule(emptyList(), emptyList(), module);
+          }
+        } finally {
+          indexingInProgress = false;
+        }
+      });
+    });
   }
 
   @Nullable
@@ -194,19 +201,19 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
         updatedSinceLastSeen = containerInfo.isUpdatedAfter(seenContainerInfo);
       }
 
-      boolean processMetadata =
-          (!seenBefore || updatedSinceLastSeen) && containerInfo.containsMetadataFile();
+      boolean looksFresh = !seenBefore || updatedSinceLastSeen;
+      boolean processMetadata = looksFresh && containerInfo.containsMetadataFile();
       if (processMetadata) {
         containersToProcess.add(containerInfo);
       }
 
-      if (!seenBefore) {
+      if (looksFresh) {
         seenContainerPathToContainerInfo.put(containerInfo.getContainerPath(), containerInfo);
       }
     }
 
     if (containersToProcess.size() == 0) {
-      log.info("No (new)metadata files to index");
+      log.debug("No (new)metadata files to index");
     }
     return containersToProcess;
   }
@@ -222,9 +229,9 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
       Map<String, ContainerInfo> seenContainerPathToContainerInfo) {
     Set<String> newContainerPaths =
         Arrays.stream(orderEnumerator.recursively().classes().getRoots())
-            .map(metadataFileContainer -> getContainerFile(metadataFileContainer).getPath())
+            .map(metadataFileContainer -> getContainerFile(metadataFileContainer).getUrl())
             .collect(toSet());
-    Set<String> knownContainerPathSet = seenContainerPathToContainerInfo.keySet();
+    Set<String> knownContainerPathSet = new HashSet<>(seenContainerPathToContainerInfo.keySet());
     knownContainerPathSet.removeAll(newContainerPaths);
     return knownContainerPathSet.stream().map(seenContainerPathToContainerInfo::get)
         .collect(toList());
@@ -235,12 +242,14 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
       Map<String, ContainerInfo> seenContainerPathToContainerInfo,
       Trie<String, MetadataNode> sanitisedRootSearchIndex) {
     // Lets remove references to files that are no longer present in classpath
-    containersToRemove.forEach(this::removeReferences);
+    containersToRemove.forEach(
+        container -> removeReferences(seenContainerPathToContainerInfo, sanitisedRootSearchIndex,
+            container));
 
     for (ContainerInfo containerInfo : containersToProcess) {
       // lets remove existing references from search index, as these files are modified, so that we can rebuild index
       if (seenContainerPathToContainerInfo.containsKey(containerInfo.getContainerPath())) {
-        removeReferencesFromIndex(containerInfo, sanitisedRootSearchIndex);
+        removeReferences(seenContainerPathToContainerInfo, sanitisedRootSearchIndex, containerInfo);
       }
 
       String metadataFilePath = containerInfo.getPath();
@@ -248,18 +257,20 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
         SpringConfigurationMetadata springConfigurationMetadata = new Gson()
             .fromJson(new BufferedReader(new InputStreamReader(inputStream)),
                 SpringConfigurationMetadata.class);
-        buildMetadataHierarchy(sanitisedRootSearchIndex, metadataFilePath,
+        buildMetadataHierarchy(sanitisedRootSearchIndex, containerInfo,
             springConfigurationMetadata);
+
+        seenContainerPathToContainerInfo.put(containerInfo.getContainerPath(), containerInfo);
       } catch (IOException e) {
         log.error("Exception encountered while processing metadata file: " + metadataFilePath, e);
-        removeReferences(containerInfo);
+        removeReferences(seenContainerPathToContainerInfo, sanitisedRootSearchIndex, containerInfo);
       }
     }
   }
 
   private void reindexModule(List<ContainerInfo> newProjectSourcesToProcess,
       List<ContainerInfo> projectContainersToRemove, Module module) {
-    log.info("Indexing requested for module " + module.getName());
+    log.debug("Indexing requested for module " + module.getName());
     Map<String, ContainerInfo> moduleSeenContainerPathToSeenContainerInfo =
         moduleNameToSeenContainerPathToContainerInfo
             .computeIfAbsent(module.getName(), k -> new HashMap<>());
@@ -284,13 +295,13 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
     processContainers(newModuleContainersToProcess, moduleContainersToRemove,
         moduleSeenContainerPathToSeenContainerInfo, moduleSanitisedRootSearchIndex);
-    log.info("Indexing for module is complete");
+    log.debug("Indexing for module is complete");
   }
 
   private List<LookupElementBuilder> computeSuggestions(
       Trie<String, MetadataNode> sanitisedRootSearchIndex, ClassLoader classLoader,
       @Nullable List<String> ancestralKeys, String queryString) {
-    log.info("Search started");
+    log.debug("Search started");
     String sanitizedQueryString = MetadataNode.sanitize(queryString);
     String[] querySegments = toPathSegments(sanitizedQueryString);
     Set<Suggestion> suggestions = null;
@@ -307,13 +318,16 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
         if (searchStartNode != null) {
           if (!searchStartNode.isLeaf()) {
             suggestions =
-                searchStartNode.findChildSuggestions(querySegments, 0, classLoader, false);
+                searchStartNode.findChildSuggestions(querySegments, 0, 0, classLoader, false);
+
+            // since we don't have any matches at the root level, may be a subset of intermediary nodes might match the entered string
             if (suggestions == null) {
               suggestions =
-                  searchStartNode.findChildSuggestions(querySegments, 0, classLoader, true);
+                  searchStartNode.findChildSuggestions(querySegments, 0, 0, classLoader, true);
             }
           } else {
-            suggestions = searchStartNode.getSuggestionValues(classLoader, false);
+            // if the start node is a leaf, this means, the user is looking for values for the given key, lets find the suggestions for values
+            suggestions = searchStartNode.getSuggestionValues(classLoader);
           }
         }
       }
@@ -322,15 +336,16 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
       SortedMap<String, MetadataNode> topLevelQueryResults =
           sanitisedRootSearchIndex.prefixMap(sanitisedQuerySegment);
       Collection<MetadataNode> childNodes = topLevelQueryResults.values();
-      suggestions = getSuggestions(classLoader, querySegments, childNodes, false);
+      suggestions = getSuggestions(classLoader, querySegments, childNodes, 1, 1, false);
 
+      // since we don't have any matches at the root level, may be a subset of intermediary nodes might match the entered string
       if (suggestions == null) {
         Collection<MetadataNode> nodesToSearchWithin = sanitisedRootSearchIndex.values();
-        suggestions = getSuggestions(classLoader, querySegments, nodesToSearchWithin, true);
+        suggestions = getSuggestions(classLoader, querySegments, nodesToSearchWithin, 1, 0, true);
       }
     }
 
-    log.info("Search done");
+    log.debug("Search done");
 
     if (suggestions != null) {
       return toLookupElementBuilders(suggestions, classLoader);
@@ -340,23 +355,26 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
   @Nullable
   private Set<Suggestion> getSuggestions(ClassLoader classLoader, String[] querySegments,
-      Collection<MetadataNode> nodesToSearchWithin, boolean proceedTillLeaf) {
+      Collection<MetadataNode> nodesToSearchWithin, int suggestionDepth, int startWith,
+      boolean proceedTillLeaf) {
     Set<Suggestion> suggestions = null;
     for (MetadataNode metadataNode : nodesToSearchWithin) {
-      Set<Suggestion> childSuggestions =
-          metadataNode.findSuggestions(querySegments, 1, classLoader, proceedTillLeaf);
-      if (childSuggestions != null) {
+      Set<Suggestion> matchedSuggestions = metadataNode
+          .findSuggestions(querySegments, suggestionDepth, startWith, classLoader, proceedTillLeaf);
+      if (matchedSuggestions != null) {
         if (suggestions == null) {
           suggestions = new HashSet<>();
         }
-        suggestions.addAll(childSuggestions);
+        suggestions.addAll(matchedSuggestions);
       }
     }
     return suggestions;
   }
 
   private void buildMetadataHierarchy(Trie<String, MetadataNode> sanitisedRootSearchIndex,
-      String metadataFileOrLibraryPath, SpringConfigurationMetadata springConfigurationMetadata) {
+      ContainerInfo containerInfo, SpringConfigurationMetadata springConfigurationMetadata) {
+    log.debug("Adding container to index " + containerInfo);
+    String containerPath = containerInfo.getContainerPath();
     // populate groups
     List<SpringConfigurationMetadataGroup> groups = springConfigurationMetadata.getGroups();
     if (groups != null) {
@@ -367,7 +385,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
             findDeepestMatch(sanitisedRootSearchIndex, pathSegments, false);
         if (closestMetadata == null) {
           String firstSegment = pathSegments[0];
-          closestMetadata = MetadataNode.newInstance(firstSegment, null, metadataFileOrLibraryPath);
+          closestMetadata = MetadataNode.newInstance(firstSegment, null, containerPath);
           boolean noMoreSegmentsLeft = pathSegments.length == 1;
           if (noMoreSegmentsLeft) {
             closestMetadata.setGroup(group);
@@ -375,7 +393,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
           String sanitizedFirstSegment = MetadataNode.sanitize(firstSegment);
           sanitisedRootSearchIndex.put(sanitizedFirstSegment, closestMetadata);
         }
-        closestMetadata.addChildren(group, pathSegments, metadataFileOrLibraryPath);
+        closestMetadata.addChildren(group, pathSegments, containerPath);
       }
     }
 
@@ -389,7 +407,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
           findDeepestMatch(sanitisedRootSearchIndex, pathSegments, false);
       if (closestMetadata == null) {
         String firstSegment = pathSegments[0];
-        closestMetadata = MetadataNode.newInstance(firstSegment, null, metadataFileOrLibraryPath);
+        closestMetadata = MetadataNode.newInstance(firstSegment, null, containerPath);
         boolean noMoreSegmentsLeft = pathSegments.length == 1;
         if (noMoreSegmentsLeft) {
           closestMetadata.setProperty(property);
@@ -397,7 +415,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
         String sanitizedFirstSegment = MetadataNode.sanitize(firstSegment);
         sanitisedRootSearchIndex.put(sanitizedFirstSegment, closestMetadata);
       }
-      closestMetadata.addChildren(property, pathSegments, metadataFileOrLibraryPath);
+      closestMetadata.addChildren(property, pathSegments, containerPath);
     }
 
     // update hints
@@ -427,26 +445,18 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
     return closestMatchedRoot;
   }
 
-  private void removeReferences(ContainerInfo containerInfo) {
+  private void removeReferences(Map<String, ContainerInfo> containerPathToContainerInfo,
+      Trie<String, MetadataNode> sanitisedRootSearchIndex, ContainerInfo containerInfo) {
+    log.debug("Removing references to " + containerInfo);
     String containerPath = containerInfo.getContainerPath();
-    projectSeenContainerPathToContainerInfo.remove(containerPath);
-    removeReferencesFromIndex(containerInfo, projectSanitisedRootSearchIndex);
+    containerPathToContainerInfo.remove(containerPath);
 
-    moduleNameToSeenContainerPathToContainerInfo.forEach(
-        (moduleName, seenContainerPathToContainerInfo) -> seenContainerPathToContainerInfo
-            .remove(containerPath));
-    moduleNameToSanitisedRootSearchIndex.forEach(
-        (moduleName, sanitisedRootSearchIndex) -> removeReferencesFromIndex(containerInfo,
-            sanitisedRootSearchIndex));
-  }
-
-  private void removeReferencesFromIndex(ContainerInfo containerInfo,
-      Trie<String, MetadataNode> sanitisedRootSearchIndex) {
-    for (String key : sanitisedRootSearchIndex.keySet()) {
-      MetadataNode root = sanitisedRootSearchIndex.get(key);
+    Iterator<String> searchIndexIterator = sanitisedRootSearchIndex.keySet().iterator();
+    while (searchIndexIterator.hasNext()) {
+      MetadataNode root = sanitisedRootSearchIndex.get(searchIndexIterator.next());
       boolean removeTree = root.removeRef(containerInfo.getContainerPath());
       if (removeTree) {
-        sanitisedRootSearchIndex.remove(key);
+        searchIndexIterator.remove();
       }
     }
   }

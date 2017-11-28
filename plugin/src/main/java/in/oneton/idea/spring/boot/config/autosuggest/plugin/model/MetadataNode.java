@@ -15,7 +15,6 @@ import org.apache.commons.collections4.trie.PatriciaTrie;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -107,12 +106,12 @@ public class MetadataNode {
   private Set<String> belongsTo;
 
   public static MetadataNode newInstance(String name, @Nullable MetadataNode parent,
-      String metadataFileOrLibraryPath) {
+      String belongsTo) {
     MetadataNodeBuilder builder =
         MetadataNode.builder().name(sanitize(name)).originalName(name).parent(parent);
-    HashSet<String> belongsTo = new HashSet<>();
-    belongsTo.add(metadataFileOrLibraryPath);
-    builder.belongsTo(belongsTo);
+    HashSet<String> belongsToSet = new HashSet<>();
+    belongsToSet.add(belongsTo);
+    builder.belongsTo(belongsToSet);
     return builder.build();
   }
 
@@ -157,9 +156,9 @@ public class MetadataNode {
   }
 
   public void addChildren(SpringConfigurationMetadataGroup group, String[] pathSegments,
-      String metadataFileOrLibraryPath) {
+      String belongsTo) {
     int startIndex = computeStartIndexAndAddSourcePath();
-    addSourcePathTillRoot(metadataFileOrLibraryPath);
+    addSourcePathTillRoot(belongsTo);
 
     // Case where alpha.childNode11.charlie is already added via source 1 & source2 tries to add a group for alpha.childNode11
     if (startIndex >= pathSegments.length) {
@@ -174,8 +173,7 @@ public class MetadataNode {
 
       String pathSegment = pathSegments[startIndex];
       String sanitizedPathSegment = sanitize(pathSegment);
-      MetadataNode childNode =
-          MetadataNode.newInstance(pathSegment, this, metadataFileOrLibraryPath);
+      MetadataNode childNode = MetadataNode.newInstance(pathSegment, this, belongsTo);
 
       // If this is the last segment, lets set group
       boolean noMoreSegmentsLeft = startIndex == pathSegments.length - 1;
@@ -185,14 +183,14 @@ public class MetadataNode {
       children.add(childNode);
       childNode.setParent(this);
       sanitisedChildTrie.put(sanitizedPathSegment, childNode);
-      childNode.addChildren(group, pathSegments, metadataFileOrLibraryPath);
+      childNode.addChildren(group, pathSegments, belongsTo);
     }
   }
 
   public void addChildren(SpringConfigurationMetadataProperty property, String[] pathSegments,
-      String metadataFileOrLibraryPath) {
+      String belongsTo) {
     int startIndex = computeStartIndexAndAddSourcePath();
-    addSourcePathTillRoot(metadataFileOrLibraryPath);
+    addSourcePathTillRoot(belongsTo);
 
     // Case where alpha.childNode11.charlie is already added via source 1 & source2 tries to add a group for alpha.childNode11
     if (startIndex >= pathSegments.length) {
@@ -207,8 +205,7 @@ public class MetadataNode {
 
       String pathSegment = pathSegments[startIndex];
       String sanitizedPathSegment = sanitize(pathSegment);
-      MetadataNode childNode =
-          MetadataNode.newInstance(pathSegment, this, metadataFileOrLibraryPath);
+      MetadataNode childNode = MetadataNode.newInstance(pathSegment, this, belongsTo);
 
       // If this is the last segment, lets set path
       boolean noMoreSegmentsLeft = startIndex == pathSegments.length - 1;
@@ -218,37 +215,54 @@ public class MetadataNode {
       children.add(childNode);
       childNode.setParent(this);
       sanitisedChildTrie.put(sanitizedPathSegment, childNode);
-      childNode.addChildren(property, pathSegments, metadataFileOrLibraryPath);
+      childNode.addChildren(property, pathSegments, belongsTo);
     }
   }
 
   @Nullable
-  public Set<Suggestion> findSuggestions(String[] querySegments, int startWith,
+  public Set<Suggestion> findSuggestions(String[] querySegments, int suggestionDepth, int startWith,
       ClassLoader classLoader, boolean forceSearchAcrossTree) {
-    if (isGroup() && startWith >= querySegments.length) {
-      log.info(
-          "Group matched: " + this + ". Args matched against: " + Arrays.toString(querySegments)
-              + " at element with index: " + startWith);
-      assert group != null;
-      return newSingleElementSet(
-          group.newSuggestion(this, computeSuggestion(startWith), classLoader));
-    } else if (isLeaf() && validSuggestion() && startWith >= querySegments.length) {
-      log.info(
-          "Property matched: " + this + ". Args matched against: " + Arrays.toString(querySegments)
-              + " at element with index: " + startWith);
-      assert property != null;
-      return newSingleElementSet(
-          property.newSuggestion(this, computeSuggestion(startWith), classLoader));
+    if (isLeaf()) {
+      if (propertyCanBeShownAsSuggestion() && (startWith >= querySegments.length || name
+          .startsWith(sanitize(querySegments[startWith])))) {
+        //        log.debug("Property matched: " + this + ". Args matched against: " + Arrays
+        //            .toString(querySegments) + " at element with index: " + startWith);
+        assert property != null;
+        return newSingleElementSet(
+            property.newSuggestion(this, computeSuggestion(suggestionDepth), classLoader));
+      }
+      return null;
     } else {
-      return findChildSuggestions(querySegments, startWith, classLoader, forceSearchAcrossTree);
+      if (isGroup() && startWith >= querySegments.length) {
+        // If we have only one leaf, lets send the leaf value directly instead of this node
+        if (hasOnlyOneLeaf()) {
+          return findChildSuggestions(querySegments, suggestionDepth, startWith, classLoader,
+              forceSearchAcrossTree);
+        } else {
+          //          log.debug(
+          //              "Group matched: " + this + ". Args matched against: " + Arrays.toString(querySegments)
+          //                  + " at element with index: " + startWith);
+          assert group != null;
+          return newSingleElementSet(
+              group.newSuggestion(this, computeSuggestion(suggestionDepth), classLoader));
+        }
+      } else {
+        return findChildSuggestions(querySegments, suggestionDepth, startWith, classLoader,
+            forceSearchAcrossTree);
+      }
     }
   }
 
+  private boolean hasOnlyOneLeaf() {
+    return isLeaf() || (children != null && children.size() == 1 && children.stream()
+        .allMatch(MetadataNode::hasOnlyOneLeaf));
+  }
+
   @Nullable
-  public Set<Suggestion> findChildSuggestions(String[] querySegments, int startWith,
-      ClassLoader classLoader, boolean forceSearchAcrossTree) {
-    log.info("Searching children with arguments " + Arrays.toString(querySegments) + " at index "
-        + startWith + " within " + this);
+  public Set<Suggestion> findChildSuggestions(String[] querySegments, int suggestionDepth,
+      int startWith, ClassLoader classLoader, boolean forceSearchAcrossTree) {
+    //    log.debug("Searching children with arguments " + Arrays.toString(querySegments) + " at index "
+    //        + startWith + " within " + this);
     Set<Suggestion> suggestions = null;
     // If we are searching for `spring` & spring does not have a group/property associated, we would want to go deep till we find all next level descendants that are either groups & properties, so that user dont get bombarded with too many or too little values
     if (startWith >= querySegments.length) {
@@ -256,14 +270,13 @@ public class MetadataNode {
         return null;
       } else {
         suggestions =
-            findChildSuggestionsDeepWithin(querySegments, startWith + 1, classLoader, false);
+            findSuggestions(querySegments, suggestionDepth + 1, startWith + 1, classLoader, false,
+                children);
         if (suggestions == null && forceSearchAcrossTree) {
           // Since the search did not match any results, lets ask all the children if any of their have matches
-          Set<Suggestion> childSuggestions =
-              findChildSuggestionsDeepWithin(querySegments, startWith, classLoader, true);
-          if (childSuggestions != null) {
-            return new HashSet<>(childSuggestions);
-          }
+          suggestions =
+              findSuggestions(querySegments, suggestionDepth + 1, startWith + 1, classLoader, true,
+                  children);
         }
       }
     } else {
@@ -271,73 +284,70 @@ public class MetadataNode {
         String sanitisedQuerySegment = sanitize(querySegments[startWith]);
         SortedMap<String, MetadataNode> sortedPrefixToMetadataNode =
             sanitisedChildTrie.prefixMap(sanitisedQuerySegment);
-        Collection<MetadataNode> childNodes = sortedPrefixToMetadataNode.values();
-        if (childNodes.size() != 0) {
-          suggestions = findChildSuggestionsDeepWithin(querySegments, startWith + 1, classLoader,
-              forceSearchAcrossTree, childNodes);
+        Collection<MetadataNode> matchedChildren = sortedPrefixToMetadataNode.values();
+        if (matchedChildren.size() != 0) {
+          suggestions =
+              findSuggestions(querySegments, suggestionDepth + 1, startWith + 1, classLoader,
+                  forceSearchAcrossTree, matchedChildren);
         }
 
         if (suggestions == null && forceSearchAcrossTree) {
+          // Since we will be searching in the next level assuming the current level is a match
+          // 1. Let modify the search segments so that we retain the search string position
+          // 2. We pass along the match to the next level
+          // To do this, lets copy the current node's text into `querySegments` just before current segment, so that suggestions would be aware of the parent context when showing suggestions
+          String[] newQuerySegments = new String[querySegments.length + 1];
+          newQuerySegments[startWith + 1] = querySegments[startWith];
+          newQuerySegments[startWith] = originalName;
+          if (querySegments.length > 1) {
+            arraycopy(querySegments, 0, newQuerySegments, 0, startWith);
+          }
+          if (startWith + 1 < querySegments.length) {
+            arraycopy(querySegments, startWith + 1, newQuerySegments, startWith + 2,
+                (querySegments.length - startWith));
+          }
           // Since the search did not match any results, lets ask all the children if any of their children have matches
-          for (MetadataNode metadataNode : sanitisedChildTrie.values()) {
-            String[] newQuerySegments = new String[querySegments.length + 1];
-            newQuerySegments[0] = metadataNode.originalName;
-            arraycopy(querySegments, 0, newQuerySegments, 1, querySegments.length);
-            Set<Suggestion> childSuggestions = metadataNode
-                .findChildSuggestions(newQuerySegments, startWith + 1, classLoader, true);
-            if (childSuggestions != null) {
+          for (MetadataNode child : sanitisedChildTrie.values()) {
+            Set<Suggestion> matchedSuggestions = child
+                .findSuggestions(newQuerySegments, suggestionDepth + 1, startWith + 1, classLoader,
+                    true);
+            if (matchedSuggestions != null) {
               if (suggestions == null) {
                 suggestions = new HashSet<>();
               }
-              suggestions.addAll(childSuggestions);
+              suggestions.addAll(matchedSuggestions);
             }
           }
         }
-        return suggestions;
-      }
-    }
-    return null;
-  }
-
-  private Set<Suggestion> findChildSuggestionsDeepWithin(String[] querySegments, int startWith,
-      ClassLoader classLoader, boolean b) {
-    Set<Suggestion> suggestions = null;
-    assert children != null;
-    for (MetadataNode child : children) {
-      Set<Suggestion> childSuggestions =
-          child.findSuggestions(querySegments, startWith, classLoader, b);
-      if (childSuggestions != null) {
-        if (suggestions == null) {
-          suggestions = new HashSet<>();
-        }
-        suggestions.addAll(childSuggestions);
       }
     }
     return suggestions;
   }
 
-  private Set<Suggestion> findChildSuggestionsDeepWithin(String[] querySegments, int startWith,
-      ClassLoader classLoader, boolean forceSearchAcrossTree, Collection<MetadataNode> childNodes) {
+  private Set<Suggestion> findSuggestions(String[] querySegments, int suggestionDepth,
+      int startWith, ClassLoader classLoader, boolean forceSearchAcrossTree,
+      Collection<MetadataNode> childNodes) {
     Set<Suggestion> suggestions = null;
     for (MetadataNode child : childNodes) {
-      Set<Suggestion> childSuggestions =
-          child.findSuggestions(querySegments, startWith, classLoader, forceSearchAcrossTree);
-      if (childSuggestions != null) {
+      Set<Suggestion> matchedSuggestions = child
+          .findSuggestions(querySegments, suggestionDepth, startWith, classLoader,
+              forceSearchAcrossTree);
+      if (matchedSuggestions != null) {
         if (suggestions == null) {
           suggestions = new HashSet<>();
         }
-        suggestions.addAll(childSuggestions);
+        suggestions.addAll(matchedSuggestions);
       }
     }
     return suggestions;
   }
 
   /**
-   * @param metadataFileOrLibraryPath Represents either path to the library (or) metadata file
+   * @param containerPath Represents path to the metadata file container
    * @return true if no children left & this item does not belong to any other source
    */
-  public boolean removeRef(String metadataFileOrLibraryPath) {
-    belongsTo.remove(metadataFileOrLibraryPath);
+  public boolean removeRef(String containerPath) {
+    belongsTo.remove(containerPath);
     // If the current node & all its children belong to a single file, lets remove the whole tree
     if (belongsTo.size() == 0) {
       return true;
@@ -348,7 +358,7 @@ public class MetadataNode {
       Iterator<MetadataNode> iterator = children.iterator();
       while (iterator.hasNext()) {
         MetadataNode child = iterator.next();
-        boolean canRemoveReference = child.removeRef(metadataFileOrLibraryPath);
+        boolean canRemoveReference = child.removeRef(containerPath);
         if (canRemoveReference) {
           iterator.remove();
         }
@@ -371,7 +381,7 @@ public class MetadataNode {
     return builder.toString();
   }
 
-  public boolean isRoot() {
+  private boolean isRoot() {
     return parent == null;
   }
 
@@ -398,10 +408,9 @@ public class MetadataNode {
   }
 
   @Nullable
-  public Set<Suggestion> getSuggestionValues(ClassLoader classLoader,
-      boolean forceSearchAcrossTree) {
+  public Set<Suggestion> getSuggestionValues(ClassLoader classLoader) {
     assert property != null;
-    return property.getValueSuggestions(this, classLoader, forceSearchAcrossTree);
+    return property.getValueSuggestions(this, classLoader);
   }
 
   @NotNull
@@ -411,19 +420,19 @@ public class MetadataNode {
     return suggestions;
   }
 
-  private boolean validSuggestion() {
+  private boolean propertyCanBeShownAsSuggestion() {
     assert property != null;
     return !property.isDeprecated() || property.getDeprecation() == null
         || property.getDeprecation().getLevel() != error;
   }
 
-  private void addSourcePathTillRoot(String metadataFileOrLibraryPath) {
+  private void addSourcePathTillRoot(String containerPath) {
     MetadataNode node = this;
     do {
-      if (node.belongsTo.contains(metadataFileOrLibraryPath)) {
+      if (node.belongsTo.contains(containerPath)) {
         break;
       }
-      node.belongsTo.add(metadataFileOrLibraryPath);
+      node.belongsTo.add(containerPath);
       node = node.parent;
     } while (node != null && !node.isRoot());
   }

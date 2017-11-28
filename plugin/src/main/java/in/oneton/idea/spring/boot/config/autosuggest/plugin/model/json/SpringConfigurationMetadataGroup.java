@@ -45,9 +45,7 @@ public class SpringConfigurationMetadataGroup {
       StringBuilder buffer = new StringBuilder();
       DocumentationManager
           .createHyperlink(buffer, typeForDocumentationNavigation(type), type, false);
-      String typeInJavadocFormat = buffer.toString();
-
-      builder.append(" (").append(typeInJavadocFormat).append(")");
+      builder.append(" (").append(buffer.toString()).append(")");
     }
 
     if (description != null) {
@@ -60,20 +58,23 @@ public class SpringConfigurationMetadataGroup {
       if (sourceMethod != null) {
         sourceTypeInJavadocFormat += ("." + sourceMethod);
       }
-      StringBuilder buffer = new StringBuilder();
-      DocumentationManager
-          .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
-              sourceTypeInJavadocFormat, false);
-      sourceTypeInJavadocFormat = buffer.toString();
 
-      builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");
+      // lets show declaration point only if does not match the type
+      if (type == null || !sourceTypeInJavadocFormat.equals(type)) {
+        StringBuilder buffer = new StringBuilder();
+        DocumentationManager
+            .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
+                sourceTypeInJavadocFormat, false);
+        sourceTypeInJavadocFormat = buffer.toString();
+        builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");
+      }
     }
 
     return builder.toString();
   }
 
   public Suggestion newSuggestion(MetadataNode ref, String suggestion, ClassLoader classLoader) {
-    return Suggestion.builder().icon(ValueType.parse(type, classLoader).getIcon())
+    return Suggestion.builder().icon(ValueType.parse(type, classLoader).getIcon(false))
         .suggestion(suggestion).description(ValueType.shortenedType(type)).ref(ref).build();
   }
 

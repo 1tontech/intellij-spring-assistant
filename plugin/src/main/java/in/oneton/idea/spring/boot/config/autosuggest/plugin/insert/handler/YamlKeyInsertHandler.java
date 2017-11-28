@@ -33,9 +33,11 @@ public class YamlKeyInsertHandler implements InsertHandler<LookupElement> {
   @Override
   public void handleInsert(final InsertionContext context, final LookupElement item) {
     ValueType valueType;
+    boolean leafDefaultValueNonObject = false;
     if (ref.isLeaf()) {
       assert ref.getProperty() != null;
       valueType = ValueType.parse(ref.getProperty().getType(), classLoader);
+      leafDefaultValueNonObject = ref.getProperty().hasNonObjectDefaultValue();
     } else if (ref.isGroup()) {
       assert ref.getGroup() != null;
       valueType = ValueType.parse(ref.getGroup().getType(), classLoader);
@@ -52,7 +54,7 @@ public class YamlKeyInsertHandler implements InsertHandler<LookupElement> {
           .getNewOverallIndent(existingIndentation, indent, suggestion.getMaxDepth());
 
       final String suggestionWithCaret = insertedText + (ref.isLeaf() ?
-          valueType.getPlaceholderSufix(context, additionalIndent) :
+          valueType.getPlaceholderSufix(context, additionalIndent, leafDefaultValueNonObject) :
           valueType.getPlaceholderSufixForObject(context, additionalIndent));
       final String suggestionWithoutCaret = suggestionWithCaret.replace(ValueType.CARET, "");
 

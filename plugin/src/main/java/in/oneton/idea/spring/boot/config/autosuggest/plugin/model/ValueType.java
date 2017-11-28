@@ -21,7 +21,8 @@ public enum ValueType {
       Pattern.compile("[a-zA-Z_][a-zA-Z_0-9]*\\.");
   private static final Pattern GENERIC_SECTION_REMOVAL_PATTERN = Pattern.compile("<[^>]+>");
   @SuppressWarnings("unused")
-  private static final Pattern CLASSNAME_MATCH_PATTERN = Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*(?:\\.[a-zA-Z_][a-zA-Z_0-9]*)*)");
+  private static final Pattern CLASSNAME_MATCH_PATTERN =
+      Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*(?:\\.[a-zA-Z_][a-zA-Z_0-9]*)*)");
 
   public static ValueType parse(String type, ClassLoader classLoader) {
     if (type == null) {
@@ -79,7 +80,7 @@ public enum ValueType {
     return type;
   }
 
-  public Icon getIcon() {
+  public Icon getIcon(boolean leafsDefaultValueIsNonObject) {
     switch (this) {
       case BOOLEAN:
       case INTEGER:
@@ -93,12 +94,16 @@ public enum ValueType {
         return AllIcons.Json.Array;
       case OBJECT:
       default:
+        if (leafsDefaultValueIsNonObject) {
+          return AllIcons.Nodes.Property;
+        }
         return AllIcons.Json.Object;
     }
   }
 
   @NotNull
-  public String getPlaceholderSufix(InsertionContext insertionContext, String existingIndentation) {
+  public String getPlaceholderSufix(InsertionContext insertionContext, String existingIndentation,
+      boolean leafDefaultValueNonObject) {
     switch (this) {
       case BOOLEAN:
       case INTEGER:
@@ -111,6 +116,9 @@ public enum ValueType {
       case ARRAY:
         return getPlaceholderSufixForArray(insertionContext, existingIndentation);
       case OBJECT:
+        if (leafDefaultValueNonObject) {
+          return ": " + CARET;
+        }
         return getPlaceholderSufixForObject(insertionContext, existingIndentation);
     }
   }
