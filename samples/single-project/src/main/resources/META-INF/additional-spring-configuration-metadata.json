@@ -1,0 +1,93 @@
+{
+  "hints": [
+    {
+      "name": "custom.choice.nodefault",
+      "values": [
+        {
+          "value": "a",
+          "description": "custom a"
+        },
+        {
+          "value": "b"
+        }
+      ]
+    },
+    {
+      "name": "custom.choice.with.default",
+      "values": [
+        {
+          "value": "a",
+          "description": "custom a"
+        },
+        {
+          "value": "b"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "sourceType": "com.acme.Custom",
+      "name": "custom",
+      "type": "com.acme.Custom",
+      "description": "Custom group"
+    }
+  ],
+  "properties": [
+    {
+      "deprecated": true,
+      "name": "custom.deprecated.warning",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "replacement": "custom.replacement"
+      }
+    },
+    {
+      "deprecated": true,
+      "name": "custom.deprecated.autowarning",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "replacement": "spring.flyway.baseline-on-migrate"
+      }
+    },
+    {
+      "deprecated": true,
+      "name": "custom.deprecated.error",
+      "type": "com.acme.CustomProperty",
+      "deprecation": {
+        "level": "error"
+      }
+    },
+    {
+      "defaultValue": "a",
+      "name": "custom.choice.with.default",
+      "description": "Custom choice with default",
+      "type": "java.lang.String"
+    },
+    {
+      "name": "custom.choice.nodefault",
+      "description": "Custom choice with default",
+      "type": "java.lang.String"
+    },
+    {
+      "name": "custom.choice.values.from.default",
+      "description": "Custom choice with default",
+      "type": "java.lang.String",
+      "defaultValue": [
+        "val1",
+        "val2"
+      ]
+    },
+    {
+      "name": "newgroup.property.val",
+      "description": "val1",
+      "type": "java.lang.String"
+    },
+    {
+      "name": "newgroup.property.val2",
+      "description": "val2",
+      "type": "java.lang.Boolean"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: helloworld
+  test:
+    mockmvc:
+      print: default
+  aop:
+    auto: false
+  batch:
+    initialize-schema: EMBEDDED

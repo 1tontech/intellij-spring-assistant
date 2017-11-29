@@ -1,0 +1,53 @@
+<idea-plugin url="https://github.com/woru/options-completion-phpstorm-plugin">
+
+    <id>in.1ton.idea.spring.assistant.plugin</id>
+    <name>Spring assistant</name>
+    <!-- Will be auto populated by plugin -->
+    <version/>
+    <vendor email="dev@1ton.in" url="http://1ton.in/">Development Team @ 1Ton Technologies</vendor>
+
+    <!-- Will be auto populated by plugin -->
+    <description/>
+    <change-notes/>
+
+    <idea-version since-build="145.*"/>
+
+    <depends>com.intellij.modules.java</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>org.jetbrains.plugins.yaml</depends>
+    <depends>com.intellij.properties</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <completion.contributor language="yaml"
+                                implementationClass="in.oneton.idea.spring.assistant.plugin.completion.YamlCompletionContributor"/>
+
+        <documentationProvider
+                implementation="in.oneton.idea.spring.assistant.plugin.completion.YamlDocumentationProvider"/>
+
+        <!--<annotator-->
+        <!--implementationClass="DuplicateKeyAnnotator"-->
+        <!--language="yaml"/>-->
+        <!--<annotator-->
+        <!--implementationClass="DataTypeCheckerAnnotator"-->
+        <!--language="yaml"/>-->
+        <!--<annotator-->
+        <!--implementationClass="PropertyNotInModelAnnotator"-->
+        <!--language="yaml"/>-->
+
+        <projectService
+                serviceInterface="in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexService"
+                serviceImplementation="in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexServiceImpl"/>
+    </extensions>
+
+    <project-components>
+        <component>
+            <interface-class>
+                in.oneton.idea.spring.assistant.plugin.component.Bootstrap
+            </interface-class>
+            <implementation-class>
+                in.oneton.idea.spring.assistant.plugin.component.BootstrapImpl
+            </implementation-class>
+        </component>
+    </project-components>
+
+</idea-plugin>

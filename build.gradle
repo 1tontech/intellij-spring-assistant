@@ -1,14 +1,74 @@
-allprojects {
-    version '0.1.0'
+import com.vladsch.flexmark.ast.Document
+import com.vladsch.flexmark.html.HtmlRenderer
+import com.vladsch.flexmark.parser.Parser
 
-    apply plugin: 'java'
-    sourceCompatibility = 1.8
+version '0.1.0'
+
+buildscript {
+    apply plugin: 'groovy'
 
     repositories {
-        jcenter()
+        mavenCentral()
+        maven {
+            url "https://oss.sonatype.org/content/repositories/snapshots/"
+        }
+        maven {
+            url 'http://dl.bintray.com/jetbrains/intellij-plugin-service'
+        }
     }
-
     dependencies {
-        compileOnly 'org.projectlombok:lombok:1.16.18'
+        classpath "org.jetbrains.intellij.plugins:gradle-intellij-plugin:0.3.0-SNAPSHOT"
+        classpath 'org.junit.platform:junit-platform-gradle-plugin:1.0.1'
+        classpath 'org.codehaus.groovy:groovy-all:2.4.13'
+        classpath group: 'com.vladsch.flexmark', name: 'flexmark', version: '0.28.12'
     }
+}
+
+apply plugin: 'java'
+apply plugin: 'org.jetbrains.intellij'
+apply plugin: 'org.junit.platform.gradle.plugin'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly 'org.projectlombok:lombok:1.16.18'
+    compile 'org.apache.commons:commons-collections4:4.1'
+
+    testCompile 'org.junit.jupiter:junit-jupiter-api:5.0.1'
+    testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.0.1'
+    testCompile group: 'org.mockito', name: 'mockito-core', version: '2.12.0'
+}
+
+String readmeXmlAsHtml() {
+    Parser parser = Parser.builder().build()
+    HtmlRenderer renderer = HtmlRenderer.builder().build()
+    Document readmeDocument = parser.parse(new File(rootProject.uri('README.md')).text)
+    renderer.render(readmeDocument)
+}
+
+String changeLogAsHtml() {
+    Parser parser = Parser.builder().build()
+    HtmlRenderer renderer = HtmlRenderer.builder().build()
+    Document changeLogDocument = parser.parse(new File(rootProject.uri('CHANGELOG.md')).text)
+    renderer.render(changeLogDocument)
+}
+
+intellij {
+    version 'IC-2017.1'
+    plugins = ['properties', 'yaml']
+    downloadSources true
+    patchPluginXml {
+        pluginDescription readmeXmlAsHtml()
+        changeNotes changeLogAsHtml()
+    }
+    publishPlugin {
+        username System.getProperty('ij_plugin_portal_login')
+        password System.getProperty('ij_plugin_portal_password')
+        channels 'eap', 'nightly', 'default'
+    }
+    updateSinceUntilBuild false
 }
