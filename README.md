@@ -55,7 +55,7 @@ For this to work, you need to ensure the following steps are followed for your p
     compileJava.dependsOn(processResources)
     ```
 
-    If you want to look for example projects where this is implemented, look at the `samples` folder
+    If you want to look for example projects where this is implemented, look at the [samples](samples/) folder
 
 2. Make sure `Enable annotation processing` is checked under `Settings > Build, Execution & Deployment > Compiler > Annotation Processors`
 
