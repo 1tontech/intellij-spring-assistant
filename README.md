@@ -8,7 +8,7 @@ Spring Assistant - IntelliJ plugin that assists you in developing spring applica
 This plugins provides the following features as of now.
 
 1. Auto completion of the configuration properties in your `yaml` files based on the spring boot's auto configuration jars are present in the classpath
-2. Auto completion of the configuration properties in your `yaml` files if you have classes annotated with `@ConfigurationProperties`, [if your build is properly configured](#Setup-for-showing-ConfigurationProperties-as-suggestions-within-current-module)
+2. Auto completion of the configuration properties in your `yaml` files if you have classes annotated with `@ConfigurationProperties`, [if your build is properly configured](#setup-for-showing-configurationproperties-as-suggestions-within-current-module)
 3. Short form search & search for element deep within is also supported
 4. Quick documentation for known groups & properties (not all groups & properties will have documentation, this depends on whether the original author specified comments or not)
 
