@@ -9,8 +9,8 @@ This plugins provides the following features as of now.
 
 1. Auto completion of the configuration properties in your `yaml` files based on the spring boot's auto configuration jars are present in the classpath
 2. Auto completion of the configuration properties in your `yaml` files if you have classes annotated with `@ConfigurationProperties`, [if your build is properly configured](#setup-for-showing-configurationproperties-as-suggestions-within-current-module)
-3. Short form search & search for element deep within is also supported
-4. Quick documentation for known groups & properties (not all groups & properties will have documentation, this depends on whether the original author specified comments or not)
+3. Short form search & search for element deep within is also supported. i.e, `sp.d` will show you `spring.data`, `spring.datasource`, e.t.c
+4. Quick documentation for known groups & properties (not all groups & properties will have documentation, this depends on whether the original author specified documentation or not)
 
 ## Future plans
 
@@ -24,7 +24,6 @@ Assuming that you have Spring boot's auto configuration jars are present in the 
 Suggestions would appear as soon as you type/press `CTRL+SPACE`.
 
 Short form suggestions are also supported such as, `sp.d` will show you `spring.data`, `spring.datasource`, e.t.c as suggestions that make your typing faster
-Searching
 
 In addition to libraries in the classpath, the plugin also allows you to have your own `@ConfigurationProperties` available as suggestions in all your `yml` files.
 
@@ -55,7 +54,7 @@ For this to work, you need to ensure the following steps are followed for your p
     compileJava.dependsOn(processResources)
     ```
 
-    If you want to look for example projects where this is implemented, look at the [samples](samples/) folder
+    Have a look at the [samples](samples/) folder for projects where `@ConfigurationProperties` are shown as suggestions
 
 2. Make sure `Enable annotation processing` is checked under `Settings > Build, Execution & Deployment > Compiler > Annotation Processors`
 
@@ -86,4 +85,4 @@ See [here](CHANGELOG.md)
 
 ## License
 
-Spring Boot auto configuration suggestions - IntelliJ Plugin is open-sourced software licensed under the [MIT license](http://opensource.org/licenses/MIT)
+Spring Assistant - IntelliJ Plugin is open-sourced software licensed under the [MIT license](http://opensource.org/licenses/MIT)
