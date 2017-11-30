@@ -46,7 +46,11 @@ dependencies {
 String readmeXmlAsHtml() {
     Parser parser = Parser.builder().build()
     HtmlRenderer renderer = HtmlRenderer.builder().build()
-    Document readmeDocument = parser.parse(new File(rootProject.uri('README.md')).text)
+    String readmeContent = new File(rootProject.uri('README.md')).text
+    // since these images needs to shown from within intellij, lest put absolute urls so that the images & changelog will be visible
+    readmeContent = readmeContent.replaceAll("help\\.gif", "https://github.com/1tontech/intellij-spring-assistant/" + version + "/help.gif")
+    readmeContent = readmeContent.replaceAll("CHANGELOG.md", "https://github.com/1tontech/intellij-spring-assistant/" + version + "/CHANGELOG.md")
+    Document readmeDocument = parser.parse(readmeContent)
     renderer.render(readmeDocument)
 }
 
