@@ -74,7 +74,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
   @Override
   public void reIndex(Project project) {
     if (indexingInProgress) {
-      currentExecution.cancel(true);
+      currentExecution.cancel(false);
     }
     currentExecution = getApplication().executeOnPooledThread(() -> {
       getApplication().runReadAction(() -> {
@@ -104,7 +104,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
   public void reindex(Project project, Module[] modules) {
     if (indexingInProgress) {
       if (currentExecution != null) {
-        currentExecution.cancel(true);
+        currentExecution.cancel(false);
       }
     }
     currentExecution = getApplication().executeOnPooledThread(() -> {
@@ -136,6 +136,11 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
         }
       });
     });
+  }
+
+  @Override
+  public void reindex(Project project, Module module) {
+    reindex(project, new Module[] {module});
   }
 
   @Nullable
@@ -177,15 +182,14 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
   @Override
   public boolean canProvideSuggestions(Project project) {
-    return !indexingInProgress && projectSanitisedRootSearchIndex.size() != 0;
+    return moduleNameToSanitisedRootSearchIndex.values().stream().mapToInt(Map::size).sum() != 0;
   }
 
   @Override
   public boolean canProvideSuggestions(Project project, Module module) {
     Trie<String, MetadataNode> sanitisedRootSearchIndex =
         moduleNameToSanitisedRootSearchIndex.get(module.getName());
-    return !indexingInProgress && sanitisedRootSearchIndex != null
-        && sanitisedRootSearchIndex.size() != 0;
+    return sanitisedRootSearchIndex != null && sanitisedRootSearchIndex.size() != 0;
   }
 
   @Override

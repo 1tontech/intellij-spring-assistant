@@ -348,16 +348,19 @@ public class MetadataNode {
 
     if (hasChildren()) {
       assert children != null;
+      assert sanitisedChildTrie != null;
       Iterator<MetadataNode> iterator = children.iterator();
       while (iterator.hasNext()) {
         MetadataNode child = iterator.next();
         boolean canRemoveReference = child.removeRef(containerPath);
         if (canRemoveReference) {
           iterator.remove();
+          sanitisedChildTrie.remove(child.name);
         }
       }
       if (children.size() == 0) {
         children = null;
+        sanitisedChildTrie = null;
       }
     }
     return false;

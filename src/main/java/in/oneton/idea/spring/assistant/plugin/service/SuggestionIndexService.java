@@ -22,6 +22,8 @@ public interface SuggestionIndexService {
 
   void reindex(Project project, Module[] modules);
 
+  void reindex(Project project, Module module);
+
   @Nullable
   MetadataNode findDeepestExactMatch(Project project, List<String> containerElementsLeafToRoot);
 

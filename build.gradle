@@ -2,7 +2,7 @@ import com.vladsch.flexmark.ast.Document
 import com.vladsch.flexmark.html.HtmlRenderer
 import com.vladsch.flexmark.parser.Parser
 
-version '0.2.0'
+version '0.3.0'
 
 buildscript {
     apply plugin: 'groovy'
@@ -41,6 +41,8 @@ dependencies {
     testCompile 'org.junit.jupiter:junit-jupiter-api:5.0.1'
     testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.0.1'
     testCompile group: 'org.mockito', name: 'mockito-core', version: '2.12.0'
+
+    testCompileOnly fileTree(dir: '/home/thekalinga/dev/utils/idea/idea-IU-171.3780.107/plugins/SpringBoot/lib/', include: '*.jar')
 }
 
 String readmeXmlAsHtml() {
@@ -62,8 +64,8 @@ String changeLogAsHtml() {
 }
 
 intellij {
-    version 'IC-2017.1'
-    plugins = ['properties', 'yaml']
+    version 'IC-2017.2'
+    plugins = ['properties', 'yaml', 'maven', 'gradle']
     downloadSources true
     patchPluginXml {
         pluginDescription readmeXmlAsHtml()

@@ -1,4 +1,4 @@
-<idea-plugin url="https://github.com/woru/options-completion-phpstorm-plugin">
+<idea-plugin url="https://github.com/1tontech/intellij-spring-assistant">
 
     <id>in.1ton.idea.spring.assistant.plugin</id>
     <name>Spring Assistant</name>
@@ -10,12 +10,14 @@
     <description/>
     <change-notes/>
 
-    <idea-version since-build="145.*"/>
+    <idea-version since-build="172"/>
 
     <depends>com.intellij.modules.java</depends>
     <depends>com.intellij.modules.lang</depends>
     <depends>org.jetbrains.plugins.yaml</depends>
     <depends>com.intellij.properties</depends>
+    <depends config-file="maven.xml" optional="true">org.jetbrains.idea.maven</depends>
+    <depends config-file="gradle.xml" optional="true">org.jetbrains.plugins.gradle</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <completion.contributor language="yaml"

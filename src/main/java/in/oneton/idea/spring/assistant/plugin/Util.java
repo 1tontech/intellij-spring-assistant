@@ -1,6 +1,7 @@
 package in.oneton.idea.spring.assistant.plugin;
 
 import com.intellij.codeInsight.completion.InsertionContext;
+import com.intellij.openapi.module.Module;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.codeStyle.CodeStyleSettings;
@@ -13,15 +14,19 @@ import org.jetbrains.yaml.psi.YAMLSequenceItem;
 import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
 
 import java.text.BreakIterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.intellij.openapi.util.text.StringUtil.containsChar;
 import static com.intellij.openapi.util.text.StringUtil.endsWithChar;
 import static com.intellij.openapi.util.text.StringUtil.isNotEmpty;
 import static com.intellij.openapi.util.text.StringUtil.replace;
 import static java.text.BreakIterator.getSentenceInstance;
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.joining;
 
 @UtilityClass
 public class Util {
@@ -92,6 +97,23 @@ public class Util {
     } else {
       return "";
     }
+  }
+
+  public static String moduleNamesAsStrCommaDelimited(List<Module> newModules,
+      boolean includeProjectName) {
+    return moduleNamesAsStrCommaDelimited(newModules.stream(), includeProjectName);
+  }
+
+  public static String moduleNamesAsStrCommaDelimited(Module[] newModules,
+      boolean includeProjectName) {
+    return moduleNamesAsStrCommaDelimited(stream(newModules), includeProjectName);
+  }
+
+  private static String moduleNamesAsStrCommaDelimited(Stream<Module> moduleStream,
+      boolean includeProjectName) {
+    return moduleStream.map(module -> includeProjectName ?
+        module.getProject().getName() + ":" + module.getName() :
+        module.getName()).collect(joining(", "));
   }
 
 }

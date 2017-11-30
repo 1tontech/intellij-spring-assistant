@@ -1,0 +1,6 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <externalProjectDataService
+                implementation="in.oneton.idea.spring.assistant.plugin.component.GradleReindexingProjectDataService"/>
+    </extensions>
+</idea-plugin>

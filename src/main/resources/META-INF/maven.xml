@@ -1,0 +1,14 @@
+<idea-plugin>
+
+    <project-components>
+        <component>
+            <interface-class>
+                in.oneton.idea.spring.assistant.plugin.component.MavenReIndexingDependencyChangeSubscriber
+            </interface-class>
+            <implementation-class>
+                in.oneton.idea.spring.assistant.plugin.component.MavenReIndexingDependencyChangeSubscriberImpl
+            </implementation-class>
+        </component>
+    </project-components>
+
+</idea-plugin>

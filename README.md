@@ -60,9 +60,9 @@ For this to work, you need to ensure the following steps are followed for your p
 
 
 **IMPORTANT**
-> After changing dependencies/changing your `@ConfigurationProperties` files, suggestions would be refreshed only after you trigger the build explicitly using keyboard (`Ctrl+F9`)/UI
+> After changing your custom `@ConfigurationProperties` files, suggestions would be refreshed only after you trigger the build explicitly using keyboard (`Ctrl+F9`)/UI
 
-### Known behaviour in ambigious cases
+### Known behaviour in ambiguous cases
 
 > 1. If two groups from different auto configurations conflict with each other, the documentation for the group picked is random & undefined
 > 2. If a group & property represent the depth, the behaviour of the plugin is undefined.

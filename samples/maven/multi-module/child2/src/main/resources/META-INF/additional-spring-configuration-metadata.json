@@ -1,0 +1,99 @@
+{
+  "hints": [
+    {
+      "name": "custom.choice.nodefault",
+      "values": [
+        {
+          "value": "a",
+          "description": "custom a"
+        },
+        {
+          "value": "b"
+        }
+      ]
+    },
+    {
+      "name": "custom.choice.with.default",
+      "values": [
+        {
+          "value": "a",
+          "description": "custom a"
+        },
+        {
+          "value": "b"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "sourceType": "com.acme.Custom",
+      "name": "custom",
+      "type": "com.acme.Custom",
+      "description": "Custom group long long long long long long description"
+    }
+  ],
+  "properties": [
+    {
+      "deprecated": true,
+      "name": "custom.deprecated.warning",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "replacement": "custom.replacement"
+      }
+    },
+    {
+      "deprecated": true,
+      "name": "custom.deprecated.autowarning",
+      "type": "java.lang.String",
+      "deprecation": {
+        "replacement": "custom.replacement"
+      }
+    },
+    {
+      "deprecated": true,
+      "name": "custom.deprecated.error",
+      "type": "com.acme.CustomProperty",
+      "description": "Should never be shown to anyone",
+      "deprecation": {
+        "level": "error"
+      }
+    },
+    {
+      "defaultValue": "fresh",
+      "name": "custom.replacement",
+      "description": "I'm new, why dont you use me instead of deprecated property",
+      "type": "java.lang.String"
+    },
+    {
+      "defaultValue": "defaultvalue",
+      "name": "custom.choice.with.default",
+      "description": "Custom choice with default",
+      "type": "java.lang.String"
+    },
+    {
+      "name": "custom.choice.nodefault",
+      "description": "No default present",
+      "type": "java.lang.String"
+    },
+    {
+      "name": "custom.choice.values.from.default",
+      "description": "With choices",
+      "type": "java.lang.String",
+      "defaultValue": [
+        "val1",
+        "val2"
+      ]
+    },
+    {
+      "name": "newgroup.property.withdescription",
+      "description": "I have description",
+      "type": "java.lang.String"
+    },
+    {
+      "name": "newgroup.property.nodesription",
+      "type": "java.lang.Boolean"
+    }
+  ]
+}
