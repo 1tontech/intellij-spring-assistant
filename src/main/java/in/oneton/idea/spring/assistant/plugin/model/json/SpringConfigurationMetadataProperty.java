@@ -26,6 +26,7 @@ import static in.oneton.idea.spring.assistant.plugin.model.ValueType.ENUM;
 import static in.oneton.idea.spring.assistant.plugin.model.ValueType.parse;
 import static in.oneton.idea.spring.assistant.plugin.model.ValueType.shortenedType;
 import static in.oneton.idea.spring.assistant.plugin.model.json.SpringConfigurationMetadataDeprecationLevel.error;
+import static in.oneton.idea.spring.assistant.plugin.model.json.SpringConfigurationMetadataDeprecationLevel.warning;
 import static java.util.Arrays.stream;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.compare;
@@ -80,7 +81,7 @@ public class SpringConfigurationMetadataProperty
             .suggestion(suggestion).description(this.description).shortType(shortenedType(type))
             .defaultValue(defaultValueAsStr(defaultValue)).ref(ref);
     if (deprecation != null) {
-      builder.deprecationLevel(deprecation.getLevel());
+      builder.deprecationLevel(deprecation.getLevel() != null ? deprecation.getLevel() : warning);
     }
     return builder.build();
   }

@@ -225,8 +225,6 @@ public class MetadataNode {
     if (isLeaf()) {
       if (propertyCanBeShownAsSuggestion() && (startWith >= querySegments.length || name
           .startsWith(sanitize(querySegments[startWith])))) {
-        //        log.debug("Property matched: " + this + ". Args matched against: " + Arrays
-        //            .toString(querySegments) + " at element with index: " + startWith);
         assert property != null;
         return newSingleElementSet(
             property.newSuggestion(this, computeSuggestion(suggestionDepth), classLoader));
@@ -239,9 +237,6 @@ public class MetadataNode {
           return findChildSuggestions(querySegments, suggestionDepth, startWith, classLoader,
               forceSearchAcrossTree);
         } else {
-          //          log.debug(
-          //              "Group matched: " + this + ". Args matched against: " + Arrays.toString(querySegments)
-          //                  + " at element with index: " + startWith);
           assert group != null;
           return newSingleElementSet(
               group.newSuggestion(this, computeSuggestion(suggestionDepth), classLoader));
@@ -261,8 +256,6 @@ public class MetadataNode {
   @Nullable
   public Set<Suggestion> findChildSuggestions(String[] querySegments, int suggestionDepth,
       int startWith, ClassLoader classLoader, boolean forceSearchAcrossTree) {
-    //    log.debug("Searching children with arguments " + Arrays.toString(querySegments) + " at index "
-    //        + startWith + " within " + this);
     Set<Suggestion> suggestions = null;
     // If we are searching for `spring` & spring does not have a group/property associated, we would want to go deep till we find all next level descendants that are either groups & properties, so that user dont get bombarded with too many or too little values
     if (startWith >= querySegments.length) {

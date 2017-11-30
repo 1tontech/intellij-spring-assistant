@@ -1,7 +1,7 @@
 <idea-plugin url="https://github.com/woru/options-completion-phpstorm-plugin">
 
     <id>in.1ton.idea.spring.assistant.plugin</id>
-    <name>Spring assistant</name>
+    <name>Spring Assistant</name>
     <!-- Will be auto populated by plugin -->
     <version/>
     <vendor email="dev@1ton.in" url="http://1ton.in/">Development Team @ 1Ton Technologies</vendor>

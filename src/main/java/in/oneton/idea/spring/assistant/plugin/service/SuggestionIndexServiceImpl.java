@@ -17,6 +17,7 @@ import in.oneton.idea.spring.assistant.plugin.model.json.SpringConfigurationMeta
 import in.oneton.idea.spring.assistant.plugin.model.json.SpringConfigurationMetadataProperty;
 import org.apache.commons.collections4.Trie;
 import org.apache.commons.collections4.trie.PatriciaTrie;
+import org.apache.commons.lang.time.StopWatch;
 
 import javax.annotation.Nullable;
 import java.io.BufferedReader;
@@ -48,6 +49,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
   private static final Logger log = Logger.getInstance(SuggestionIndexServiceImpl.class);
 
+  // TODO: Need to check if the project level items can be removed
   protected final Map<String, ContainerInfo> projectSeenContainerPathToContainerInfo;
   protected final Trie<String, MetadataNode> projectSanitisedRootSearchIndex;
   protected final Map<String, Map<String, ContainerInfo>>
@@ -77,8 +79,10 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
     currentExecution = getApplication().executeOnPooledThread(() -> {
       getApplication().runReadAction(() -> {
         indexingInProgress = true;
+        StopWatch timer = new StopWatch();
+        timer.start();
         try {
-          log.debug("Indexing requested for project " + project.getName());
+          debug(() -> log.debug("-> Indexing requested for project " + project.getName()));
           // OrderEnumerator.orderEntries(project) is returning everything from all modules including root level module(which is called project in gradle terms)
           // So, we should not be doing anything with this
 
@@ -88,6 +92,9 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
           }
         } finally {
           indexingInProgress = false;
+          timer.stop();
+          debug(() -> log
+              .debug("<- Indexing took " + timer.toString() + " for project " + project.getName()));
         }
       });
     });
@@ -102,13 +109,30 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
     }
     currentExecution = getApplication().executeOnPooledThread(() -> {
       getApplication().runReadAction(() -> {
+        debug(() -> log.debug(
+            "-> Indexing requested for a subset of modules of project " + project.getName()));
         indexingInProgress = true;
+        StopWatch timer = new StopWatch();
+        timer.start();
         try {
           for (Module module : modules) {
-            reindexModule(emptyList(), emptyList(), module);
+            debug(() -> log.debug("--> Indexing requested for module " + module.getName()));
+            StopWatch moduleTimer = new StopWatch();
+            moduleTimer.start();
+            try {
+              reindexModule(emptyList(), emptyList(), module);
+            } finally {
+              moduleTimer.stop();
+              debug(() -> log.debug(
+                  "<-- Indexing took " + moduleTimer.toString() + " for module " + module
+                      .getName()));
+            }
           }
         } finally {
           indexingInProgress = false;
+          timer.stop();
+          debug(() -> log
+              .debug("<- Indexing took " + timer.toString() + " for project " + project.getName()));
         }
       });
     });
@@ -191,6 +215,11 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
         ContainerInfo seenContainerInfo =
             seenContainerPathToContainerInfo.get(containerInfo.getContainerPath());
         updatedSinceLastSeen = containerInfo.isModified(seenContainerInfo);
+        if (updatedSinceLastSeen) {
+          debug(() -> log.debug(
+              "Container seems to have been updated. Previous version: " + seenContainerInfo
+                  + "; Newer version: " + containerInfo));
+        }
       }
 
       boolean looksFresh = !seenBefore || updatedSinceLastSeen;
@@ -205,7 +234,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
     }
 
     if (containersToProcess.size() == 0) {
-      log.debug("No (new)metadata files to index");
+      debug(() -> log.debug("No (new)metadata files to index"));
     }
     return containersToProcess;
   }
@@ -262,7 +291,6 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
   private void reindexModule(List<ContainerInfo> newProjectSourcesToProcess,
       List<ContainerInfo> projectContainersToRemove, Module module) {
-    log.debug("Indexing requested for module " + module.getName());
     Map<String, ContainerInfo> moduleSeenContainerPathToSeenContainerInfo =
         moduleNameToSeenContainerPathToContainerInfo
             .computeIfAbsent(module.getName(), k -> new HashMap<>());
@@ -287,62 +315,66 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
     processContainers(newModuleContainersToProcess, moduleContainersToRemove,
         moduleSeenContainerPathToSeenContainerInfo, moduleSanitisedRootSearchIndex);
-    log.debug("Indexing for module is complete");
   }
 
   private List<LookupElementBuilder> computeSuggestions(
       Trie<String, MetadataNode> sanitisedRootSearchIndex, ClassLoader classLoader,
       @Nullable List<String> ancestralKeys, String queryString) {
-    log.debug("Search started");
-    String sanitizedQueryString = MetadataNode.sanitize(queryString);
-    String[] querySegments = toPathSegments(sanitizedQueryString);
-    Set<Suggestion> suggestions = null;
-    if (ancestralKeys != null) {
-      String[] pathSegments =
-          ancestralKeys.stream().flatMap(element -> stream(toPathSegments(element)))
-              .toArray(String[]::new);
-      MetadataNode searchStartNode =
-          sanitisedRootSearchIndex.get(MetadataNode.sanitize(pathSegments[0]));
-      if (searchStartNode != null) {
-        if (pathSegments.length > 1) {
-          searchStartNode = searchStartNode.findDeepestMatch(pathSegments, 1, true);
-        }
+    debug(() -> log.debug("Search requested for " + queryString));
+    StopWatch timer = new StopWatch();
+    timer.start();
+    try {
+      String sanitizedQueryString = MetadataNode.sanitize(queryString);
+      String[] querySegments = toPathSegments(sanitizedQueryString);
+      Set<Suggestion> suggestions = null;
+      if (ancestralKeys != null) {
+        String[] pathSegments =
+            ancestralKeys.stream().flatMap(element -> stream(toPathSegments(element)))
+                .toArray(String[]::new);
+        MetadataNode searchStartNode =
+            sanitisedRootSearchIndex.get(MetadataNode.sanitize(pathSegments[0]));
         if (searchStartNode != null) {
-          if (!searchStartNode.isLeaf()) {
-            suggestions =
-                searchStartNode.findChildSuggestions(querySegments, 0, 0, classLoader, false);
-
-            // since we don't have any matches at the root level, may be a subset of intermediary nodes might match the entered string
-            if (suggestions == null) {
+          if (pathSegments.length > 1) {
+            searchStartNode = searchStartNode.findDeepestMatch(pathSegments, 1, true);
+          }
+          if (searchStartNode != null) {
+            if (!searchStartNode.isLeaf()) {
               suggestions =
-                  searchStartNode.findChildSuggestions(querySegments, 0, 0, classLoader, true);
+                  searchStartNode.findChildSuggestions(querySegments, 0, 0, classLoader, false);
+
+              // since we don't have any matches at the root level, may be a subset of intermediary nodes might match the entered string
+              if (suggestions == null) {
+                suggestions =
+                    searchStartNode.findChildSuggestions(querySegments, 0, 0, classLoader, true);
+              }
+            } else {
+              // if the start node is a leaf, this means, the user is looking for values for the given key, lets find the suggestions for values
+              suggestions = searchStartNode.getSuggestionValues(classLoader);
             }
-          } else {
-            // if the start node is a leaf, this means, the user is looking for values for the given key, lets find the suggestions for values
-            suggestions = searchStartNode.getSuggestionValues(classLoader);
           }
         }
+      } else {
+        String sanitisedQuerySegment = MetadataNode.sanitize(querySegments[0]);
+        SortedMap<String, MetadataNode> topLevelQueryResults =
+            sanitisedRootSearchIndex.prefixMap(sanitisedQuerySegment);
+        Collection<MetadataNode> childNodes = topLevelQueryResults.values();
+        suggestions = getSuggestions(classLoader, querySegments, childNodes, 1, 1, false);
+
+        // since we don't have any matches at the root level, may be a subset of intermediary nodes might match the entered string
+        if (suggestions == null) {
+          Collection<MetadataNode> nodesToSearchWithin = sanitisedRootSearchIndex.values();
+          suggestions = getSuggestions(classLoader, querySegments, nodesToSearchWithin, 1, 0, true);
+        }
       }
-    } else {
-      String sanitisedQuerySegment = MetadataNode.sanitize(querySegments[0]);
-      SortedMap<String, MetadataNode> topLevelQueryResults =
-          sanitisedRootSearchIndex.prefixMap(sanitisedQuerySegment);
-      Collection<MetadataNode> childNodes = topLevelQueryResults.values();
-      suggestions = getSuggestions(classLoader, querySegments, childNodes, 1, 1, false);
 
-      // since we don't have any matches at the root level, may be a subset of intermediary nodes might match the entered string
-      if (suggestions == null) {
-        Collection<MetadataNode> nodesToSearchWithin = sanitisedRootSearchIndex.values();
-        suggestions = getSuggestions(classLoader, querySegments, nodesToSearchWithin, 1, 0, true);
+      if (suggestions != null) {
+        return toLookupElementBuilders(suggestions, classLoader);
       }
+      return null;
+    } finally {
+      timer.stop();
+      debug(() -> log.debug("Search took " + timer.toString()));
     }
-
-    log.debug("Search done");
-
-    if (suggestions != null) {
-      return toLookupElementBuilders(suggestions, classLoader);
-    }
-    return null;
   }
 
   @Nullable
@@ -365,7 +397,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
   private void buildMetadataHierarchy(Trie<String, MetadataNode> sanitisedRootSearchIndex,
       ContainerInfo containerInfo, SpringConfigurationMetadata springConfigurationMetadata) {
-    log.debug("Adding container to index " + containerInfo);
+    debug(() -> log.debug("Adding container to index " + containerInfo));
     String containerPath = containerInfo.getContainerPath();
     // populate groups
     List<SpringConfigurationMetadataGroup> groups = springConfigurationMetadata.getGroups();
@@ -439,7 +471,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
   private void removeReferences(Map<String, ContainerInfo> containerPathToContainerInfo,
       Trie<String, MetadataNode> sanitisedRootSearchIndex, ContainerInfo containerInfo) {
-    log.debug("Removing references to " + containerInfo);
+    debug(() -> log.debug("Removing references to " + containerInfo));
     String containerPath = containerInfo.getContainerPath();
     containerPathToContainerInfo.remove(containerPath);
 
@@ -464,6 +496,18 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
   private String[] toPathSegments(String element) {
     return element.split(PERIOD_DELIMITER, -1);
+  }
+
+  /**
+   * Debug logging can be enabled by adding fully classified class name/package name with # prefix
+   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexServiceImpl`
+   *
+   * @param doWhenDebug code to execute when debug is enabled
+   */
+  private void debug(Runnable doWhenDebug) {
+    if (log.isDebugEnabled()) {
+      doWhenDebug.run();
+    }
   }
 
 }
