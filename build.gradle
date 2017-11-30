@@ -2,7 +2,7 @@ import com.vladsch.flexmark.ast.Document
 import com.vladsch.flexmark.html.HtmlRenderer
 import com.vladsch.flexmark.parser.Parser
 
-version '0.1.0'
+version '0.2.0'
 
 buildscript {
     apply plugin: 'groovy'
@@ -48,7 +48,7 @@ String readmeXmlAsHtml() {
     HtmlRenderer renderer = HtmlRenderer.builder().build()
     String readmeContent = new File(rootProject.uri('README.md')).text
     // since these images needs to shown from within intellij, lest put absolute urls so that the images & changelog will be visible
-    readmeContent = readmeContent.replaceAll("help\\.gif", "https://github.com/1tontech/intellij-spring-assistant/" + version + "/help.gif")
+    readmeContent = readmeContent.replaceAll("help\\.gif", "https://raw.githubusercontent.com/1tontech/intellij-spring-assistant/" + version + "/help.gif")
     readmeContent = readmeContent.replaceAll("CHANGELOG.md", "https://github.com/1tontech/intellij-spring-assistant/" + version + "/CHANGELOG.md")
     Document readmeDocument = parser.parse(readmeContent)
     renderer.render(readmeDocument)
