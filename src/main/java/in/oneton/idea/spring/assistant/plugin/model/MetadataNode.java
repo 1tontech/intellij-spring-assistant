@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.SortedMap;
 
+import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNode.sanitize;
 import static java.lang.System.arraycopy;
 
 /**
@@ -31,31 +32,57 @@ import static java.lang.System.arraycopy;
  * <p>
  * Also used for dot delimited search search. Each element corresponds to only a single section of the complete suggestion hierarchy
  * i.e if the we are building suggestions for
- * alpha.childNode11.charlie
- * alpha.childNode12.echo
- * alpha.echo
- * childNode11.charlie
- * childNode11.childNode12
+ * <ul>
+ * <li>alpha.childNode11.charlie</li>
+ * <li>alpha.childNode12.echo</li>
+ * <li>alpha.echo</li>
+ * <li>childNode11.charlie</li>
+ * <li>childNode11.childNode12</li>
+ * </ul>
  * <p>
  * The search for above properties would look like
- * <p>
+ * <ul>
+ * <li>
  * alpha
+ * <ul>
+ * <li>
  * childNode11
- * charlie
+ * <ul>
+ * <li>charlie</li>
+ * </ul>
+ * </li>
+ * <li>
  * childNode12
- * echo
+ * <ul>
+ * <li>echo</li>
+ * </ul>
+ * </li>
+ * </ul>
+ * </li>
+ * <li>echo</li>
+ * <li>
  * childNode11
- * charlie
- * childNode12
+ * <ul>
+ * <li>charlie</li>
+ * <li>childNode12</li>
+ * </ul>
+ * </li>
+ * </ul>
  * <p>
- * We can expect a total of 4 tries in the complete search tree, each child trie being hosted by the parent trie element. This is represented below by `>`
+ * We can expect a total of 5 tries in the complete search tree, each child trie being hosted by the parent trie element (+ a special toplevel trie for the whole tree)
+ * <ul>
+ * <li>(alpha + echo + childNode11) - for top level elements</li>
+ * <li>alpha > (childNode11 + childNode12) - for children of <em>alpha</em></li>
+ * <li>alpha > childNode11 > (charlie) - for children of <em>alpha > childNode11</em></li>
+ * <li>alpha > childNode12 > (echo) - for children of <em>alpha > childNode12</em></li>
+ * <li>childNode11 > (charlie + childNode12) - for children of <em>childNode11</em></li>
+ * </ul>
  * <p>
- * (alpha + childNode11) - 1st trie
- * alpha > (childNode11 + childNode12 + echo) - 2nd trie
- * alpha > childNode11 > charlie - 3rd trie
- * childNode11 > (charlie + childNode12) - 4th trie
+ * <b>NOTE:</b> elements within the trie are indicated by enclosing them in curved brackets
  * <p>
- * This hierarchical trie is useful for searches like `a.b` to correspond to `alpha.childNode11.charlie`
+ * <p>
+ * This hierarchical trie is useful for searches like `a.ch.c` to correspond to `alpha.childNode11.charlie`
+ * </p>
  */
 @Getter
 @Setter
@@ -64,7 +91,7 @@ import static java.lang.System.arraycopy;
 @AllArgsConstructor
 @ToString(of = "originalName")
 @EqualsAndHashCode(of = "name")
-public class MetadataNode {
+public class MetadataNode implements SuggestionNode {
 
   private static final Logger log = Logger.getInstance(MetadataNode.class);
 
@@ -115,10 +142,7 @@ public class MetadataNode {
     return builder.build();
   }
 
-  public static String sanitize(String name) {
-    return name.replaceAll("_", "").replace("-", "").toLowerCase();
-  }
-
+  @Override
   public MetadataNode findDeepestMatch(String[] pathSegments, int startWith,
       boolean matchAllSegments) {
     MetadataNode deepestMatch = null;
@@ -219,31 +243,29 @@ public class MetadataNode {
     }
   }
 
+  @Override
   @Nullable
   public Set<Suggestion> findSuggestions(String[] querySegments, int suggestionDepth, int startWith,
-      ClassLoader classLoader, boolean forceSearchAcrossTree) {
+      boolean forceSearchAcrossTree) {
     if (isLeaf()) {
-      if (propertyCanBeShownAsSuggestion() && (startWith >= querySegments.length || name
-          .startsWith(sanitize(querySegments[startWith])))) {
+      if (propertyCanBeShownAsSuggestion() && (startWith >= querySegments.length || name.startsWith(sanitize(querySegments[startWith])))) {
         assert property != null;
         return newSingleElementSet(
-            property.newSuggestion(this, computeSuggestion(suggestionDepth), classLoader));
+            property.newSuggestion(this, computeSuggestion(suggestionDepth)));
       }
       return null;
     } else {
       if (isGroup() && startWith >= querySegments.length) {
         // If we have only one leaf, lets send the leaf value directly instead of this node
         if (hasOnlyOneLeaf()) {
-          return findChildSuggestions(querySegments, suggestionDepth, startWith, classLoader,
+          return findChildSuggestions(querySegments, suggestionDepth, startWith,
               forceSearchAcrossTree);
         } else {
           assert group != null;
-          return newSingleElementSet(
-              group.newSuggestion(this, computeSuggestion(suggestionDepth), classLoader));
+          return newSingleElementSet(group.newSuggestion(this, computeSuggestion(suggestionDepth)));
         }
       } else {
-        return findChildSuggestions(querySegments, suggestionDepth, startWith, classLoader,
-            forceSearchAcrossTree);
+        return findChildSuggestions(querySegments, suggestionDepth, startWith, forceSearchAcrossTree);
       }
     }
   }
@@ -253,9 +275,10 @@ public class MetadataNode {
         .allMatch(MetadataNode::hasOnlyOneLeaf));
   }
 
+  @Override
   @Nullable
   public Set<Suggestion> findChildSuggestions(String[] querySegments, int suggestionDepth,
-      int startWith, ClassLoader classLoader, boolean forceSearchAcrossTree) {
+      int startWith, boolean forceSearchAcrossTree) {
     Set<Suggestion> suggestions = null;
     // If we are searching for `spring` & spring does not have a group/property associated, we would want to go deep till we find all next level descendants that are either groups & properties, so that user dont get bombarded with too many or too little values
     if (startWith >= querySegments.length) {
@@ -263,25 +286,21 @@ public class MetadataNode {
         return null;
       } else {
         suggestions =
-            findSuggestions(querySegments, suggestionDepth + 1, startWith + 1, classLoader, false,
-                children);
+            findSuggestions(querySegments, suggestionDepth + 1, startWith + 1, false, children);
         if (suggestions == null && forceSearchAcrossTree) {
           // Since the search did not match any results, lets ask all the children if any of their have matches
           suggestions =
-              findSuggestions(querySegments, suggestionDepth + 1, startWith + 1, classLoader, true,
-                  children);
+              findSuggestions(querySegments, suggestionDepth + 1, startWith + 1, true, children);
         }
       }
     } else {
       if (sanitisedChildTrie != null) {
         String sanitisedQuerySegment = sanitize(querySegments[startWith]);
-        SortedMap<String, MetadataNode> sortedPrefixToMetadataNode =
-            sanitisedChildTrie.prefixMap(sanitisedQuerySegment);
+        SortedMap<String, MetadataNode> sortedPrefixToMetadataNode = sanitisedChildTrie.prefixMap(sanitisedQuerySegment);
         Collection<MetadataNode> matchedChildren = sortedPrefixToMetadataNode.values();
         if (matchedChildren.size() != 0) {
-          suggestions =
-              findSuggestions(querySegments, suggestionDepth + 1, startWith + 1, classLoader,
-                  forceSearchAcrossTree, matchedChildren);
+          suggestions = findSuggestions(querySegments, suggestionDepth + 1, startWith + 1,
+              forceSearchAcrossTree, matchedChildren);
         }
 
         if (suggestions == null && forceSearchAcrossTree) {
@@ -301,9 +320,8 @@ public class MetadataNode {
           }
           // Since the search did not match any results, lets ask all the children if any of their children have matches
           for (MetadataNode child : sanitisedChildTrie.values()) {
-            Set<Suggestion> matchedSuggestions = child
-                .findSuggestions(newQuerySegments, suggestionDepth + 1, startWith + 1, classLoader,
-                    true);
+            Set<Suggestion> matchedSuggestions =
+                child.findSuggestions(newQuerySegments, suggestionDepth + 1, startWith + 1, true);
             if (matchedSuggestions != null) {
               if (suggestions == null) {
                 suggestions = new HashSet<>();
@@ -318,13 +336,11 @@ public class MetadataNode {
   }
 
   private Set<Suggestion> findSuggestions(String[] querySegments, int suggestionDepth,
-      int startWith, ClassLoader classLoader, boolean forceSearchAcrossTree,
-      Collection<MetadataNode> childNodes) {
+      int startWith, boolean forceSearchAcrossTree, Collection<MetadataNode> childNodes) {
     Set<Suggestion> suggestions = null;
     for (MetadataNode child : childNodes) {
-      Set<Suggestion> matchedSuggestions = child
-          .findSuggestions(querySegments, suggestionDepth, startWith, classLoader,
-              forceSearchAcrossTree);
+      Set<Suggestion> matchedSuggestions =
+          child.findSuggestions(querySegments, suggestionDepth, startWith, forceSearchAcrossTree);
       if (matchedSuggestions != null) {
         if (suggestions == null) {
           suggestions = new HashSet<>();
@@ -366,6 +382,7 @@ public class MetadataNode {
     return false;
   }
 
+  @Override
   public String getFullPath() {
     StringBuilder builder = new StringBuilder();
     builder.append(originalName);
@@ -381,6 +398,7 @@ public class MetadataNode {
     return parent == null;
   }
 
+  @Override
   public boolean isGroup() {
     return group != null;
   }
@@ -389,10 +407,12 @@ public class MetadataNode {
     return children != null && children.size() != 0;
   }
 
+  @Override
   public boolean isLeaf() {
     return property != null;
   }
 
+  @Override
   public int getDepth() {
     int depth = 0;
     MetadataNode current = this;
@@ -404,9 +424,10 @@ public class MetadataNode {
   }
 
   @Nullable
-  public Set<Suggestion> getSuggestionValues(ClassLoader classLoader) {
+  @Override
+  public Set<Suggestion> getSuggestionValues() {
     assert property != null;
-    return property.getValueSuggestions(this, classLoader);
+    return property.getValueSuggestions(this);
   }
 
   @NotNull
@@ -459,17 +480,19 @@ public class MetadataNode {
     return builder.toString();
   }
 
-  public String getSuggestionReplacement(String existingIndentation, String indent, int maxDepth) {
+  @Override
+  public String getSuggestionReplacement(String existingIndentation, String indentPerLevel,
+      int maxDepth) {
     int numOfHops = 0;
     MetadataNode currentNode = this;
 
     StringBuilder builder = new StringBuilder(
-        existingIndentation + getIndent(indent, (maxDepth - 1)) + currentNode.originalName);
+        existingIndentation + getIndent(indentPerLevel, (maxDepth - 1)) + currentNode.originalName);
 
     currentNode = currentNode.parent;
     numOfHops++;
     while (currentNode != null && numOfHops < maxDepth) {
-      builder.insert(0, existingIndentation + getIndent(indent, (maxDepth - numOfHops - 1))
+      builder.insert(0, existingIndentation + getIndent(indentPerLevel, (maxDepth - numOfHops - 1))
           + currentNode.originalName + ":\n");
       currentNode = currentNode.parent;
       numOfHops++;
@@ -478,11 +501,13 @@ public class MetadataNode {
     return builder.delete(0, existingIndentation.length()).toString();
   }
 
-  public String getNewOverallIndent(String existingIndentation, String indent, int maxDepth) {
-    return existingIndentation + getIndent(indent, (maxDepth - 1));
+  @Override
+  public String getNewOverallIndent(String existingIndentation, String indentPerLevel,
+      int maxDepth) {
+    return existingIndentation + getIndent(indentPerLevel, (maxDepth - 1));
   }
 
-  public String getIndent(String indent, int numOfHops) {
+  private String getIndent(String indent, int numOfHops) {
     StringBuilder builder = new StringBuilder();
     for (int i = 0; i < numOfHops; i++) {
       builder.append(indent);

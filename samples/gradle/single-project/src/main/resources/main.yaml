@@ -1,1 +1,4 @@
-mana
+custom:
+  dynamic:
+    root:
+      abcd:

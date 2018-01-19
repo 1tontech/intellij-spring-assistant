@@ -3,6 +3,7 @@ package in.oneton.idea.spring.assistant.plugin.completion;
 import com.intellij.lang.Language;
 import com.intellij.lang.documentation.AbstractDocumentationProvider;
 import com.intellij.lang.java.JavaLanguage;
+import com.intellij.lang.properties.psi.Property;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.module.Module;
@@ -19,7 +20,6 @@ import in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexService;
 import lombok.ToString;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.yaml.psi.YAMLKeyValue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +29,7 @@ import static com.intellij.psi.util.PsiTreeUtil.getParentOfType;
 import static in.oneton.idea.spring.assistant.plugin.Util.getKeyNameOfObject;
 import static in.oneton.idea.spring.assistant.plugin.Util.truncateIdeaDummyIdentifier;
 
-public class YamlDocumentationProvider extends AbstractDocumentationProvider {
+public class PropertiesDocumentationProvider extends AbstractDocumentationProvider {
   @Override
   public String generateDoc(PsiElement element, @Nullable PsiElement originalElement) {
     if (element instanceof DocumentationProxyElement) {
@@ -93,12 +93,11 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       List<String> containerElements = new ArrayList<>();
       Optional<String> keyNameIfKey = getKeyNameOfObject(contextElement);
       keyNameIfKey.ifPresent(containerElements::add);
-      YAMLKeyValue keyValue = getParentOfType(contextElement, YAMLKeyValue.class);
+      Property property = getParentOfType(contextElement, Property.class);
 
-      while (keyValue != null) {
-        assert keyValue.getKey() != null;
-        containerElements.add(0, truncateIdeaDummyIdentifier(keyValue.getKey()));
-        keyValue = getParentOfType(keyValue, YAMLKeyValue.class);
+      if (property != null) {
+        assert property.getKey() != null;
+        containerElements.add(0, truncateIdeaDummyIdentifier(property.getKey()));
       }
 
       requestedForTargetValue = false;

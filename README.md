@@ -9,8 +9,8 @@ This plugins provides the following features as of now.
 
 1. Auto completion of the configuration properties in your `yaml` files based on the spring boot's auto configuration jars are present in the classpath
 2. Auto completion of the configuration properties in your `yaml` files if you have classes annotated with `@ConfigurationProperties`, [if your build is properly configured](#setup-for-showing-configurationproperties-as-suggestions-within-current-module)
-3. Short form search & search for element deep within is also supported. i.e, `sp.d` will show you `spring.data`, `spring.datasource`, e.t.c
-4. Quick documentation for known groups & properties (not all groups & properties will have documentation, this depends on whether the original author specified documentation or not)
+3. Short form search & search for element deep within is also supported. i.e, `sp.d` will show you `spring.data`, `spring.datasource`, also, `port` would show `server.port` as a suggestion
+4. Quick documentation for groups & properties (not all groups & properties will have documentation, depends on whether the original author specified documentation or not for any given element)
 
 ## Future plans
 
@@ -31,9 +31,12 @@ For this to work, you need to ensure the following steps are followed for your p
 
 ### Setup for showing ConfigurationProperties as suggestions within current module
 
-1. Make sure you add the following dependency to your project
+1. Make sure `Enable annotation processing` is checked under `Settings > Build, Execution & Deployment > Compiler > Annotation Processors`
+2. Make sure you add the following changes to  to your project
 
     *For Maven*
+
+    Add the following dependency
 
     ```xml
     <dependency>
@@ -42,9 +45,10 @@ For this to work, you need to ensure the following steps are followed for your p
         <optional>true</optional>
     </dependency>
     ```
+
     *For Gradle*
 
-    You can use the [propdeps-plugin](https://github.com/spring-gradle-plugins/propdeps-plugin) for `optional` scope (as we dont need `spring-boot-configuration-processor` as a dependency in the generated jar/war) & specify:
+    Add the following build configuration. You can use the [propdeps-plugin](https://github.com/spring-gradle-plugins/propdeps-plugin) for `optional` scope (as we dont need `spring-boot-configuration-processor` as a dependency in the generated jar/war)
 
     ```gradle
     dependencies {
@@ -53,13 +57,12 @@ For this to work, you need to ensure the following steps are followed for your p
 
     compileJava.dependsOn(processResources)
     ```
+3. (**OPTIONAL**) If intellij is generating build artfacts to `output` directory instead of gradle's default `build` directory, then you may need to `File | Settings | Build, Execution, Deployment | Build Tools | Gradle | Runner => Delegate IDE build/run actions to gradle` & restart the IDE. This will ensure that gradle plugin generates metadata & Intellij is pointing to it
 
-    Have a look at the [samples](samples/) folder for projects where `@ConfigurationProperties` are shown as suggestions
-
-2. Make sure `Enable annotation processing` is checked under `Settings > Build, Execution & Deployment > Compiler > Annotation Processors`
-
+> If you want to look at a sample project, look inside [samples](samples/) directory where the above setup is done. These samples allow properties from `@ConfigurationProperties` to be shown as suggestions
 
 **IMPORTANT**
+
 > After changing your custom `@ConfigurationProperties` files, suggestions would be refreshed only after you trigger the build explicitly using keyboard (`Ctrl+F9`)/UI
 
 ### Known behaviour in ambiguous cases

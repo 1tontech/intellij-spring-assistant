@@ -20,7 +20,7 @@ import javax.swing.*;
 
 import static com.intellij.openapi.util.text.StringUtil.shortenTextWithEllipsis;
 import static com.intellij.ui.JBColor.RED;
-import static java.awt.Color.YELLOW;
+import static com.intellij.ui.JBColor.YELLOW;
 import static org.jetbrains.yaml.YAMLHighlighter.SCALAR_TEXT;
 
 @Getter
@@ -91,6 +91,7 @@ public class Suggestion {
    */
   @Setter
   private boolean representingDefaultValue;
+  private boolean yaml;
 
   public LookupElementBuilder newLookupElement(ClassLoader classLoader) {
     LookupElementBuilder builder = LookupElementBuilder.create(this, suggestion);
@@ -101,10 +102,13 @@ public class Suggestion {
       if (representingDefaultValue) {
         builder = builder.bold();
       }
-      builder = builder.withInsertHandler(new YamlValueInsertHandler());
+      if (yaml) {
+        builder = builder.withInsertHandler(new YamlValueInsertHandler());
+      }
     } else {
-      builder = builder.withRenderer(CUSTOM_SUGGESTION_RENDERER)
-          .withInsertHandler(new YamlKeyInsertHandler(ref, classLoader));
+      builder = builder.withRenderer(CUSTOM_SUGGESTION_RENDERER).withInsertHandler(yaml ?
+          new YamlKeyInsertHandler(ref, classLoader) :
+          new YamlKeyInsertHandler(ref, classLoader));
     }
     return builder;
   }

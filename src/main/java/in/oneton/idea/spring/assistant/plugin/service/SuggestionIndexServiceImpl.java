@@ -54,7 +54,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
   protected final Trie<String, MetadataNode> projectSanitisedRootSearchIndex;
   protected final Map<String, Map<String, ContainerInfo>>
       moduleNameToSeenContainerPathToContainerInfo;
-  protected final Map<String, Trie<String, MetadataNode>> moduleNameToSanitisedRootSearchIndex;
+  private final Map<String, Trie<String, MetadataNode>> moduleNameToSanitisedRootSearchIndex;
   private Future<?> currentExecution;
   private volatile boolean indexingInProgress;
 
@@ -76,6 +76,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
     if (indexingInProgress) {
       currentExecution.cancel(false);
     }
+    //noinspection CodeBlock2Expr
     currentExecution = getApplication().executeOnPooledThread(() -> {
       getApplication().runReadAction(() -> {
         indexingInProgress = true;
@@ -107,6 +108,7 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
         currentExecution.cancel(false);
       }
     }
+    //noinspection CodeBlock2Expr
     currentExecution = getApplication().executeOnPooledThread(() -> {
       getApplication().runReadAction(() -> {
         debug(() -> log.debug(
@@ -383,7 +385,8 @@ public class SuggestionIndexServiceImpl implements SuggestionIndexService {
 
   @Nullable
   private Set<Suggestion> getSuggestions(ClassLoader classLoader, String[] querySegments,
-      Collection<MetadataNode> nodesToSearchWithin, int suggestionDepth, int startWith,
+      Collection<MetadataNode> nodesToSearchWithin,
+      @SuppressWarnings("SameParameterValue") int suggestionDepth, int startWith,
       boolean proceedTillLeaf) {
     Set<Suggestion> suggestions = null;
     for (MetadataNode metadataNode : nodesToSearchWithin) {

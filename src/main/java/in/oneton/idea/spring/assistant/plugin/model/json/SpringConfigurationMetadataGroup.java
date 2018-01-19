@@ -74,7 +74,7 @@ public class SpringConfigurationMetadataGroup {
     return builder.toString();
   }
 
-  public Suggestion newSuggestion(MetadataNode ref, String suggestion, ClassLoader classLoader) {
+  public Suggestion newSuggestion(MetadataNode ref, String suggestion) {
     return Suggestion.builder().icon(ValueType.parse(type, classLoader).getIcon(false))
         .suggestion(suggestion).description(description).shortType(shortenedType(type)).ref(ref)
         .build();

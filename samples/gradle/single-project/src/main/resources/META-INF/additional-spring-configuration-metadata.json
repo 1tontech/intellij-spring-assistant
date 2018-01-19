@@ -88,6 +88,11 @@
       "name": "newgroup.property.val2",
       "description": "val2",
       "type": "java.lang.Boolean"
+    },
+    {
+      "name": "custom.dynamic.root",
+      "description": "Dynamic root",
+      "type": "java.util.Map<java.lang.String,com.acme.model.DynamicRoot>"
     }
   ]
 }

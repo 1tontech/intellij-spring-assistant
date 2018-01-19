@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.intellij.codeInsight.completion.CompletionUtilCore.DUMMY_IDENTIFIER_TRIMMED;
 import static com.intellij.openapi.util.text.StringUtil.containsChar;
 import static com.intellij.openapi.util.text.StringUtil.endsWithChar;
 import static com.intellij.openapi.util.text.StringUtil.isNotEmpty;
@@ -114,6 +115,14 @@ public class Util {
     return moduleStream.map(module -> includeProjectName ?
         module.getProject().getName() + ":" + module.getName() :
         module.getName()).collect(joining(", "));
+  }
+
+  public static String truncateIdeaDummyIdentifier(@NotNull PsiElement element) {
+    return truncateIdeaDummyIdentifier(element.getText());
+  }
+
+  public static String truncateIdeaDummyIdentifier(String text) {
+    return text.replace(DUMMY_IDENTIFIER_TRIMMED, "");
   }
 
 }

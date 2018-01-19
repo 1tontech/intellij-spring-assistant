@@ -75,7 +75,7 @@ public class SpringConfigurationMetadataProperty
     return compare(this, o, comparing(thiz -> thiz.name));
   }
 
-  public Suggestion newSuggestion(MetadataNode ref, String suggestion, ClassLoader classLoader) {
+  public Suggestion newSuggestion(MetadataNode ref, String suggestion) {
     Suggestion.SuggestionBuilder builder =
         Suggestion.builder().icon(parse(type, classLoader).getIcon(hasNonObjectDefaultValue()))
             .suggestion(suggestion).description(this.description).shortType(shortenedType(type))
@@ -87,7 +87,7 @@ public class SpringConfigurationMetadataProperty
   }
 
   @Nullable
-  public Set<Suggestion> getValueSuggestions(MetadataNode propertyNode, ClassLoader classLoader) {
+  public Set<Suggestion> getValueSuggestions(MetadataNode propertyNode) {
     Set<Suggestion> suggestions = null;
 
     if (hint != null && hint.getValues() != null) {
@@ -218,8 +218,7 @@ public class SpringConfigurationMetadataProperty
     return builder.toString();
   }
 
-  public String getDocumentationForValue(MetadataNode propertyNode, String value,
-      ClassLoader classLoader) {
+  public String getDocumentationForValue(MetadataNode propertyNode, String value) {
     StringBuilder builder =
         new StringBuilder().append("<b>").append(propertyNode.getFullPath()).append("</b>");
 
