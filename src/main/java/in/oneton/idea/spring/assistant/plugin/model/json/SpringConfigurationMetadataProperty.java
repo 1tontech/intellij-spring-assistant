@@ -3,8 +3,9 @@ package in.oneton.idea.spring.assistant.plugin.model.json;
 import com.google.gson.annotations.Expose;
 import com.intellij.codeInsight.documentation.DocumentationManager;
 import com.intellij.openapi.diagnostic.Logger;
-import in.oneton.idea.spring.assistant.plugin.model.MetadataNode;
+import in.oneton.idea.spring.assistant.plugin.model.MetadataGroupSuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.Suggestion;
+import in.oneton.idea.spring.assistant.plugin.model.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.ValueType;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -14,6 +15,7 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -66,20 +68,32 @@ public class SpringConfigurationMetadataProperty
   @Nullable
   private Object defaultValue;
 
+  /**
+   * Represents either the only hint associated (or) key specific hint when the property represents a map
+   */
   @Nullable
   @Expose(deserialize = false)
-  private SpringConfigurationMetadataHint hint;
+  private SpringConfigurationMetadataHint genericOrKeyHint;
+
+  /**
+   * If the property of type map, the property can have both keys & values. This hint represents value
+   */
+  @Nullable
+  @Expose(deserialize = false)
+  private SpringConfigurationMetadataHint valueHint;
 
   @Override
   public int compareTo(@NotNull SpringConfigurationMetadataProperty o) {
     return compare(this, o, comparing(thiz -> thiz.name));
   }
 
-  public Suggestion newSuggestion(MetadataNode ref, String suggestion) {
+  public Suggestion newSuggestion(List<SuggestionNode> matchesRootTillParentNode,
+      String suggestion) {
     Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().icon(parse(type, classLoader).getIcon(hasNonObjectDefaultValue()))
+        Suggestion.builder().icon(parse(type).getIcon(hasNonObjectDefaultValue()))
             .suggestion(suggestion).description(this.description).shortType(shortenedType(type))
-            .defaultValue(defaultValueAsStr(defaultValue)).ref(ref);
+            .defaultValue(defaultValueAsStr(defaultValue))
+            .nodesRootToLeaf(matchesRootTillParentNode);
     if (deprecation != null) {
       builder.deprecationLevel(deprecation.getLevel() != null ? deprecation.getLevel() : warning);
     }
@@ -87,18 +101,18 @@ public class SpringConfigurationMetadataProperty
   }
 
   @Nullable
-  public Set<Suggestion> getValueSuggestions(MetadataNode propertyNode) {
+  public Set<Suggestion> getValueSuggestions(MetadataGroupSuggestionNode propertyNode) {
     Set<Suggestion> suggestions = null;
 
     if (hint != null && hint.getValues() != null) {
       suggestions = stream(hint.getValues())
           .filter(v -> !(v.getValue() instanceof Array) || !(v.getValue() instanceof Collection))
           .map(choice -> Suggestion.builder().suggestion(choice.toString())
-              .description(choice.getDescription()).ref(propertyNode).referringToValue(true)
-              .build()).collect(toSet());
+              .description(choice.getDescription()).ref(propertyNode).forValue(true).build())
+          .collect(toSet());
     }
 
-    ValueType valueType = parse(type, classLoader);
+    ValueType valueType = parse(type);
 
     Set<Suggestion> additionalSuggestions = null;
 
@@ -107,21 +121,20 @@ public class SpringConfigurationMetadataProperty
         Object[] choices = Object[].class.cast(this.defaultValue);
         additionalSuggestions = stream(choices).map(
             choice -> Suggestion.builder().suggestion(choice.toString()).ref(propertyNode)
-                .referringToValue(true).build()).collect(toSet());
+                .forValue(true).build()).collect(toSet());
       } else if (defaultValue instanceof Collection) {
         @SuppressWarnings("unchecked")
         Stream<Suggestion> choiceStream = Collection.class.cast(defaultValue).stream().map(
             choice -> Suggestion.builder().suggestion(choice.toString()).ref(propertyNode)
-                .referringToValue(true).build());
+                .forValue(true).build());
         additionalSuggestions = choiceStream.collect(toSet());
       }
     } else if (valueType == BOOLEAN) {
       additionalSuggestions = new HashSet<>();
-      additionalSuggestions.add(
-          Suggestion.builder().suggestion("true").ref(propertyNode).referringToValue(true).build());
-      additionalSuggestions.add(
-          Suggestion.builder().suggestion("false").ref(propertyNode).referringToValue(true)
-              .build());
+      additionalSuggestions
+          .add(Suggestion.builder().suggestion("true").ref(propertyNode).forValue(true).build());
+      additionalSuggestions
+          .add(Suggestion.builder().suggestion("false").ref(propertyNode).forValue(true).build());
     } else if (valueType == ENUM) {
       Class<?> enumClazz = null;
       try {
@@ -131,8 +144,8 @@ public class SpringConfigurationMetadataProperty
         log.error("Enum " + type + " could not be loaded. This path should never be hit", e);
       }
       additionalSuggestions = stream(enumClazz.getEnumConstants()).map(
-          v -> Suggestion.builder().suggestion(v.toString()).ref(propertyNode)
-              .referringToValue(true).build()).collect(toSet());
+          v -> Suggestion.builder().suggestion(v.toString()).ref(propertyNode).forValue(true)
+              .build()).collect(toSet());
     }
 
     if (additionalSuggestions != null) {
@@ -151,7 +164,7 @@ public class SpringConfigurationMetadataProperty
     return suggestions;
   }
 
-  public String getDocumentationForKey(MetadataNode propertyNode) {
+  public String getDocumentationForKey(MetadataGroupSuggestionNode propertyNode) {
     // Format for the documentation is as follows
     /*
      * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
@@ -218,7 +231,7 @@ public class SpringConfigurationMetadataProperty
     return builder.toString();
   }
 
-  public String getDocumentationForValue(MetadataNode propertyNode, String value) {
+  public String getDocumentationForValue(MetadataGroupSuggestionNode propertyNode, String value) {
     StringBuilder builder =
         new StringBuilder().append("<b>").append(propertyNode.getFullPath()).append("</b>");
 
@@ -234,7 +247,7 @@ public class SpringConfigurationMetadataProperty
     String trimmedValue = unescapeValue(value);
     builder.append("<p>").append(trimmedValue).append("</p>");
 
-    Set<Suggestion> choices = getValueSuggestions(propertyNode, classLoader);
+    Set<Suggestion> choices = getValueSuggestions(propertyNode);
     if (choices != null) {
       choices.stream().filter(choice -> choice.getSuggestion().equals(trimmedValue)).findFirst()
           .ifPresent(suggestion -> {
@@ -273,4 +286,14 @@ public class SpringConfigurationMetadataProperty
   public boolean hasNonObjectDefaultValue() {
     return defaultValue != null && defaultValue instanceof String;
   }
+
+  public boolean hasValueHint() {
+    return valueHint != null;
+  }
+
+  public boolean doesGenericHintRepresentsArray() {
+    return genericOrKeyHint != null && !hasValueHint() && genericOrKeyHint.getValues() != null
+        && genericOrKeyHint.getValues().length > 0;
+  }
+
 }

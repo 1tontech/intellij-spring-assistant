@@ -12,7 +12,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.ProcessingContext;
-import in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexService;
+import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -34,8 +34,7 @@ class PropertiesCompletionProvider extends CompletionProvider<CompletionParamete
     Project project = element.getProject();
     Module module = ModuleUtil.findModuleForPsiElement(element);
 
-    SuggestionIndexService service =
-        ServiceManager.getService(project, SuggestionIndexService.class);
+    SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
 
     if ((module == null || !service.canProvideSuggestions(project, module)) && !service
         .canProvideSuggestions(project)) {
@@ -46,16 +45,15 @@ class PropertiesCompletionProvider extends CompletionProvider<CompletionParamete
 
     List<LookupElementBuilder> suggestions;
     // For top level element, since there is no parent keyValue would be null
-    String queryString = truncateIdeaDummyIdentifier(element);
+    String queryWithDotDelimitedPrefixes = truncateIdeaDummyIdentifier(element);
 
     if (property == null) {
       if (module == null) {
-        suggestions = service
-            .computeSuggestions(project, element.getClass().getClassLoader(), null, queryString);
+        suggestions =
+            service.computeSuggestions(project, element, null, queryWithDotDelimitedPrefixes);
       } else {
         suggestions = service
-            .computeSuggestions(project, module, element.getClass().getClassLoader(), null,
-                queryString);
+            .computeSuggestions(project, module, element, null, queryWithDotDelimitedPrefixes);
       }
     } else {
       assert property.getKey() != null;
@@ -64,12 +62,10 @@ class PropertiesCompletionProvider extends CompletionProvider<CompletionParamete
 
       if (module == null) {
         suggestions = service
-            .computeSuggestions(project, element.getClass().getClassLoader(), containerElements,
-                queryString);
+            .computeSuggestions(project, element, containerElements, queryWithDotDelimitedPrefixes);
       } else {
-        suggestions = service
-            .computeSuggestions(project, module, element.getClass().getClassLoader(),
-                containerElements, queryString);
+        suggestions = service.computeSuggestions(project, module, element, containerElements,
+            queryWithDotDelimitedPrefixes);
       }
     }
 

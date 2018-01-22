@@ -23,6 +23,33 @@
           "value": "b"
         }
       ]
+    },
+    {
+      "name": "custom.hint.choice.keys",
+      "values": [
+        {
+          "value": "key1",
+          "description": "Key 1"
+        },
+        {
+          "value": "key2"
+        }
+      ]
+    },
+    {
+      "name": "custom.hint.choice.values",
+      "values": [
+        {
+          "value": "choice1",
+          "description": "Choice 1"
+        },
+        {
+          "value": "choice2"
+        },
+        {
+          "value": "choice3"
+        }
+      ]
     }
   ],
   "groups": [
@@ -90,9 +117,28 @@
       "type": "java.lang.Boolean"
     },
     {
-      "name": "custom.dynamic.root",
+      "name": "custom.map.with.enum.key",
+      "description": "Custom choice with enum key -> dynamic root",
+      "type": "java.util.Map<com.acme.model.DynamicEnum,com.acme.model.DynamicRoot>"
+    },
+    {
+      "name": "custom.collection.with.enum.key",
+      "description": "Custom choice with enum key -> dynamic root",
+      "type": "java.util.Set<com.acme.model.DynamicRoot>"
+    },
+    {
+      "name": "custom.map.with.string.key",
       "description": "Dynamic root",
       "type": "java.util.Map<java.lang.String,com.acme.model.DynamicRoot>"
+    },
+    {
+      "name": "custom.hint.choice",
+      "description": "Custom choice with hint",
+      "type": "java.util.Map<java.lang.String,java.lang.String>"
+    },
+    {
+      "name": "rootProperty",
+      "description": "Property directly attached as root"
     }
   ]
 }

@@ -13,9 +13,10 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.impl.light.LightElement;
 import in.oneton.idea.spring.assistant.plugin.Util;
-import in.oneton.idea.spring.assistant.plugin.model.MetadataNode;
+import in.oneton.idea.spring.assistant.plugin.model.MetadataGroupSuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.Suggestion;
-import in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexService;
+import in.oneton.idea.spring.assistant.plugin.model.SuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import lombok.ToString;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -34,21 +35,14 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
   public String generateDoc(PsiElement element, @Nullable PsiElement originalElement) {
     if (element instanceof DocumentationProxyElement) {
       DocumentationProxyElement proxyElement = DocumentationProxyElement.class.cast(element);
-      MetadataNode target = proxyElement.target;
-      boolean requestedForTargetValue = proxyElement.requestedForTargetValue;
-      String value = proxyElement.value;
+      SuggestionNode target = proxyElement.target;
 
       // Only group & leaf are expected to have documentation
       if (target != null && (target.isGroup() || target.isLeaf())) {
-        if (requestedForTargetValue) {
-          assert target.getProperty() != null;
-          return target.getProperty().getDocumentationForValue(target, value);
-        } else if (target.isGroup()) {
-          assert target.getGroup() != null;
-          return target.getGroup().getDocumentation(target);
+        if (proxyElement.forValue) {
+          return target.getDocumentationForValue(proxyElement.value);
         } else {
-          assert target.getProperty() != null;
-          return target.getProperty().getDocumentationForKey(target);
+          return target.getDocumentationForKey();
         }
       }
     }
@@ -63,8 +57,8 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       @Nullable PsiElement element) {
     if (object instanceof Suggestion) {
       Suggestion suggestion = Suggestion.class.cast(object);
-      MetadataNode target = suggestion.getRef();
-      boolean requestedForTargetValue = suggestion.isReferringToValue();
+      SuggestionNode target = suggestion.getRef();
+      boolean requestedForTargetValue = suggestion.isForValue();
       String text = null;
       if (element != null) {
         text = element.getText();
@@ -80,12 +74,12 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
   public PsiElement getCustomDocumentationElement(@NotNull Editor editor, @NotNull PsiFile file,
       @Nullable PsiElement contextElement) {
     if (contextElement != null) {
-      MetadataNode target;
+      MetadataGroupSuggestionNode target;
       boolean requestedForTargetValue;
       String value;
 
-      SuggestionIndexService service =
-          ServiceManager.getService(contextElement.getProject(), SuggestionIndexService.class);
+      SuggestionService service =
+          ServiceManager.getService(contextElement.getProject(), SuggestionService.class);
 
       Project project = contextElement.getProject();
       Module module = ModuleUtil.findModuleForPsiElement(contextElement);
@@ -125,20 +119,19 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
 
   @ToString(of = "target")
   private static class DocumentationProxyElement extends LightElement {
-    private final MetadataNode target;
+    private final SuggestionNode target;
     @Nullable
     private final String value;
     /**
      * Documentation can be requested for the key (or) value. Value would be `false` if the documentation is requested for target. `true` if the request if for value
      */
-    private boolean requestedForTargetValue;
+    private boolean forValue;
 
     DocumentationProxyElement(@NotNull final PsiManager manager, @NotNull final Language language,
-        @NotNull final MetadataNode target, boolean requestedForTargetValue,
-        @Nullable String value) {
+        @NotNull final SuggestionNode target, boolean forValue, @Nullable String value) {
       super(manager, language);
       this.target = target;
-      this.requestedForTargetValue = requestedForTargetValue;
+      this.forValue = forValue;
       this.value = value;
     }
 

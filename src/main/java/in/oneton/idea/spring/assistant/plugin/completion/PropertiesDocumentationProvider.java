@@ -14,9 +14,10 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.impl.light.LightElement;
 import in.oneton.idea.spring.assistant.plugin.Util;
-import in.oneton.idea.spring.assistant.plugin.model.MetadataNode;
+import in.oneton.idea.spring.assistant.plugin.model.MetadataGroupSuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.Suggestion;
-import in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexService;
+import in.oneton.idea.spring.assistant.plugin.model.SuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import lombok.ToString;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -34,21 +35,16 @@ public class PropertiesDocumentationProvider extends AbstractDocumentationProvid
   public String generateDoc(PsiElement element, @Nullable PsiElement originalElement) {
     if (element instanceof DocumentationProxyElement) {
       DocumentationProxyElement proxyElement = DocumentationProxyElement.class.cast(element);
-      MetadataNode target = proxyElement.target;
+      SuggestionNode target = proxyElement.target;
       boolean requestedForTargetValue = proxyElement.requestedForTargetValue;
       String value = proxyElement.value;
 
       // Only group & leaf are expected to have documentation
       if (target != null && (target.isGroup() || target.isLeaf())) {
         if (requestedForTargetValue) {
-          assert target.getProperty() != null;
-          return target.getProperty().getDocumentationForValue(target, value);
-        } else if (target.isGroup()) {
-          assert target.getGroup() != null;
-          return target.getGroup().getDocumentation(target);
+          return target.getDocumentationForValue(value);
         } else {
-          assert target.getProperty() != null;
-          return target.getProperty().getDocumentationForKey(target);
+          return target.getDocumentationForKey();
         }
       }
     }
@@ -63,8 +59,7 @@ public class PropertiesDocumentationProvider extends AbstractDocumentationProvid
       @Nullable PsiElement element) {
     if (object instanceof Suggestion) {
       Suggestion suggestion = Suggestion.class.cast(object);
-      MetadataNode target = suggestion.getRef();
-      boolean requestedForTargetValue = suggestion.isReferringToValue();
+      boolean requestedForTargetValue = suggestion.isForValue();
       String text = null;
       if (element != null) {
         text = element.getText();
@@ -80,12 +75,12 @@ public class PropertiesDocumentationProvider extends AbstractDocumentationProvid
   public PsiElement getCustomDocumentationElement(@NotNull Editor editor, @NotNull PsiFile file,
       @Nullable PsiElement contextElement) {
     if (contextElement != null) {
-      MetadataNode target;
+      MetadataGroupSuggestionNode target;
       boolean requestedForTargetValue;
       String value;
 
-      SuggestionIndexService service =
-          ServiceManager.getService(contextElement.getProject(), SuggestionIndexService.class);
+      SuggestionService service =
+          ServiceManager.getService(contextElement.getProject(), SuggestionService.class);
 
       Project project = contextElement.getProject();
       Module module = ModuleUtil.findModuleForPsiElement(contextElement);
@@ -124,7 +119,7 @@ public class PropertiesDocumentationProvider extends AbstractDocumentationProvid
 
   @ToString(of = "target")
   private static class DocumentationProxyElement extends LightElement {
-    private final MetadataNode target;
+    private final SuggestionNode target;
     @Nullable
     private final String value;
     /**
@@ -133,7 +128,7 @@ public class PropertiesDocumentationProvider extends AbstractDocumentationProvid
     private boolean requestedForTargetValue;
 
     DocumentationProxyElement(@NotNull final PsiManager manager, @NotNull final Language language,
-        @NotNull final MetadataNode target, boolean requestedForTargetValue,
+        @NotNull final SuggestionNode target, boolean requestedForTargetValue,
         @Nullable String value) {
       super(manager, language);
       this.target = target;

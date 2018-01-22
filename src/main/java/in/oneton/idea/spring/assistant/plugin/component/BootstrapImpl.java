@@ -8,7 +8,7 @@ import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.messages.MessageBusConnection;
-import in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexService;
+import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -35,8 +35,7 @@ public class BootstrapImpl implements Bootstrap, ProjectComponent {
   @Override
   public void projectOpened() {
     // This will trigger indexing
-    SuggestionIndexService service =
-        ServiceManager.getService(project, SuggestionIndexService.class);
+    SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
 
     try {
       debug(() -> log.debug("Project " + project.getName() + " is opened, indexing will start"));
@@ -104,7 +103,7 @@ public class BootstrapImpl implements Bootstrap, ProjectComponent {
 
   /**
    * Debug logging can be enabled by adding fully classified class name/package name with # prefix
-   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexServiceImpl`
+   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl`
    *
    * @param doWhenDebug code to execute when debug is enabled
    */

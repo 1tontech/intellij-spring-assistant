@@ -23,7 +23,7 @@ public enum ValueType {
   private static final Pattern CLASSNAME_MATCH_PATTERN =
       Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*(?:\\.[a-zA-Z_][a-zA-Z_0-9]*)*)");
 
-  public static ValueType parse(String type, ClassLoader classLoader) {
+  public static ValueType parse(String type) {
     if (type == null) {
       return UNKNOWN;
     }

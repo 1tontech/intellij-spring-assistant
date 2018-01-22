@@ -13,7 +13,7 @@ import com.intellij.openapi.externalSystem.util.Order;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
-import in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexService;
+import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,8 +48,7 @@ public class GradleReindexingProjectDataService
               + project.getName()));
       DumbService.getInstance(project).smartInvokeLater(() -> {
         log.debug("Will attempt to trigger indexing for project " + project.getName());
-        SuggestionIndexService service =
-            ServiceManager.getService(project, SuggestionIndexService.class);
+        SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
 
         try {
           Module[] validModules = stream(modelsProvider.getModules()).filter(module -> {
@@ -76,7 +75,7 @@ public class GradleReindexingProjectDataService
 
   /**
    * Debug logging can be enabled by adding fully classified class name/package name with # prefix
-   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexServiceImpl`
+   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl`
    *
    * @param doWhenDebug code to execute when debug is enabled
    */

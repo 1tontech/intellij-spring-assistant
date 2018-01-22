@@ -8,7 +8,7 @@ import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.messages.MessageBusConnection;
-import in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexService;
+import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.idea.maven.project.MavenImportListener;
 
@@ -36,8 +36,7 @@ public class MavenReIndexingDependencyChangeSubscriberImpl
   @Override
   public void projectOpened() {
     // This will trigger indexing
-    SuggestionIndexService service =
-        ServiceManager.getService(project, SuggestionIndexService.class);
+    SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
 
     try {
       debug(() -> log
@@ -93,7 +92,7 @@ public class MavenReIndexingDependencyChangeSubscriberImpl
 
   /**
    * Debug logging can be enabled by adding fully classified class name/package name with # prefix
-   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexServiceImpl`
+   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl`
    *
    * @param doWhenDebug code to execute when debug is enabled
    */

@@ -8,8 +8,8 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.EditorModificationUtil;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.util.PsiTreeUtil;
-import in.oneton.idea.spring.assistant.plugin.model.MetadataNode;
 import in.oneton.idea.spring.assistant.plugin.model.Suggestion;
+import in.oneton.idea.spring.assistant.plugin.model.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.ValueType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -18,16 +18,16 @@ import org.jetbrains.yaml.YAMLTokenTypes;
 import org.jetbrains.yaml.psi.YAMLDocument;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
+import java.util.List;
+
 import static in.oneton.idea.spring.assistant.plugin.Util.getCodeStyleIntent;
 
 public class YamlKeyInsertHandler implements InsertHandler<LookupElement> {
 
-  private final MetadataNode ref;
-  private final ClassLoader classLoader;
+  private final List<SuggestionNode> nodesRootToLeaf;
 
-  public YamlKeyInsertHandler(MetadataNode ref, ClassLoader classLoader) {
-    this.ref = ref;
-    this.classLoader = classLoader;
+  public YamlKeyInsertHandler(List<SuggestionNode> nodesRootToLeaf) {
+    this.nodesRootToLeaf = nodesRootToLeaf;
   }
 
   @Override
@@ -36,11 +36,11 @@ public class YamlKeyInsertHandler implements InsertHandler<LookupElement> {
     boolean leafDefaultValueNonObject = false;
     if (ref.isLeaf()) {
       assert ref.getProperty() != null;
-      valueType = ValueType.parse(ref.getProperty().getType(), classLoader);
+      valueType = ValueType.parse(ref.getProperty().getType());
       leafDefaultValueNonObject = ref.getProperty().hasNonObjectDefaultValue();
     } else if (ref.isGroup()) {
       assert ref.getGroup() != null;
-      valueType = ValueType.parse(ref.getGroup().getType(), classLoader);
+      valueType = ValueType.parse(ref.getGroup().getType());
     } else {
       valueType = ValueType.OBJECT;
     }

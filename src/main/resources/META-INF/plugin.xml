@@ -23,7 +23,7 @@
         <completion.contributor language="yaml"
                                 implementationClass="in.oneton.idea.spring.assistant.plugin.completion.YamlCompletionContributor"/>
 
-        <completion.contributor language="properties"
+        <completion.contributor language="Properties"
                                 implementationClass="in.oneton.idea.spring.assistant.plugin.completion.PropertiesCompletionContributor"/>
 
         <documentationProvider
@@ -43,8 +43,8 @@
         <!--language="yaml"/>-->
 
         <projectService
-                serviceInterface="in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexService"
-                serviceImplementation="in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexServiceImpl"/>
+                serviceInterface="in.oneton.idea.spring.assistant.plugin.service.SuggestionService"
+                serviceImplementation="in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl"/>
     </extensions>
 
     <project-components>

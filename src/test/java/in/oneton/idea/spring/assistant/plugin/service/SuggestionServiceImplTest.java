@@ -8,14 +8,14 @@ import org.mockito.Mock;
 
 // TODO: Fix this
 @ExtendWith(MockitoExtension.class)
-class SuggestionIndexServiceImplTest {
+class SuggestionServiceImplTest {
   @Mock
   Project mockedProject;
-  SuggestionIndexServiceImpl suggestionIndexService;
+  SuggestionServiceImpl suggestionIndexService;
 
   @BeforeEach
   void setUp() {
-    suggestionIndexService = new SuggestionIndexServiceImpl(mockedProject);
+    suggestionIndexService = new SuggestionServiceImpl(mockedProject);
   }
 
   @Test
@@ -39,9 +39,9 @@ class SuggestionIndexServiceImplTest {
     //    mockedModule.
   }
 
-  class SuggestionIndexServiceImpl
-      extends in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexServiceImpl {
-    SuggestionIndexServiceImpl(Project project) {
+  class SuggestionServiceImpl
+      extends in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl {
+    SuggestionServiceImpl(Project project) {
       super();
     }
   }

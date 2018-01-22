@@ -14,6 +14,7 @@ import org.jetbrains.yaml.psi.YAMLSequenceItem;
 import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
 
 import java.text.BreakIterator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -33,6 +34,10 @@ import static java.util.stream.Collectors.joining;
 public class Util {
   public static final String PERIOD_DELIMITER = "\\.";
   private static Pattern methodToFragmentConverter = Pattern.compile("(.+)\\.(.+)\\(.*\\)");
+
+  public static String[] toPathSegments(String element) {
+    return element.split(PERIOD_DELIMITER, -1);
+  }
 
   public static boolean isValue(final PsiElement psiElement) {
     return !(org.apache.commons.lang.StringUtils.isBlank(psiElement.getText())
@@ -123,6 +128,16 @@ public class Util {
 
   public static String truncateIdeaDummyIdentifier(String text) {
     return text.replace(DUMMY_IDENTIFIER_TRIMMED, "");
+  }
+
+  @SafeVarargs
+  @SuppressWarnings("varargs")
+  public static <T> List<T> modifiableList(T... items) {
+    ArrayList<T> newModifiableList = new ArrayList<>();
+    for (T item : items) {
+      newModifiableList.add(item);
+    }
+    return newModifiableList;
   }
 
 }

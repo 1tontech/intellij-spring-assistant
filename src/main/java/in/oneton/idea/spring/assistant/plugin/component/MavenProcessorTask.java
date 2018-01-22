@@ -5,7 +5,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
-import in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexService;
+import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import org.jetbrains.idea.maven.project.MavenConsole;
 import org.jetbrains.idea.maven.project.MavenEmbeddersManager;
 import org.jetbrains.idea.maven.project.MavenProjectsProcessorTask;
@@ -32,8 +32,7 @@ public class MavenProcessorTask implements MavenProjectsProcessorTask {
       log.debug("Will attempt to trigger indexing for project " + project.getName());
 
       try {
-        SuggestionIndexService service =
-            ServiceManager.getService(project, SuggestionIndexService.class);
+        SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
 
         if (!service.canProvideSuggestions(project, module)) {
           service.reindex(project, module);
@@ -50,7 +49,7 @@ public class MavenProcessorTask implements MavenProjectsProcessorTask {
 
   /**
    * Debug logging can be enabled by adding fully classified class name/package name with # prefix
-   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionIndexServiceImpl`
+   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl`
    *
    * @param doWhenDebug code to execute when debug is enabled
    */

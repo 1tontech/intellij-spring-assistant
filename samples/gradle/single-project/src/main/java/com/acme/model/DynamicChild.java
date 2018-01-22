@@ -1,8 +1,16 @@
 package com.acme.model;
 
 import lombok.Getter;
+import lombok.Setter;
 
+/**
+ *
+ */
 public class DynamicChild {
+  /**
+   * child prop documentation
+   */
   @Getter
-  private int primitive;
+  @Setter
+  private int childProp;
 }

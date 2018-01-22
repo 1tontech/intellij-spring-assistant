@@ -8,7 +8,7 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.EditorModificationUtil;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.util.PsiTreeUtil;
-import in.oneton.idea.spring.assistant.plugin.model.MetadataNode;
+import in.oneton.idea.spring.assistant.plugin.model.MetadataGroupSuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.ValueType;
 import org.jetbrains.annotations.NotNull;
@@ -22,12 +22,10 @@ import static in.oneton.idea.spring.assistant.plugin.Util.getCodeStyleIntent;
 
 public class PropertyKeyInsertHandler implements InsertHandler<LookupElement> {
 
-  private final MetadataNode ref;
-  private final ClassLoader classLoader;
+  private final MetadataGroupSuggestionNode ref;
 
-  public PropertyKeyInsertHandler(MetadataNode ref, ClassLoader classLoader) {
+  public PropertyKeyInsertHandler(MetadataGroupSuggestionNode ref) {
     this.ref = ref;
-    this.classLoader = classLoader;
   }
 
   @Override
@@ -36,11 +34,11 @@ public class PropertyKeyInsertHandler implements InsertHandler<LookupElement> {
     boolean leafDefaultValueNonObject = false;
     if (ref.isLeaf()) {
       assert ref.getProperty() != null;
-      valueType = ValueType.parse(ref.getProperty().getType(), classLoader);
+      valueType = ValueType.parse(ref.getProperty().getType());
       leafDefaultValueNonObject = ref.getProperty().hasNonObjectDefaultValue();
     } else if (ref.isGroup()) {
       assert ref.getGroup() != null;
-      valueType = ValueType.parse(ref.getGroup().getType(), classLoader);
+      valueType = ValueType.parse(ref.getGroup().getType());
     } else {
       valueType = ValueType.OBJECT;
     }

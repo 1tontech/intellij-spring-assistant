@@ -1,13 +1,15 @@
 package in.oneton.idea.spring.assistant.plugin.model.json;
 
 import com.intellij.codeInsight.documentation.DocumentationManager;
-import in.oneton.idea.spring.assistant.plugin.model.MetadataNode;
+import in.oneton.idea.spring.assistant.plugin.model.MetadataSuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.Suggestion;
+import in.oneton.idea.spring.assistant.plugin.model.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.ValueType;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import javax.annotation.Nullable;
+import java.util.List;
 
 import static in.oneton.idea.spring.assistant.plugin.Util.methodForDocumentationNavigation;
 import static in.oneton.idea.spring.assistant.plugin.Util.typeForDocumentationNavigation;
@@ -20,6 +22,7 @@ import static in.oneton.idea.spring.assistant.plugin.model.ValueType.shortenedTy
 @Data
 @EqualsAndHashCode(of = "name")
 public class SpringConfigurationMetadataGroup {
+
   private String name;
   @Nullable
   private String type;
@@ -30,7 +33,7 @@ public class SpringConfigurationMetadataGroup {
   @Nullable
   private String sourceMethod;
 
-  public String getDocumentation(MetadataNode propertyNode) {
+  public String getDocumentation(SuggestionNode propertyNode) {
     // Format for the documentation is as follows
     /*
      * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
@@ -74,10 +77,11 @@ public class SpringConfigurationMetadataGroup {
     return builder.toString();
   }
 
-  public Suggestion newSuggestion(MetadataNode ref, String suggestion) {
-    return Suggestion.builder().icon(ValueType.parse(type, classLoader).getIcon(false))
-        .suggestion(suggestion).description(description).shortType(shortenedType(type)).ref(ref)
-        .build();
+  public Suggestion newSuggestion(List<MetadataSuggestionNode> matchesRootTillParentNode,
+      String suggestion) {
+    return Suggestion.builder().icon(ValueType.parse(type).getIcon(false)).suggestion(suggestion)
+        .description(description).shortType(shortenedType(type))
+        .nodesRootToLeaf(matchesRootTillParentNode).build();
   }
 
 }
