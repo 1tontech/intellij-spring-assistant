@@ -58,6 +58,11 @@
       "name": "custom",
       "type": "com.acme.Custom",
       "description": "Custom group"
+    },
+    {
+      "name": "custom.group.collection",
+      "description": "Custom collection group",
+      "type": "java.util.Collection<com.acme.model.DynamicRoot>"
     }
   ],
   "properties": [
@@ -139,6 +144,11 @@
     {
       "name": "rootProperty",
       "description": "Property directly attached as root"
+    },
+    {
+      "name": "custom.group.collection.property",
+      "description": "Custom collection child property",
+      "type": "com.acme.model.DynamicRoot"
     }
   ]
 }

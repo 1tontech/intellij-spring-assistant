@@ -1,4 +1,4 @@
-package in.oneton.idea.spring.assistant.plugin.model.json;
+package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json;
 
 import com.google.gson.annotations.SerializedName;
 

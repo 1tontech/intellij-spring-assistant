@@ -14,9 +14,9 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.impl.light.LightElement;
 import in.oneton.idea.spring.assistant.plugin.Util;
-import in.oneton.idea.spring.assistant.plugin.model.MetadataGroupSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.model.Suggestion;
-import in.oneton.idea.spring.assistant.plugin.model.SuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.MetadataNonPropertySuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import lombok.ToString;
 import org.jetbrains.annotations.NotNull;
@@ -75,7 +75,7 @@ public class PropertiesDocumentationProvider extends AbstractDocumentationProvid
   public PsiElement getCustomDocumentationElement(@NotNull Editor editor, @NotNull PsiFile file,
       @Nullable PsiElement contextElement) {
     if (contextElement != null) {
-      MetadataGroupSuggestionNode target;
+      MetadataNonPropertySuggestionNode target;
       boolean requestedForTargetValue;
       String value;
 
@@ -100,9 +100,9 @@ public class PropertiesDocumentationProvider extends AbstractDocumentationProvid
 
       if (containerElements.size() > 0) {
         if (module == null) {
-          target = service.findDeepestExactMatch(project, containerElements);
+          //          target = service.findDeepestMatch(project, containerElements);
         } else {
-          target = service.findDeepestExactMatch(project, module, containerElements);
+          //          target = service.findDeepestMatch(project, module, containerElements);
         }
         if (target != null && target.isLeaf()) {
           requestedForTargetValue = Util.isValue(contextElement);

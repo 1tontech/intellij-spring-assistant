@@ -6,7 +6,7 @@ import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.util.text.CharArrayUtil;
 import org.apache.commons.lang.StringUtils;
 
-// borrowed from https://github.com/zalando/intellij-swagger
+// a large section of this class is borrowed from https://github.com/zalando/intellij-swagger
 public class YamlValueInsertHandler implements InsertHandler<LookupElement> {
 
   private static final char SINGLE_QUOTE = '\'';

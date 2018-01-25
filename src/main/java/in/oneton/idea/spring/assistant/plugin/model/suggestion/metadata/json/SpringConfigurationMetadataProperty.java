@@ -1,12 +1,13 @@
-package in.oneton.idea.spring.assistant.plugin.model.json;
+package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json;
 
 import com.google.gson.annotations.Expose;
 import com.intellij.codeInsight.documentation.DocumentationManager;
 import com.intellij.openapi.diagnostic.Logger;
-import in.oneton.idea.spring.assistant.plugin.model.MetadataGroupSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.model.Suggestion;
-import in.oneton.idea.spring.assistant.plugin.model.SuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.ValueType;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.MetadataNonPropertySuggestionNode;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.jetbrains.annotations.NotNull;
@@ -19,16 +20,19 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static in.oneton.idea.spring.assistant.plugin.Util.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.Util.methodForDocumentationNavigation;
+import static in.oneton.idea.spring.assistant.plugin.Util.newListWithMembers;
+import static in.oneton.idea.spring.assistant.plugin.Util.removeGenerics;
+import static in.oneton.idea.spring.assistant.plugin.Util.shortenedType;
 import static in.oneton.idea.spring.assistant.plugin.Util.typeForDocumentationNavigation;
 import static in.oneton.idea.spring.assistant.plugin.insert.handler.YamlValueInsertHandler.unescapeValue;
 import static in.oneton.idea.spring.assistant.plugin.model.ValueType.ARRAY;
 import static in.oneton.idea.spring.assistant.plugin.model.ValueType.BOOLEAN;
 import static in.oneton.idea.spring.assistant.plugin.model.ValueType.ENUM;
 import static in.oneton.idea.spring.assistant.plugin.model.ValueType.parse;
-import static in.oneton.idea.spring.assistant.plugin.model.ValueType.shortenedType;
-import static in.oneton.idea.spring.assistant.plugin.model.json.SpringConfigurationMetadataDeprecationLevel.error;
-import static in.oneton.idea.spring.assistant.plugin.model.json.SpringConfigurationMetadataDeprecationLevel.warning;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel.error;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel.warning;
 import static java.util.Arrays.stream;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.compare;
@@ -40,7 +44,7 @@ import static java.util.stream.Collectors.toSet;
 @Data
 @EqualsAndHashCode(of = "name")
 public class SpringConfigurationMetadataProperty
-    implements Comparable<SpringConfigurationMetadataProperty> {
+    implements Comparable<SpringConfigurationMetadataProperty>, SuggestionDocumentationHelper {
 
   private static final Logger log = Logger.getInstance(SpringConfigurationMetadataProperty.class);
 
@@ -87,21 +91,92 @@ public class SpringConfigurationMetadataProperty
     return compare(this, o, comparing(thiz -> thiz.name));
   }
 
-  public Suggestion newSuggestion(List<SuggestionNode> matchesRootTillParentNode,
-      String suggestion) {
+  @NotNull
+  @Override
+  public Suggestion buildSuggestion(String ancestralKeysDotDelimited,
+      List<SuggestionNode> matchesRootTillParentNode, SuggestionNode currentNode) {
     Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().icon(parse(type).getIcon(hasNonObjectDefaultValue()))
-            .suggestion(suggestion).description(this.description).shortType(shortenedType(type))
+        Suggestion.builder().icon(currentNode.getType().getIcon())
+            .value(dotDelimitedOriginalNames(matchesRootTillParentNode, currentNode))
+            .description(this.description).shortType(shortenedType(this.type))
             .defaultValue(defaultValueAsStr(defaultValue))
-            .nodesRootToLeaf(matchesRootTillParentNode);
+            .ancestralKeysDotDelimited(ancestralKeysDotDelimited)
+            .matchesTopFirst(newListWithMembers(matchesRootTillParentNode, currentNode));
     if (deprecation != null) {
       builder.deprecationLevel(deprecation.getLevel() != null ? deprecation.getLevel() : warning);
     }
     return builder.build();
   }
 
+  public String getDocumentationForKey(String nodeNavigationPathDotDelimited) {
+    // Format for the documentation is as follows
+    /*
+     * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
+     * <p><em>Default Value</em> default value</p>
+     * <p>Long description</p>
+     * or of this type
+     * <p><b>Type</b> {@link com.acme.Array}[]</p>
+     * <p><b>Declared at</b>{@link com.acme.GenericRemovedClass#method}></p> <-- only for groups with method info
+     * <b>WARNING:</b>
+     * @deprecated Due to something something. Replaced by <b>c.d.e</b>
+     */
+    StringBuilder builder =
+        new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
+
+    String typeInJavadocFormat = null;
+    if (type != null) {
+      StringBuilder buffer = new StringBuilder();
+      DocumentationManager
+          .createHyperlink(buffer, typeForDocumentationNavigation(type), type, false);
+      typeInJavadocFormat = buffer.toString();
+
+      builder.append(" (").append(typeInJavadocFormat).append(")");
+    }
+
+    if (description != null) {
+      builder.append("<p>").append(description).append("</p>");
+    }
+
+    if (defaultValue != null) {
+      builder.append("<p><em>Default value: </em>").append(defaultValueAsStr(defaultValue))
+          .append("</p>");
+    }
+
+    if (sourceType != null) {
+      String sourceTypeInJavadocFormat = removeGenerics(sourceType);
+
+      // lets show declaration point only if does not match the type
+      if (typeInJavadocFormat == null || !sourceTypeInJavadocFormat.equals(typeInJavadocFormat)) {
+        StringBuilder buffer = new StringBuilder();
+        DocumentationManager
+            .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
+                sourceTypeInJavadocFormat, false);
+        sourceTypeInJavadocFormat = buffer.toString();
+
+        builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");
+      }
+    }
+
+    if (isDeprecated()) {
+      builder.append("<p><b>").append((deprecation == null || error != deprecation.getLevel()) ?
+          "WARNING: PROPERTY IS DEPRECATED" :
+          "ERROR: DO NOT USE THIS PROPERTY AS IT IS COMPLETELY UNSUPPORTED").append("</b></p>");
+
+      if (deprecation != null && deprecation.getReason() != null) {
+        builder.append("@deprecated Reason: ").append(deprecation.getReason());
+      }
+
+      if (deprecation != null && deprecation.getReplacement() != null) {
+        builder.append("<p>Replaced by property <b>").append(deprecation.getReplacement())
+            .append("</b></p>");
+      }
+    }
+
+    return builder.toString();
+  }
+
   @Nullable
-  public Set<Suggestion> getValueSuggestions(MetadataGroupSuggestionNode propertyNode) {
+  public Set<Suggestion> getValueSuggestions(MetadataNonPropertySuggestionNode propertyNode) {
     Set<Suggestion> suggestions = null;
 
     if (hint != null && hint.getValues() != null) {
@@ -164,76 +239,9 @@ public class SpringConfigurationMetadataProperty
     return suggestions;
   }
 
-  public String getDocumentationForKey(MetadataGroupSuggestionNode propertyNode) {
-    // Format for the documentation is as follows
-    /*
-     * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
-     * <p><em>Default Value</em> default value</p>
-     * <p>Long description</p>
-     * or of this type
-     * <p><b>Type</b> {@link com.acme.Array}[]</p>
-     * <p><b>Declared at</b>{@link com.acme.GenericRemovedClass#method}></p> <-- only for groups with method info
-     * <b>WARNING:</b>
-     * @deprecated Due to something something. Replaced by <b>c.d.e</b>
-     */
+  public String getDocumentationForValue(String nodeNavigationPathDotDelimited, String value) {
     StringBuilder builder =
-        new StringBuilder().append("<b>").append(propertyNode.getFullPath()).append("</b>");
-
-    String typeInJavadocFormat = null;
-    if (type != null) {
-      StringBuilder buffer = new StringBuilder();
-      DocumentationManager
-          .createHyperlink(buffer, typeForDocumentationNavigation(type), type, false);
-      typeInJavadocFormat = buffer.toString();
-
-      builder.append(" (").append(typeInJavadocFormat).append(")");
-    }
-
-    if (description != null) {
-      builder.append("<p>").append(description).append("</p>");
-    }
-
-    if (defaultValue != null) {
-      builder.append("<p><em>Default value: </em>").append(defaultValueAsStr(defaultValue))
-          .append("</p>");
-    }
-
-    if (sourceType != null) {
-      String sourceTypeInJavadocFormat = ValueType.removeGenerics(sourceType);
-
-      // lets show declaration point only if does not match the type
-      if (typeInJavadocFormat == null || !sourceTypeInJavadocFormat.equals(typeInJavadocFormat)) {
-        StringBuilder buffer = new StringBuilder();
-        DocumentationManager
-            .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
-                sourceTypeInJavadocFormat, false);
-        sourceTypeInJavadocFormat = buffer.toString();
-
-        builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");
-      }
-    }
-
-    if (isDeprecated()) {
-      builder.append("<p><b>").append((deprecation == null || error != deprecation.getLevel()) ?
-          "WARNING: PROPERTY IS DEPRECATED" :
-          "ERROR: DO NOT USE THIS PROPERTY AS IT IS COMPLETELY UNSUPPORTED").append("</b></p>");
-
-      if (deprecation != null && deprecation.getReason() != null) {
-        builder.append("@deprecated Reason: ").append(deprecation.getReason());
-      }
-
-      if (deprecation != null && deprecation.getReplacement() != null) {
-        builder.append("<p>Replaced by property <b>").append(deprecation.getReplacement())
-            .append("</b></p>");
-      }
-    }
-
-    return builder.toString();
-  }
-
-  public String getDocumentationForValue(MetadataGroupSuggestionNode propertyNode, String value) {
-    StringBuilder builder =
-        new StringBuilder().append("<b>").append(propertyNode.getFullPath()).append("</b>");
+        new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
 
     if (type != null) {
       StringBuilder buffer = new StringBuilder();
@@ -247,7 +255,7 @@ public class SpringConfigurationMetadataProperty
     String trimmedValue = unescapeValue(value);
     builder.append("<p>").append(trimmedValue).append("</p>");
 
-    Set<Suggestion> choices = getValueSuggestions(propertyNode);
+    Set<Suggestion> choices = getValueSuggestions(this);
     if (choices != null) {
       choices.stream().filter(choice -> choice.getSuggestion().equals(trimmedValue)).findFirst()
           .ifPresent(suggestion -> {

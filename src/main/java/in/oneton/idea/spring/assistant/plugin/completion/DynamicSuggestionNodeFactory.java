@@ -5,7 +5,7 @@ import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiMember;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiType;
-import in.oneton.idea.spring.assistant.plugin.model.ClassSuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassSuggestionNode;
 import lombok.experimental.UtilityClass;
 
 @UtilityClass

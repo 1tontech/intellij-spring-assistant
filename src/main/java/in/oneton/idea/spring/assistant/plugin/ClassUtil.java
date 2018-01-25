@@ -1,6 +1,7 @@
 package in.oneton.idea.spring.assistant.plugin;
 
 import com.intellij.codeInsight.daemon.impl.analysis.JavaGenericsUtil;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.JavaPsiFacade;
@@ -14,22 +15,31 @@ import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiParameter;
 import com.intellij.psi.PsiPrimitiveType;
 import com.intellij.psi.PsiType;
+import com.intellij.psi.PsiVariable;
 import com.intellij.psi.util.PropertyUtil;
+import com.intellij.util.IncorrectOperationException;
 import gnu.trove.THashMap;
-import in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLSequence;
+import org.jetbrains.yaml.psi.YAMLSequenceItem;
+import org.jetbrains.yaml.psi.YAMLValue;
+import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.intellij.psi.JavaPsiFacade.getElementFactory;
 import static com.intellij.psi.PsiModifier.PUBLIC;
 import static com.intellij.psi.PsiModifier.STATIC;
 import static com.intellij.psi.PsiPrimitiveType.getUnboxedType;
-import static com.intellij.psi.search.GlobalSearchScope.moduleScope;
 import static com.intellij.psi.util.CachedValueProvider.Result.create;
 import static com.intellij.psi.util.CachedValuesManager.getCachedValue;
 import static com.intellij.psi.util.InheritanceUtil.isInheritor;
@@ -39,29 +49,78 @@ import static com.intellij.psi.util.PropertyUtil.getPropertyName;
 import static com.intellij.psi.util.PropertyUtil.isSimplePropertyGetter;
 import static com.intellij.psi.util.PropertyUtil.isSimplePropertySetter;
 import static com.intellij.psi.util.PsiModificationTracker.JAVA_STRUCTURE_MODIFICATION_COUNT;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.ARRAY;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.BOOLEAN;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.BYTE;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.CHARACTER;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.COLLECTION;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.DOUBLE;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.ENUM;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.FLOAT;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.INTEGER;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.KNOWN_CLASS;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.LONG;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.MAP;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.SHORT;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.STRING;
-import static in.oneton.idea.spring.assistant.plugin.model.SuggestionNodeType.UNKNOWN_CLASS;
-
+import static com.intellij.psi.util.PsiUtil.resolveGenericsClassInType;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode.sanitise;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ARRAY;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.BOOLEAN;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.BYTE;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.CHARACTER;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.COLLECTION;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.DOUBLE;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.FLOAT;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.INTEGER;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.KNOWN_CLASS;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.LONG;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.MAP;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.SHORT;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.STRING;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
+import static java.util.Objects.requireNonNull;
+import static java.util.Optional.ofNullable;
 
 @UtilityClass
-public class PsiUtil {
+public class ClassUtil {
+  private static final Logger log = Logger.getInstance(ClassUtil.class);
 
   @Nullable
-  public PsiClass findClass(@NotNull Module module, @NotNull String fqn) {
-    return JavaPsiFacade.getInstance(module.getProject()).findClass(fqn, moduleScope(module));
+  public PsiClassType safeFindClassType(@NotNull Module module, @NotNull String fqn) {
+    try {
+      PsiType type = JavaPsiFacade.getInstance(module.getProject()).getParserFacade()
+          .createTypeFromText(fqn, null);
+      if (type instanceof PsiClassType) {
+        return PsiClassType.class.cast(type);
+      }
+      return null;
+    } catch (IncorrectOperationException e) {
+      debug(() -> log.debug("Unable to find class fqn " + fqn));
+      return null;
+    }
+  }
+
+  public static PsiClass toClass(PsiClassType psiType) {
+    return psiType.resolve();
+  }
+
+  @NotNull
+  static PsiClass getContainerPsiClass(PsiElement psiElement) {
+    PsiElement parent = psiElement.getParent();
+    while (!(parent instanceof PsiClass)) {
+      parent = parent.getParent();
+    }
+    return (PsiClass) parent;
+  }
+
+  @NotNull
+  static PsiClassType getPsiClassType(PsiElement psiElement) {
+    if (psiElement instanceof PsiVariable) {
+      return (PsiClassType) ((PsiVariable) psiElement).getType();
+    } else if (psiElement instanceof PsiMethod) {
+      return (PsiClassType) requireNonNull(((PsiMethod) psiElement).getReturnType());
+    }
+    throw new RuntimeException("Method supports psiElement of type PsiField & PsiMethod only");
+  }
+
+  private static PsiClassType extractFirstTypeParameter(PsiClassType psiClassType) {
+    return (PsiClassType) psiClassType.resolveGenerics().getSubstitutor().getSubstitutionMap()
+        .values().iterator().next();
+  }
+
+  public static List<PsiType> getTypeParameters(PsiElement psiElement) {
+    PsiClassType psiClassType = getPsiClassType(psiElement);
+    Collection<PsiType> typeParameters =
+        psiClassType.resolveGenerics().getSubstitutor().getSubstitutionMap().values();
+    return new ArrayList<>(typeParameters);
   }
 
   @NotNull
@@ -69,14 +128,16 @@ public class PsiUtil {
       @Nullable String propertyName) {
     PsiMethod propertySetter = findPropertySetter(clazz, propertyName, false, true);
     return null == propertySetter ?
-        Optional.empty() : Optional.ofNullable(findPropertyFieldByMember(propertySetter));
+        Optional.empty() :
+        Optional.ofNullable(findPropertyFieldByMember(propertySetter));
   }
 
   @NotNull
-  public static SuggestionNodeType findType(@Nullable PsiClass psiClass) {
-    if (psiClass == null) {
+  public static SuggestionNodeType findType(@Nullable PsiClassType psiType) {
+    if (psiType == null) {
       return UNKNOWN_CLASS;
     }
+    PsiClass psiClass = toClass(psiType);
     if (isBoolean(psiClass)) {
       return BOOLEAN;
     } else if (isByte(psiClass)) {
@@ -180,18 +241,20 @@ public class PsiUtil {
     return JavaGenericsUtil.getCollectionItemType(type, psiClass.getResolveScope());
   }
 
-  @NotNull
-  public static Map<String, PsiMember> findWritableProperties(@Nullable PsiClass psiClass) {
+  @Nullable
+  public static Map<String, PsiMemberWrapper> getSanitisedPropertyToPsiMemberWrapper(
+      @Nullable PsiClass psiClass) {
     if (psiClass != null) {
       return getCachedValue(psiClass,
           () -> create(prepareWritableProperties(psiClass), JAVA_STRUCTURE_MODIFICATION_COUNT));
     }
-    return Collections.emptyMap();
+    return null;
   }
 
   @NotNull
-  private static Map<String, PsiMember> prepareWritableProperties(@NotNull PsiClass psiClass) {
-    final Map<String, PsiMember> acceptableMembers = new THashMap<>();
+  private static Map<String, PsiMemberWrapper> prepareWritableProperties(
+      @NotNull PsiClass psiClass) {
+    final Map<String, PsiMemberWrapper> memberNameToMemberWrapper = new THashMap<>();
     for (PsiMethod method : psiClass.getAllMethods()) {
       if (method.hasModifierProperty(STATIC) || !method.hasModifierProperty(PUBLIC)) {
         continue;
@@ -226,17 +289,18 @@ public class PsiUtil {
           }
         }
         if (acceptableMember != null)
-          acceptableMembers.put(propertyName, acceptableMember);
+          memberNameToMemberWrapper.put(sanitise(propertyName),
+              PsiMemberWrapper.builder().target(acceptableMember).build());
       }
     }
-    return acceptableMembers;
+    return memberNameToMemberWrapper;
   }
 
   @Nullable
   public static PsiType getWritablePropertyType(@Nullable PsiClass containingClass,
       @Nullable PsiElement declaration) {
     if (declaration instanceof PsiField) {
-      return getWrappedPropertyType((PsiField) declaration, JavaFxCommonNames.ourWritableMap);
+      return getFieldType((PsiField) declaration);
     }
     if (declaration instanceof PsiMethod) {
       final PsiMethod method = (PsiMethod) declaration;
@@ -260,17 +324,16 @@ public class PsiUtil {
   }
 
   @Nullable
-  public static PsiType getWrappedPropertyType(final PsiField field) {
+  public static PsiType getFieldType(final PsiField field) {
     return getCachedValue(field, () -> {
       final PsiType fieldType = field.getType();
-      final PsiClassType.ClassResolveResult resolveResult =
-          com.intellij.psi.util.PsiUtil.resolveGenericsClassInType(fieldType);
+      final PsiClassType.ClassResolveResult resolveResult = resolveGenericsClassInType(fieldType);
       final PsiClass fieldClass = resolveResult.getElement();
       if (fieldClass == null) {
         final PsiType propertyType = eraseFreeTypeParameters(fieldType, field);
         return create(propertyType, JAVA_STRUCTURE_MODIFICATION_COUNT);
       }
-      return create(null, JAVA_STRUCTURE_MODIFICATION_COUNT);
+      return null;
     });
   }
 
@@ -296,10 +359,11 @@ public class PsiUtil {
   @Nullable
   private static PsiType eraseFreeTypeParameters(@Nullable PsiType psiType,
       @Nullable PsiClass containingClass) {
-    if (containingClass == null)
+    if (containingClass == null) {
       return null;
-    return JavaPsiFacade.getElementFactory(containingClass.getProject())
-        .createRawSubstitutor(containingClass).substitute(psiType);
+    }
+    return getElementFactory(containingClass.getProject()).createRawSubstitutor(containingClass)
+        .substitute(psiType);
   }
 
   private static PsiType getGetterReturnType(@NotNull PsiMethod method) {
@@ -323,6 +387,64 @@ public class PsiUtil {
       }
     }
     return null;
+  }
+
+  public static boolean isYamlArrayElement(final PsiElement element) {
+    return element instanceof YAMLValue && element.getParent() instanceof YAMLSequence;
+  }
+
+  public static boolean isYamlKey(final PsiElement element) {
+    PsiElement parent = element.getParent();
+    return parent instanceof YAMLKeyValue && element == ((YAMLKeyValue) parent).getKey();
+  }
+
+  public static boolean isYamlValue(final PsiElement element) {
+    PsiElement parent = element.getParent();
+    return parent instanceof YAMLKeyValue && element == ((YAMLKeyValue) parent).getValue();
+  }
+
+  private static Optional<YAMLKeyValue> getAsYamlKeyValue(final PsiElement psiElement) {
+    return ofNullable(psiElement).map(PsiElement::getParent)
+        .filter(el -> el instanceof YAMLKeyValue).map(YAMLKeyValue.class::cast)
+        .filter(value -> value.getKey() == psiElement);
+  }
+
+  public static Optional<String> getKeyNameOfObject(final PsiElement psiElement) {
+    return Optional.of(psiElement).filter(el -> el instanceof YAMLKeyValue)
+        .map(YAMLKeyValue.class::cast).map(YAMLKeyValue::getName);
+  }
+
+  public static boolean isArrayStringElement(final PsiElement psiElement) {
+    return psiElement.getParent() instanceof YAMLPlainTextImpl && psiElement.getParent()
+        .getParent() instanceof YAMLSequenceItem;
+  }
+
+  public static Optional<String> getKeyNameIfKey(final PsiElement psiElement) {
+    return getAsYamlKeyValue(psiElement).map(YAMLKeyValue::getKeyText);
+  }
+
+  //  public static boolean isValue(final PsiElement psiElement) {
+  //    //@formatter:off
+//    return !(isBlank(psiElement.getText()) || psiElement instanceof YAMLKeyValue)
+//        && ofNullable(psiElement.getParent())
+//              .map(PsiElement::getParent)
+//              .filter(el -> el instanceof YAMLKeyValue)
+//              .map(YAMLKeyValue.class::cast)
+//              .filter(el -> el.getValue() == psiElement.getParent())
+//              .isPresent();
+//    //@formatter:on
+  //  }
+
+  /**
+   * Debug logging can be enabled by adding fully classified class name/package name with # prefix
+   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl`
+   *
+   * @param doWhenDebug code to execute when debug is enabled
+   */
+  private void debug(Runnable doWhenDebug) {
+    if (log.isDebugEnabled()) {
+      doWhenDebug.run();
+    }
   }
 
 }

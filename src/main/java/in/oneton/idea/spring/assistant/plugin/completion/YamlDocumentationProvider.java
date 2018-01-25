@@ -12,10 +12,9 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.impl.light.LightElement;
-import in.oneton.idea.spring.assistant.plugin.Util;
-import in.oneton.idea.spring.assistant.plugin.model.MetadataGroupSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.model.Suggestion;
-import in.oneton.idea.spring.assistant.plugin.model.SuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.ClassUtil;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import lombok.ToString;
 import org.jetbrains.annotations.NotNull;
@@ -27,8 +26,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.intellij.psi.util.PsiTreeUtil.getParentOfType;
-import static in.oneton.idea.spring.assistant.plugin.Util.getKeyNameOfObject;
+import static in.oneton.idea.spring.assistant.plugin.ClassUtil.getKeyNameOfObject;
 import static in.oneton.idea.spring.assistant.plugin.Util.truncateIdeaDummyIdentifier;
+import static java.util.stream.Collectors.joining;
 
 public class YamlDocumentationProvider extends AbstractDocumentationProvider {
   @Override
@@ -37,12 +37,13 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       DocumentationProxyElement proxyElement = DocumentationProxyElement.class.cast(element);
       SuggestionNode target = proxyElement.target;
 
-      // Only group & leaf are expected to have documentation
-      if (target != null && (target.isGroup() || target.isLeaf())) {
-        if (proxyElement.forValue) {
-          return target.getDocumentationForValue(proxyElement.value);
+      // Intermediate nodes will not have
+      if (target != null && target.supportsDocumentation()) {
+        if (proxyElement.requestedForTargetValue) {
+          return target.getDocumentationForValue(proxyElement.nodeNavigationPathDotDelimited,
+              proxyElement.value);
         } else {
-          return target.getDocumentationForKey();
+          return target.getDocumentationForKey(proxyElement.nodeNavigationPathDotDelimited);
         }
       }
     }
@@ -56,15 +57,17 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
   public PsiElement getDocumentationElementForLookupItem(PsiManager psiManager, Object object,
       @Nullable PsiElement element) {
     if (object instanceof Suggestion) {
+      //noinspection unchecked
       Suggestion suggestion = Suggestion.class.cast(object);
-      SuggestionNode target = suggestion.getRef();
-      boolean requestedForTargetValue = suggestion.isForValue();
       String text = null;
       if (element != null) {
         text = element.getText();
       }
-      return new DocumentationProxyElement(psiManager, JavaLanguage.INSTANCE, target,
-          requestedForTargetValue, text);
+      return new DocumentationProxyElement(psiManager, JavaLanguage.INSTANCE,
+          suggestion.getFullPath(),
+          // TODO: Fix this
+          suggestion.getMatchesTopFirst().get(suggestion.getMatchesTopFirst().size() - 1),
+          suggestion.isForValue(), text);
     }
     return super.getDocumentationElementForLookupItem(psiManager, object, element);
   }
@@ -72,22 +75,22 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
   @Nullable
   @Override
   public PsiElement getCustomDocumentationElement(@NotNull Editor editor, @NotNull PsiFile file,
-      @Nullable PsiElement contextElement) {
-    if (contextElement != null) {
-      MetadataGroupSuggestionNode target;
+      @Nullable PsiElement element) {
+    if (element != null) {
+      List<SuggestionNode> matchedNodesFromRootTillLeaf;
       boolean requestedForTargetValue;
       String value;
 
-      SuggestionService service =
-          ServiceManager.getService(contextElement.getProject(), SuggestionService.class);
+      SuggestionService suggestionService =
+          ServiceManager.getService(element.getProject(), SuggestionService.class);
 
-      Project project = contextElement.getProject();
-      Module module = ModuleUtil.findModuleForPsiElement(contextElement);
+      Project project = element.getProject();
+      Module module = ModuleUtil.findModuleForPsiElement(element);
 
       List<String> containerElements = new ArrayList<>();
-      Optional<String> keyNameIfKey = getKeyNameOfObject(contextElement);
+      Optional<String> keyNameIfKey = getKeyNameOfObject(element);
       keyNameIfKey.ifPresent(containerElements::add);
-      YAMLKeyValue keyValue = getParentOfType(contextElement, YAMLKeyValue.class);
+      YAMLKeyValue keyValue = getParentOfType(element, YAMLKeyValue.class);
 
       while (keyValue != null) {
         assert keyValue.getKey() != null;
@@ -96,48 +99,49 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       }
 
       requestedForTargetValue = false;
-      value = contextElement.getText();
+      value = element.getText();
 
       if (containerElements.size() > 0) {
-        if (module == null) {
-          target = service.findDeepestExactMatch(project, containerElements);
-        } else {
-          target = service.findDeepestExactMatch(project, module, containerElements);
-        }
-        if (target != null && target.isLeaf()) {
-          requestedForTargetValue = Util.isValue(contextElement);
-        }
-
-        if (target != null) {
-          return new DocumentationProxyElement(file.getManager(), file.getLanguage(), target,
-              requestedForTargetValue, value);
+        matchedNodesFromRootTillLeaf =
+            suggestionService.findMatchedNodesRootTillEnd(project, module, containerElements);
+        if (matchedNodesFromRootTillLeaf != null) {
+          SuggestionNode target =
+              matchedNodesFromRootTillLeaf.get(matchedNodesFromRootTillLeaf.size() - 1);
+          if (target.isLeaf()) {
+            requestedForTargetValue = ClassUtil.isYamlValue(element);
+          }
+          String targetNavigationPathDotDelimited =
+              matchedNodesFromRootTillLeaf.stream().map(SuggestionNode::getNameForDocumentation)
+                  .collect(joining("."));
+          return new DocumentationProxyElement(file.getManager(), file.getLanguage(),
+              targetNavigationPathDotDelimited, target, requestedForTargetValue, value);
         }
       }
     }
-    return super.getCustomDocumentationElement(editor, file, contextElement);
+    return super.getCustomDocumentationElement(editor, file, element);
   }
 
-  @ToString(of = "target")
+  @ToString(of = "nodeNavigationPathDotDelimited")
   private static class DocumentationProxyElement extends LightElement {
     private final SuggestionNode target;
+    private final boolean requestedForTargetValue;
     @Nullable
     private final String value;
-    /**
-     * Documentation can be requested for the key (or) value. Value would be `false` if the documentation is requested for target. `true` if the request if for value
-     */
-    private boolean forValue;
+    private final String nodeNavigationPathDotDelimited;
 
     DocumentationProxyElement(@NotNull final PsiManager manager, @NotNull final Language language,
-        @NotNull final SuggestionNode target, boolean forValue, @Nullable String value) {
+        String nodeNavigationPathDotDelimited, @NotNull final SuggestionNode target,
+        boolean requestedForTargetValue, @Nullable String value) {
       super(manager, language);
+      this.nodeNavigationPathDotDelimited = nodeNavigationPathDotDelimited;
       this.target = target;
-      this.forValue = forValue;
+      this.requestedForTargetValue = requestedForTargetValue;
       this.value = value;
     }
 
     @Override
     public String getText() {
-      return target.getFullPath();
+      return nodeNavigationPathDotDelimited;
     }
   }
 

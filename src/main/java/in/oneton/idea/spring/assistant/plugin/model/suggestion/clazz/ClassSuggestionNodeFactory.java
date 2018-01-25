@@ -1,28 +1,15 @@
-package in.oneton.idea.spring.assistant.plugin.model;
+package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 
 import com.intellij.psi.PsiClass;
-import in.oneton.idea.spring.assistant.plugin.completion.ArrayClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.BooleanClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.ByteClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.CharacterClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.CollectionClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.DoubleClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.EnumClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.FloatClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.GenericClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.IntegerClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.LongClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.MapClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.ShortClassSuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.completion.StringClassSuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 
-import static in.oneton.idea.spring.assistant.plugin.PsiUtil.findType;
+import static in.oneton.idea.spring.assistant.plugin.ClassUtil.findType;
 
 @UtilityClass
-public final class ClassSuggestionNodeFactory {
-  public static ClassSuggestionNode newInstance(@NotNull PsiClass psiClass) {
+final class ClassSuggestionNodeFactory {
+  static ClassSuggestionNode newInstance(@NotNull PsiClass psiClass) {
     SuggestionNodeType type = findType(psiClass);
     switch (type) {
       case BOOLEAN:
