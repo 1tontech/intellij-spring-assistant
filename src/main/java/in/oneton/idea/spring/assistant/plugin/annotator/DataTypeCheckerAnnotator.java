@@ -28,8 +28,8 @@ public class DataTypeCheckerAnnotator implements Annotator {
     //      final Property property =
     //          KubernetesYamlPsiUtil.propertyForKey(modelProvider, resourceKey, keyValue);
     //      final YAMLValue value = keyValue.getValue();
-    //      if (property != null && property.getType() != null && value != null) {
-    //        switch (property.getType()) {
+    //      if (property != null && property.getSuggestionNodeType() != null && value != null) {
+    //        switch (property.getSuggestionNodeType()) {
     //          case ARRAY:
     //            if (!(value instanceof YAMLSequence)) {
     //              annotationHolder.createErrorAnnotation(value,

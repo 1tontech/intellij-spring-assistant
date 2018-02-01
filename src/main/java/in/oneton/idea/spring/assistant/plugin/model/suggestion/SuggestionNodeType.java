@@ -6,15 +6,18 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 
-import static in.oneton.idea.spring.assistant.plugin.Util.getCodeStyleIntent;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getCodeStyleIntent;
 
 public enum SuggestionNodeType {
-  BOOLEAN, BYTE, SHORT, INTEGER, LONG, FLOAT, DOUBLE, CHARACTER, STRING, ENUM, ARRAY, COLLECTION, MAP, KNOWN_CLASS, UNKNOWN_CLASS, UNDEFINED;
+  BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, CHAR, STRING, /**
+   * Known set of values. Similar to enum, but does not correspond to a class
+   */
+  VALUES, ENUM, ARRAY, ITERABLE, MAP, KNOWN_CLASS, UNKNOWN_CLASS, UNDEFINED;
 
   public static final String CARET = "<caret>";
 
   public boolean isWholeNumber() {
-    return this == BYTE || this == SHORT || this == INTEGER || this == LONG;
+    return this == BYTE || this == SHORT || this == INT || this == LONG;
   }
 
   public boolean isDecimal() {
@@ -22,30 +25,26 @@ public enum SuggestionNodeType {
   }
 
   public boolean representsLeaf() {
-    return representsPrimitiveOrString() || representsEnum() || this == UNKNOWN_CLASS
+    return representsPrimitiveOrString() || representsEnumOrValues() || this == UNKNOWN_CLASS
         || this == UNDEFINED;
   }
 
-  private boolean representsEnum() {
-    return this == ENUM;
+  private boolean representsEnumOrValues() {
+    return this == ENUM || this == VALUES;
   }
 
   private boolean representsPrimitiveOrString() {
-    return this == BOOLEAN || isWholeNumber() || isDecimal() || this == CHARACTER || this == STRING;
-  }
-
-  public boolean potentiallyLeaf() {
-    return representsLeaf() || representsArrayOrCollection();
+    return this == BOOLEAN || isWholeNumber() || isDecimal() || this == CHAR || this == STRING;
   }
 
   public boolean representsArrayOrCollection() {
-    return this == ARRAY || this == COLLECTION;
+    return this == ARRAY || this == ITERABLE;
   }
 
   public Icon getIcon() {
     if (representsPrimitiveOrString()) {
       return AllIcons.Nodes.Property;
-    } else if (representsEnum()) {
+    } else if (representsEnumOrValues()) {
       return AllIcons.Nodes.Enum;
     } else if (representsArrayOrCollection()) {
       return AllIcons.Json.Array;
@@ -57,7 +56,9 @@ public enum SuggestionNodeType {
   @NotNull
   public String getPlaceholderSufixForKey(InsertionContext insertionContext,
       String existingIndentation) {
-    if (representsLeaf()) {
+    if (this == UNDEFINED || this == UNKNOWN_CLASS) {
+      return ":" + CARET;
+    } else if (representsLeaf()) {
       return ": " + CARET;
     } else if (representsArrayOrCollection()) {
       return ":\n" + existingIndentation + getCodeStyleIntent(insertionContext) + "- " + CARET;

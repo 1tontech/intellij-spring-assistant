@@ -1,4 +1,4 @@
-package in.oneton.idea.spring.assistant.plugin;
+package in.oneton.idea.spring.assistant.plugin.util;
 
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.openapi.module.Module;
@@ -10,11 +10,17 @@ import com.intellij.psi.codeStyle.CommonCodeStyleSettings;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLSequence;
+import org.jetbrains.yaml.psi.YAMLSequenceItem;
+import org.jetbrains.yaml.psi.YAMLValue;
+import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
 
 import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -29,10 +35,11 @@ import static com.intellij.openapi.util.text.StringUtil.replace;
 import static java.text.BreakIterator.getSentenceInstance;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;
+import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 
 @UtilityClass
-public class Util {
+public class GenericUtil {
   private static final Pattern PACKAGE_REMOVAL_PATTERN =
       Pattern.compile("[a-zA-Z_][a-zA-Z_0-9]*\\.");
   private static final Pattern GENERIC_SECTION_REMOVAL_PATTERN = Pattern.compile("<[^>]+>");
@@ -134,25 +141,36 @@ public class Util {
     return type;
   }
 
-  public static String dotDelimitedOriginalNames(
+  public static String dotDelimitedOriginalNames(Module module,
       List<? extends SuggestionNode> matchesTopFirstTillParentNode, SuggestionNode currentNode) {
     StringBuilder builder = new StringBuilder();
 
     for (SuggestionNode aMatchesTopFirstTillParentNode : matchesTopFirstTillParentNode) {
-      builder.append(aMatchesTopFirstTillParentNode.getOriginalName()).append(".");
+      String originalName = aMatchesTopFirstTillParentNode.getOriginalName(module);
+      if (originalName != null) {
+        builder.append(originalName).append(".");
+      }
     }
-    builder.append(currentNode.getOriginalName());
+
+    String originalName = currentNode.getOriginalName(module);
+    if (originalName != null) {
+      builder.append(originalName);
+    }
     return builder.toString();
   }
 
-  public static String dotDelimitedOriginalNames(List<? extends SuggestionNode> matches) {
+  public static String dotDelimitedOriginalNames(Module module,
+      List<? extends SuggestionNode> matches) {
     StringBuilder builder = new StringBuilder();
 
     for (int i = 0; i < matches.size(); i++) {
-      builder.append(matches.get(i).getOriginalName());
-      boolean appendDot = i < matches.size() - 1;
-      if (appendDot) {
-        builder.append(".");
+      String originalName = matches.get(i).getOriginalName(module);
+      if (originalName != null) {
+        builder.append(originalName);
+        boolean appendDot = i < matches.size() - 1;
+        if (appendDot) {
+          builder.append(".");
+        }
       }
     }
     return builder.toString();
@@ -164,5 +182,51 @@ public class Util {
     suggestions.add(t);
     return suggestions;
   }
+
+  public static boolean isYamlArrayElement(final PsiElement element) {
+    return element instanceof YAMLValue && element.getParent() instanceof YAMLSequence;
+  }
+
+  public static boolean isYamlKey(final PsiElement element) {
+    PsiElement parent = element.getParent();
+    return parent instanceof YAMLKeyValue && element == ((YAMLKeyValue) parent).getKey();
+  }
+
+  public static boolean isYamlValue(final PsiElement element) {
+    PsiElement parent = element.getParent();
+    return parent instanceof YAMLKeyValue && element == ((YAMLKeyValue) parent).getValue();
+  }
+
+  private static Optional<YAMLKeyValue> getAsYamlKeyValue(final PsiElement psiElement) {
+    return ofNullable(psiElement).map(PsiElement::getParent)
+        .filter(el -> el instanceof YAMLKeyValue).map(YAMLKeyValue.class::cast)
+        .filter(value -> value.getKey() == psiElement);
+  }
+
+  public static Optional<String> getKeyNameOfObject(final PsiElement psiElement) {
+    return Optional.of(psiElement).filter(el -> el instanceof YAMLKeyValue)
+        .map(YAMLKeyValue.class::cast).map(YAMLKeyValue::getName);
+  }
+
+  public static boolean isArrayStringElement(final PsiElement psiElement) {
+    return psiElement.getParent() instanceof YAMLPlainTextImpl && psiElement.getParent()
+        .getParent() instanceof YAMLSequenceItem;
+  }
+
+  public static Optional<String> getKeyNameIfKey(final PsiElement psiElement) {
+    return getAsYamlKeyValue(psiElement).map(YAMLKeyValue::getKeyText);
+  }
+
+  //  public static boolean isValue(final PsiElement psiElement) {
+  //    //@formatter:off
+//    return !(isBlank(psiElement.getText()) || psiElement instanceof YAMLKeyValue)
+//        && ofNullable(psiElement.getParent())
+//              .map(PsiElement::getParent)
+//              .filter(el -> el instanceof YAMLKeyValue)
+//              .map(YAMLKeyValue.class::cast)
+//              .filter(el -> el.getValue() == psiElement.getParent())
+//              .isPresent();
+//    //@formatter:on
+  //  }
 
 }

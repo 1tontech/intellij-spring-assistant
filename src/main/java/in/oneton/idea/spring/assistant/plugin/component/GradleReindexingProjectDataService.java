@@ -20,7 +20,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collection;
 
 import static com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil.getExternalRootProjectPath;
-import static in.oneton.idea.spring.assistant.plugin.Util.moduleNamesAsStrCommaDelimited;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.moduleNamesAsStrCommaDelimited;
 import static java.util.Arrays.stream;
 
 /**

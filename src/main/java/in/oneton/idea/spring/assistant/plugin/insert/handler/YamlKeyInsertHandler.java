@@ -15,28 +15,26 @@ import org.jetbrains.yaml.psi.YAMLKeyValue;
 
 import static com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction;
 import static com.intellij.openapi.editor.EditorModificationUtil.insertStringAtCaret;
-import static in.oneton.idea.spring.assistant.plugin.Util.getCodeStyleIntent;
+import static com.intellij.openapi.module.ModuleUtilCore.findModuleForPsiElement;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.CARET;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getCodeStyleIntent;
+import static java.util.Objects.requireNonNull;
 
 public class YamlKeyInsertHandler implements InsertHandler<LookupElement> {
 
-  private final Suggestion suggestion;
-
-  public YamlKeyInsertHandler(Suggestion suggestion) {
-    this.suggestion = suggestion;
-  }
-
   @Override
-  public void handleInsert(final InsertionContext context, final LookupElement item) {
-    SuggestionNodeType type = suggestion.getSuggestionType();
-
+  public void handleInsert(final InsertionContext context, final LookupElement lookupElement) {
     if (!nextCharAfterSpacesAndQuotesIsColon(getStringAfterAutoCompletedValue(context))) {
-      String existingIndentation = getExistingIndentation(context, item);
-      Suggestion suggestion = (Suggestion) item.getObject();
+      String existingIndentation = getExistingIndentation(context, lookupElement);
+      Suggestion suggestion = (Suggestion) lookupElement.getObject();
       String indent = getCodeStyleIntent(context);
-      String insertedText = suggestion.getSuggestionReplacement(existingIndentation, indent);
+      String insertedText = suggestion.getSuggestionReplacement(
+          findModuleForPsiElement(requireNonNull(lookupElement.getPsiElement())),
+          existingIndentation, indent);
       String additionalIndent = suggestion.getNewOverallIndent(existingIndentation, indent);
 
+      SuggestionNodeType type = suggestion.getSuggestionNodeType(
+          findModuleForPsiElement(requireNonNull(lookupElement.getPsiElement())));
       final String suggestionWithCaret =
           insertedText + type.getPlaceholderSufixForKey(context, additionalIndent);
       final String suggestionWithoutCaret = suggestionWithCaret.replace(CARET, "");

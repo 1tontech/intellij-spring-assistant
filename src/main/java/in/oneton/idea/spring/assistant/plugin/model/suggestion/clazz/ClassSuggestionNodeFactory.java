@@ -1,50 +1,72 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 
-import com.intellij.psi.PsiClass;
+import com.intellij.openapi.module.Module;
+import com.intellij.psi.PsiArrayType;
+import com.intellij.psi.PsiClassType;
+import com.intellij.psi.PsiPrimitiveType;
+import com.intellij.psi.PsiType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 
-import static in.oneton.idea.spring.assistant.plugin.ClassUtil.findType;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.MAP;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getSuggestionNodeType;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.safeGetValidType;
 
 @UtilityClass
-final class ClassSuggestionNodeFactory {
-  static ClassSuggestionNode newInstance(@NotNull PsiClass psiClass) {
-    SuggestionNodeType type = findType(psiClass);
-    switch (type) {
+public final class ClassSuggestionNodeFactory {
+
+  static ClassMetadata newClassMetadata(@NotNull PsiType type) {
+    SuggestionNodeType nodeType = getSuggestionNodeType(type);
+    switch (nodeType) {
       case BOOLEAN:
-        return new BooleanClassSuggestionNode(psiClass);
+        return new BooleanClassMetadata();
       case BYTE:
-        return new ByteClassSuggestionNode(psiClass);
       case SHORT:
-        return new ShortClassSuggestionNode(psiClass);
-      case INTEGER:
-        return new IntegerClassSuggestionNode(psiClass);
+      case INT:
       case LONG:
-        return new LongClassSuggestionNode(psiClass);
       case FLOAT:
-        return new FloatClassSuggestionNode(psiClass);
       case DOUBLE:
-        return new DoubleClassSuggestionNode(psiClass);
-      case CHARACTER:
-        return new CharacterClassSuggestionNode(psiClass);
+      case CHAR:
       case STRING:
-        return new StringClassSuggestionNode(psiClass);
+        return new DummyClassMetadata(nodeType);
       case ENUM:
-        return new EnumClassSuggestionNode(psiClass);
-      case ARRAY:
-        return new ArrayClassSuggestionNode(psiClass);
-      case COLLECTION:
-        return new CollectionClassSuggestionNode(psiClass);
+        return new EnumClassMetadata((PsiClassType) type);
+      case ITERABLE:
+        return new IterableClassMetadata((PsiClassType) type);
       case MAP:
-        return new MapClassSuggestionNode(psiClass);
+        return new MapClassMetadata((PsiClassType) type);
       case KNOWN_CLASS:
-        return new GenericClassSuggestionNode(psiClass, true);
+        return new GenericClassMetadata((PsiClassType) type);
       case UNKNOWN_CLASS:
-        return new GenericClassSuggestionNode(psiClass, false);
+        return new DummyClassMetadata(nodeType);
       default:
         throw new IllegalStateException(
-            "Class suggestion node for the specified class " + psiClass + " is undefined");
+            "Class suggestion node for the specified class " + type + " is undefined");
     }
+  }
+
+  @NotNull
+  public static MetadataProxy newMetadataProxy(Module module, @NotNull PsiType type) {
+    if (type instanceof PsiArrayType) {
+      return new ArrayMetadataProxy(module, (PsiArrayType) type);
+    } else if (type instanceof PsiPrimitiveType) {
+      PsiType boxedPrimitiveType =
+          safeGetValidType(module, ((PsiPrimitiveType) type).getBoxedTypeName());
+      assert boxedPrimitiveType instanceof PsiClassType;
+      type = boxedPrimitiveType;
+    }
+
+    if (type instanceof PsiClassType) {
+      SuggestionNodeType suggestionNodeType = getSuggestionNodeType(type);
+      if (suggestionNodeType == MAP) {
+        return new MapClassMetadataProxy((PsiClassType) type);
+      } else {
+        return new ClassMetadataProxy((PsiClassType) type);
+      }
+    }
+
+    throw new IllegalAccessError(
+        "Supports only PsiArrayType, PsiPrimitiveType & PsiClassType types");
   }
 }

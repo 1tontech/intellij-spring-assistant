@@ -23,14 +23,14 @@
         <completion.contributor language="yaml"
                                 implementationClass="in.oneton.idea.spring.assistant.plugin.completion.YamlCompletionContributor"/>
 
-        <completion.contributor language="Properties"
-                                implementationClass="in.oneton.idea.spring.assistant.plugin.completion.PropertiesCompletionContributor"/>
+        <!--<completion.contributor language="Properties"-->
+        <!--implementationClass="in.oneton.idea.spring.assistant.plugin.completion.PropertiesCompletionContributor"/>-->
 
         <documentationProvider
                 implementation="in.oneton.idea.spring.assistant.plugin.completion.YamlDocumentationProvider"/>
 
-        <documentationProvider
-                implementation="in.oneton.idea.spring.assistant.plugin.completion.PropertiesDocumentationProvider"/>
+        <!--<documentationProvider-->
+        <!--implementation="in.oneton.idea.spring.assistant.plugin.completion.PropertiesDocumentationProvider"/>-->
 
         <!--<annotator-->
         <!--implementationClass="DuplicateKeyAnnotator"-->

@@ -1,16 +1,12 @@
 package in.oneton.idea.spring.assistant.plugin.completion;
 
-import com.intellij.codeInsight.completion.CompletionContributor;
-import com.intellij.codeInsight.completion.CompletionType;
-import com.intellij.lang.properties.PropertiesLanguage;
-import com.intellij.patterns.PlatformPatterns;
+public class PropertiesCompletionContributor {
+  //    extends CompletionContributor {
 
-public class PropertiesCompletionContributor extends CompletionContributor {
-
-  public PropertiesCompletionContributor() {
-    extend(CompletionType.BASIC,
-        PlatformPatterns.psiElement().withLanguage(PropertiesLanguage.INSTANCE),
-        new PropertiesCompletionProvider());
-  }
+  //  public PropertiesCompletionContributor() {
+  //    extend(CompletionType.BASIC,
+  //        PlatformPatterns.psiElement().withLanguage(PropertiesLanguage.INSTANCE),
+  //        new PropertiesCompletionProvider());
+  //  }
 
 }

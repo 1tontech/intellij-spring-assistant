@@ -12,7 +12,7 @@ import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.idea.maven.project.MavenImportListener;
 
-import static in.oneton.idea.spring.assistant.plugin.Util.moduleNamesAsStrCommaDelimited;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.moduleNamesAsStrCommaDelimited;
 
 public class MavenReIndexingDependencyChangeSubscriberImpl
     implements MavenReIndexingDependencyChangeSubscriber, ProjectComponent {

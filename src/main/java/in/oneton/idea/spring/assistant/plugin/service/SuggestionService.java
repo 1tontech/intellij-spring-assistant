@@ -26,10 +26,10 @@ public interface SuggestionService {
   void reindex(Project project, Module module);
 
   //  @Nullable
-  //  SuggestionNode findDeepestMatch(Project project, List<String> containerElementsLeafToRoot);
+  //  SuggestionNode findDeepestSuggestionNode(Project project, List<String> containerElementsLeafToRoot);
 
   //  @Nullable
-  //  SuggestionNode findDeepestMatch(Project project, Module module, List<String> containerElements);
+  //  SuggestionNode findDeepestSuggestionNode(Project project, Module module, List<String> containerElements);
 
   @Nullable
   List<SuggestionNode> findMatchedNodesRootTillEnd(Project project, Module module,
@@ -47,7 +47,7 @@ public interface SuggestionService {
   //   * @return results matching query string (without the containerElementsLeafToRoot). In the above example the values would be `simple.acknowledge-mode` & `simple.auto-startup`
   //   */
   //  @Nullable
-  //  List<LookupElementBuilder> computeSuggestions(Project project, PsiElement element,
+  //  List<LookupElementBuilder> computeSuggestionsForKey(Project project, PsiElement element,
   //      @Nullable List<String> ancestralKeys, String queryWithDotDelimitedPrefixes);
 
   /**
@@ -59,7 +59,8 @@ public interface SuggestionService {
    * @return results matching query string (without the containerElementsLeafToRoot). In the above example the values would be `simple.acknowledge-mode` & `simple.auto-startup`
    */
   @Nullable
-  List<LookupElementBuilder> computeSuggestions(Project project, Module module, PsiElement element,
+  List<LookupElementBuilder> computeSuggestionsForKey(Project project, Module module,
+      PsiElement element,
       @Nullable List<String> ancestralKeys, String queryWithDotDelimitedPrefixes);
 
 }

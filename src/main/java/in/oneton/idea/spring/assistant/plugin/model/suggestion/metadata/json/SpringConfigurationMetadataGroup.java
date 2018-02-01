@@ -1,6 +1,7 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json;
 
 import com.intellij.codeInsight.documentation.DocumentationManager;
+import com.intellij.openapi.module.Module;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
@@ -12,13 +13,13 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nullable;
 import java.util.List;
 
-import static in.oneton.idea.spring.assistant.plugin.Util.dotDelimitedOriginalNames;
-import static in.oneton.idea.spring.assistant.plugin.Util.methodForDocumentationNavigation;
-import static in.oneton.idea.spring.assistant.plugin.Util.newListWithMembers;
-import static in.oneton.idea.spring.assistant.plugin.Util.removeGenerics;
-import static in.oneton.idea.spring.assistant.plugin.Util.shortenedType;
-import static in.oneton.idea.spring.assistant.plugin.Util.typeForDocumentationNavigation;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNDEFINED;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.methodForDocumentationNavigation;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.newListWithMembers;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.removeGenerics;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.shortenedType;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.typeForDocumentationNavigation;
 
 /**
  * Refer to https://docs.spring.io/spring-boot/docs/2.0.0/reference/htmlsingle/#configuration-metadata-group-attributes
@@ -39,7 +40,7 @@ public class SpringConfigurationMetadataGroup {
   @NotNull
   private SuggestionNodeType nodeType = UNDEFINED;
 
-  public String getDocumentation(String nodeNavigationPathDotDelimited) {
+  public String getDocumentation(Module module, String nodeNavigationPathDotDelimited) {
     // Format for the documentation is as follows
     /*
      * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
@@ -83,11 +84,10 @@ public class SpringConfigurationMetadataGroup {
     return builder.toString();
   }
 
-  public Suggestion newSuggestion(String ancestralKeysDotDelimited,
-      List<? extends SuggestionNode> matchesRootTillParentNode,
-      MetadataSuggestionNode currentNode) {
+  public Suggestion newSuggestion(Module module, String ancestralKeysDotDelimited,
+      List<SuggestionNode> matchesRootTillParentNode, MetadataSuggestionNode currentNode) {
     return Suggestion.builder()
-        .value(dotDelimitedOriginalNames(matchesRootTillParentNode, currentNode))
+        .pathOrValue(dotDelimitedOriginalNames(module, matchesRootTillParentNode, currentNode))
         .icon(nodeType.getIcon()).description(description).shortType(shortenedType(type))
         .ancestralKeysDotDelimited(ancestralKeysDotDelimited)
         .matchesTopFirst(newListWithMembers(matchesRootTillParentNode, currentNode)).build();

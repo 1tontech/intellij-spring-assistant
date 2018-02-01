@@ -1,11 +1,9 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata;
 
 import com.intellij.openapi.module.Module;
-import com.intellij.psi.PsiClassType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
-import in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassSuggestionNodeProxy;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,18 +20,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
 
-import static in.oneton.idea.spring.assistant.plugin.ClassUtil.safeFindClassType;
-import static in.oneton.idea.spring.assistant.plugin.ClassUtil.toClass;
-import static in.oneton.idea.spring.assistant.plugin.Util.newListWithMembers;
-import static in.oneton.idea.spring.assistant.plugin.Util.newSingleElementSortedSet;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode.sanitise;
-import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ARRAY;
-import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.MAP;
-import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNDEFINED;
-import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
-import static in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel.error;
-import static java.util.Collections.unmodifiableList;
-import static org.apache.commons.lang3.StringUtils.isEmpty;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.newSingleElementSortedSet;
 
 /**
  * Represents leaf node in the tree that holds the reference to dynamic suggestion node
@@ -67,22 +55,14 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
   // TODO: Make sure that this will be part of search only if type & sourceType are part of the class path
   private SpringConfigurationMetadataProperty property;
 
-  private String typeAsStr;
   /**
-   * Responsible for all suggestion queries that needs to be matched against a class
-   */
-  @Nullable
-  private ClassSuggestionNodeProxy delegate;
-
-  /**
-   * @param module       IDEA module to which this property belongs
    * @param originalName name that is not sanitised
    * @param property     property to associate
    * @param parent       parent MetadataNonPropertySuggestionNode node
    * @param belongsTo    file/jar containing this property
    * @return newly constructed property node
    */
-  public static MetadataPropertySuggestionNode newInstance(Module module, String originalName,
+  public static MetadataPropertySuggestionNode newInstance(String originalName,
       @NotNull SpringConfigurationMetadataProperty property,
       @Nullable MetadataNonPropertySuggestionNode parent, String belongsTo) {
     MetadataPropertySuggestionNode.MetadataPropertySuggestionNodeBuilder builder =
@@ -91,46 +71,36 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
     HashSet<String> belongsToSet = new HashSet<>();
     belongsToSet.add(belongsTo);
     builder.belongsTo(belongsToSet);
-
-    if (property.getType() != null) {
-      PsiClassType propertyClassType = safeFindClassType(module, property.getType());
-      if (propertyClassType != null) {
-        builder.delegate(new ClassSuggestionNodeProxy(toClass(propertyClassType)));
-      }
-      builder.typeAsStr(property.getType());
-    }
     return builder.build();
   }
 
   /**
    * A property node can represent either leaf/an object depending on `type` & `hint`s associated with `SpringConfigurationMetadataProperty`
    *
+   * @param module module
    * @return true if leaf, false otherwise
    */
   @Override
-  public boolean isLeaf() {
-    SuggestionNodeType type = getType();
-    return type.representsLeaf() || (type.potentiallyLeaf() && (
-        property.doesGenericHintRepresentsArray() || delegate == null || delegate.isLeaf()));
+  public boolean isLeaf(Module module) {
+    return property.isLeaf(module);
   }
 
   /**
    * Type information can come from `hint` & `type` attribute of `SpringConfigurationMetadataProperty`
    *
+   * @param module module
    * @return node type
    */
   @NotNull
   @Override
-  public SuggestionNodeType getType() {
-    if (property.hasValueHint()) {
-      return MAP;
-    } else if (property.doesGenericHintRepresentsArray()) {
-      return ARRAY;
-    } else {
-      return delegate != null ?
-          delegate.getType() :
-          (!isEmpty(typeAsStr) ? UNKNOWN_CLASS : UNDEFINED);
-    }
+  public SuggestionNodeType getSuggestionNodeType(Module module) {
+    return property.getSuggestionNodeType(module);
+  }
+
+  @NotNull
+  @Override
+  public String getOriginalName(Module module) {
+    return property.getOriginalName();
   }
 
   @Override
@@ -153,31 +123,11 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
     return deepestMatch;
   }
 
-  @Override
-  public SuggestionNode findDeepestMatch(String[] pathSegments, int pathSegmentStartIndex) {
-    SuggestionNode deepestMatch = null;
-    boolean haveMoreSegments = pathSegmentStartIndex < pathSegments.length;
-    if (haveMoreSegments) {
-      String pathSegment = pathSegments[pathSegmentStartIndex];
-      if (name.equals(pathSegment)) {
-        boolean lastSegment = pathSegmentStartIndex == (pathSegments.length - 1);
-        if (lastSegment) {
-          deepestMatch = this;
-        } else {
-          if (delegate != null && delegate.hasChildren()) {
-            deepestMatch = delegate.findDeepestMatch(pathSegments, pathSegmentStartIndex);
-          }
-        }
-      }
-    }
-
-    return deepestMatch;
-  }
-
   @Nullable
   @Override
-  public List<SuggestionNode> findDeepestMatch(List<SuggestionNode> matchesRootTillParentNode,
-      String[] pathSegments, int pathSegmentStartIndex) {
+  public List<SuggestionNode> findDeepestSuggestionNode(Module module,
+      List<SuggestionNode> matchesRootTillParentNode, String[] pathSegments,
+      int pathSegmentStartIndex) {
     List<SuggestionNode> deepestMatch = null;
     boolean haveMoreSegments = pathSegmentStartIndex < pathSegments.length;
     if (haveMoreSegments) {
@@ -188,9 +138,10 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
         if (lastSegment) {
           deepestMatch = matchesRootTillParentNode;
         } else {
-          if (delegate != null && delegate.hasChildren()) {
-            deepestMatch = delegate.findDeepestMatch(matchesRootTillParentNode, pathSegments,
-                pathSegmentStartIndex + 1);
+          if (!property.isLeaf(module)) {
+            deepestMatch = property
+                .findChildDeepestKeyMatch(module, matchesRootTillParentNode, pathSegments,
+                    pathSegmentStartIndex + 1);
           }
         }
       }
@@ -201,27 +152,37 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
 
   @Nullable
   @Override
-  public SortedSet<Suggestion> findSuggestionsForKey(@Nullable String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillParentNode, String[] querySegmentPrefixes,
-      int querySegmentPrefixStartIndex) {
-    if (isNotDeprecatedError()) {
+  protected SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
+      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
+      boolean navigateDeepIfNoMatches) {
+    return findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited, matchesRootTillMe,
+        querySegmentPrefixes, querySegmentPrefixStartIndex);
+  }
+
+  @Nullable
+  @Override
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
+      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+    if (!property.isDeprecatedError()) {
       boolean lookingForConcreteNode = querySegmentPrefixStartIndex >= querySegmentPrefixes.length;
       if (lookingForConcreteNode) {
         return newSingleElementSortedSet(
-            property.buildSuggestion(ancestralKeysDotDelimited, matchesRootTillParentNode, this));
+            property.buildKeySuggestion(module, ancestralKeysDotDelimited, matchesRootTillMe));
       } else {
         String querySegmentPrefix = querySegmentPrefixes[querySegmentPrefixStartIndex];
         if (name.startsWith(querySegmentPrefix)) {
           boolean lastQuerySegment =
               querySegmentPrefixStartIndex == (querySegmentPrefixes.length - 1);
           if (lastQuerySegment) {
-            return newSingleElementSortedSet(property
-                .buildSuggestion(ancestralKeysDotDelimited, matchesRootTillParentNode, this));
+            return newSingleElementSortedSet(
+                property.buildKeySuggestion(module, ancestralKeysDotDelimited, matchesRootTillMe));
           } else {
-            if (delegate != null) {
-              return delegate.findSuggestionsForKey(ancestralKeysDotDelimited,
-                  unmodifiableList(newListWithMembers(matchesRootTillParentNode, this)),
-                  querySegmentPrefixes, querySegmentPrefixStartIndex + 1);
+            if (!property.isLeaf(module)) {
+              return property
+                  .findChildKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited,
+                      matchesRootTillMe, querySegmentPrefixes, querySegmentPrefixStartIndex + 1);
             }
           }
         }
@@ -232,17 +193,23 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
 
   @Nullable
   @Override
-  public String getDocumentationForKey(String nodeNavigationPathDotDelimited) {
+  public String getDocumentationForKey(Module module, String nodeNavigationPathDotDelimited) {
     return property.getDocumentationForKey(nodeNavigationPathDotDelimited);
   }
 
   @Nullable
   @Override
-  protected SortedSet<Suggestion> findSuggestionsForKey(@Nullable String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillParentNode, String[] querySegmentPrefixes,
-      int querySegmentPrefixStartIndex, boolean navigateDeepIfNoMatches) {
-    return findSuggestionsForKey(ancestralKeysDotDelimited, matchesRootTillParentNode,
-        querySegmentPrefixes, querySegmentPrefixStartIndex);
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module,
+      List<SuggestionNode> matchesRootTillMe, String prefix) {
+    return property.findSuggestionsForValues(module, matchesRootTillMe, prefix);
+  }
+
+  @Nullable
+  @Override
+  public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
+      String value) {
+    throw new IllegalAccessError(
+        "Should never be accessed. If the property is a leaf & have hints, this method should have been called on HintAwareSuggestionNode, not on this object");
   }
 
   @Override
@@ -261,7 +228,7 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
   }
 
   @Override
-  protected boolean hasOnlyOneChild() {
+  protected boolean hasOnlyOneChild(Module module) {
     // since we have to delegate any further lookups to the delegate (which has additional cost associated with parsing & building childrenTrie dynamically)
     // lets always lie to caller that we have more than one child so that the search terminates at this node on the initial lookup
     return false;
@@ -276,26 +243,7 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
 
   @Override
   public void refreshClassProxy(Module module) {
-    if (property.getType() != null) {
-      // Lets update the delegate information only if anything has changed from last time we saw this
-      PsiClassType propertyClassType = safeFindClassType(module, property.getType());
-      // In the previous refresh, class could not be found. Now class is available in the classpath
-      if (propertyClassType != null && delegate == null) {
-        delegate = new ClassSuggestionNodeProxy(toClass(propertyClassType));
-      }
-      // In the previous refresh, class was available in classpath. Now it is nolonger available
-      if (propertyClassType == null && delegate != null) {
-        delegate = null;
-      }
-    }
-  }
-
-  /**
-   * @return false if the property is not deprecated & level is error, true otherwise
-   */
-  private boolean isNotDeprecatedError() {
-    return !property.isDeprecated() || property.getDeprecation() == null
-        || property.getDeprecation().getLevel() != error;
+    property.refreshDelegate(module);
   }
 
 }

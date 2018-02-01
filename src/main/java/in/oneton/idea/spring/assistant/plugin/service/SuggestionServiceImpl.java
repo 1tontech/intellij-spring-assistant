@@ -1,6 +1,6 @@
 package in.oneton.idea.spring.assistant.plugin.service;
 
-import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
@@ -16,10 +16,13 @@ import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.Metadata
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.MetadataNonPropertySuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.MetadataPropertySuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.MetadataSuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.GsonPostProcessEnablingTypeFactory;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadata;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataGroup;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataHint;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataProperty;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataValueProviderType;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataValueProviderTypeDeserializer;
 import org.apache.commons.collections4.Trie;
 import org.apache.commons.collections4.trie.PatriciaTrie;
 import org.apache.commons.lang.time.StopWatch;
@@ -40,17 +43,16 @@ import java.util.SortedMap;
 import java.util.concurrent.Future;
 
 import static com.intellij.openapi.application.ApplicationManager.getApplication;
-import static in.oneton.idea.spring.assistant.plugin.Util.modifiableList;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion.PERIOD_DELIMITER;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode.sanitise;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.MetadataContainerInfo.getContainerFile;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.modifiableList;
 import static java.util.Arrays.stream;
 import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.commons.lang3.StringUtils.isEmpty;
 
 public class SuggestionServiceImpl implements SuggestionService {
 
@@ -183,7 +185,7 @@ public class SuggestionServiceImpl implements SuggestionService {
       if (searchStartNode != null) {
         List<SuggestionNode> matches = modifiableList(searchStartNode);
         if (pathSegments.length > 1) {
-          return searchStartNode.findDeepestMatch(matches, pathSegments, 1);
+          return searchStartNode.findDeepestSuggestionNode(module, matches, pathSegments, 1);
         }
         return matches;
       }
@@ -198,44 +200,44 @@ public class SuggestionServiceImpl implements SuggestionService {
     return rootSearchIndex != null && rootSearchIndex.size() != 0;
   }
 
-  @Override
-  public List<LookupElementBuilder> computeSuggestions(Project project, Module module,
+  public List<LookupElementBuilder> computeSuggestionsForKey(Project project, Module module,
       PsiElement element, @Nullable List<String> ancestralKeys,
       String queryWithDotDelimitedPrefixes) {
-    return computeSuggestions(moduleNameToRootSearchIndex.get(module.getName()), element,
-        ancestralKeys, queryWithDotDelimitedPrefixes);
+    return doFindSuggestionsForKey(module, moduleNameToRootSearchIndex.get(module.getName()),
+        element, ancestralKeys, queryWithDotDelimitedPrefixes);
   }
 
   private List<MetadataContainerInfo> computeNewContainersToProcess(OrderEnumerator orderEnumerator,
       Map<String, MetadataContainerInfo> seenContainerPathToContainerInfo) {
     List<MetadataContainerInfo> containersToProcess = new ArrayList<>();
     for (VirtualFile metadataFileContainer : orderEnumerator.recursively().classes().getRoots()) {
-      MetadataContainerInfo metadataContainerInfo =
-          MetadataContainerInfo.newInstance(metadataFileContainer);
-      boolean seenBefore =
-          seenContainerPathToContainerInfo.containsKey(metadataContainerInfo.getContainerPath());
+      Collection<MetadataContainerInfo> metadataContainerInfos =
+          MetadataContainerInfo.newInstances(metadataFileContainer);
+      for (MetadataContainerInfo metadataContainerInfo : metadataContainerInfos) {
+        boolean seenBefore =
+            seenContainerPathToContainerInfo.containsKey(metadataContainerInfo.getContainerPath());
 
-      boolean updatedSinceLastSeen = false;
-      if (seenBefore) {
-        MetadataContainerInfo seenMetadataContainerInfo =
-            seenContainerPathToContainerInfo.get(metadataContainerInfo.getContainerPath());
-        updatedSinceLastSeen = metadataContainerInfo.isModified(seenMetadataContainerInfo);
-        if (updatedSinceLastSeen) {
-          debug(() -> log.debug(
-              "Container seems to have been updated. Previous version: " + seenMetadataContainerInfo
-                  + "; Newer version: " + metadataContainerInfo));
+        boolean updatedSinceLastSeen = false;
+        if (seenBefore) {
+          MetadataContainerInfo seenMetadataContainerInfo =
+              seenContainerPathToContainerInfo.get(metadataContainerInfo.getContainerPath());
+          updatedSinceLastSeen = metadataContainerInfo.isModified(seenMetadataContainerInfo);
+          if (updatedSinceLastSeen) {
+            debug(() -> log.debug("Container seems to have been updated. Previous version: "
+                + seenMetadataContainerInfo + "; Newer version: " + metadataContainerInfo));
+          }
         }
-      }
 
-      boolean looksFresh = !seenBefore || updatedSinceLastSeen;
-      boolean processMetadata = looksFresh && metadataContainerInfo.containsMetadataFile();
-      if (processMetadata) {
-        containersToProcess.add(metadataContainerInfo);
-      }
+        boolean looksFresh = !seenBefore || updatedSinceLastSeen;
+        boolean processMetadata = looksFresh && metadataContainerInfo.containsMetadataFile();
+        if (processMetadata) {
+          containersToProcess.add(metadataContainerInfo);
+        }
 
-      if (looksFresh) {
-        seenContainerPathToContainerInfo
-            .put(metadataContainerInfo.getContainerPath(), metadataContainerInfo);
+        if (looksFresh) {
+          seenContainerPathToContainerInfo
+              .put(metadataContainerInfo.getContainerPath(), metadataContainerInfo);
+        }
       }
     }
 
@@ -245,7 +247,7 @@ public class SuggestionServiceImpl implements SuggestionService {
     return containersToProcess;
   }
 
-  private List<LookupElementBuilder> computeSuggestions(
+  private List<LookupElementBuilder> doFindSuggestionsForKey(Module module,
       Trie<String, MetadataSuggestionNode> rootSearchIndex, PsiElement element,
       @Nullable List<String> ancestralKeys, String queryWithDotDelimitedPrefixes) {
     debug(() -> log.debug("Search requested for " + queryWithDotDelimitedPrefixes));
@@ -260,35 +262,46 @@ public class SuggestionServiceImpl implements SuggestionService {
                 .toArray(String[]::new);
         MetadataSuggestionNode rootNode = rootSearchIndex.get(sanitise(ancestralKeySegments[0]));
         if (rootNode != null) {
-          SuggestionNode searchStartNode = null;
+          List<SuggestionNode> matchesRootToDeepest = null;
           if (ancestralKeySegments.length > 1) {
             String[] sanitisedAncestralPathSegments =
                 stream(ancestralKeySegments).map(SuggestionNode::sanitise).toArray(String[]::new);
-            searchStartNode = rootNode.findDeepestMatch(sanitisedAncestralPathSegments, 1);
+            matchesRootToDeepest = rootNode
+                .findDeepestSuggestionNode(module, emptyList(), sanitisedAncestralPathSegments, 1);
           }
-          if (searchStartNode != null) {
+          if (matchesRootToDeepest != null && matchesRootToDeepest.size() != 0) {
             // if node is a leaf, this means, the user is looking for values for the given key, lets find the suggestions for values
-            if (!searchStartNode.isLeaf()) {
-              suggestions = searchStartNode.findSuggestionsForValue(element.getText());
+            SuggestionNode deepestNode = matchesRootToDeepest.get(matchesRootToDeepest.size() - 1);
+            if (deepestNode.isLeaf(module)) {
+              suggestions = deepestNode
+                  .findValueSuggestionsForPrefix(module, matchesRootToDeepest, element.getText());
             } else {
               String ancestralKeysDotDelimited = stream(ancestralKeySegments).collect(joining("."));
-              suggestions = searchStartNode
-                  .findSuggestionsForKey(ancestralKeysDotDelimited, emptyList(),
-                      querySegmentPrefixes, 0);
+              suggestions = deepestNode
+                  .findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited,
+                      matchesRootToDeepest, querySegmentPrefixes, 0);
             }
           }
         }
       } else {
         String rootQuerySegmentPrefix = querySegmentPrefixes[0];
-        if (isEmpty(rootQuerySegmentPrefix)) {
-          Collection<MetadataSuggestionNode> nodesToSearchWithin = rootSearchIndex.values();
-          suggestions = computeSuggestions(nodesToSearchWithin, querySegmentPrefixes, 0);
+        SortedMap<String, MetadataSuggestionNode> topLevelQueryResults =
+            rootSearchIndex.prefixMap(rootQuerySegmentPrefix);
+
+        Collection<MetadataSuggestionNode> childNodes;
+        int querySegmentPrefixStartIndex;
+
+        // If no results are found at the top level, let dive deeper and find matches
+        if (topLevelQueryResults == null || topLevelQueryResults.size() == 0) {
+          childNodes = rootSearchIndex.values();
+          querySegmentPrefixStartIndex = 0;
         } else {
-          SortedMap<String, MetadataSuggestionNode> topLevelQueryResults =
-              rootSearchIndex.prefixMap(rootQuerySegmentPrefix);
-          Collection<MetadataSuggestionNode> childNodes = topLevelQueryResults.values();
-          suggestions = computeSuggestions(childNodes, querySegmentPrefixes, 1);
+          childNodes = topLevelQueryResults.values();
+          querySegmentPrefixStartIndex = 1;
         }
+
+        suggestions = doFindSuggestionsForKey(module, childNodes, querySegmentPrefixes,
+            querySegmentPrefixStartIndex);
       }
 
       if (suggestions != null) {
@@ -302,13 +315,14 @@ public class SuggestionServiceImpl implements SuggestionService {
   }
 
   @Nullable
-  private Set<Suggestion> computeSuggestions(Collection<MetadataSuggestionNode> nodesToSearchWithin,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+  private Set<Suggestion> doFindSuggestionsForKey(Module module,
+      Collection<MetadataSuggestionNode> nodesToSearchWithin, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex) {
     Set<Suggestion> suggestions = null;
     for (MetadataSuggestionNode suggestionNode : nodesToSearchWithin) {
       Set<Suggestion> matchedSuggestions = suggestionNode
-          .findSuggestionsForKey(null, modifiableList(suggestionNode), querySegmentPrefixes,
-              querySegmentPrefixStartIndex);
+          .findKeySuggestionsForQueryPrefix(module, null, modifiableList(suggestionNode),
+              querySegmentPrefixes, querySegmentPrefixStartIndex);
       if (matchedSuggestions != null) {
         if (suggestions == null) {
           suggestions = new HashSet<>();
@@ -363,7 +377,12 @@ public class SuggestionServiceImpl implements SuggestionService {
 
       String metadataFilePath = metadataContainerInfo.getPath();
       try (InputStream inputStream = metadataContainerInfo.getMetadataFile().getInputStream()) {
-        SpringConfigurationMetadata springConfigurationMetadata = new Gson()
+        GsonBuilder gsonBuilder = new GsonBuilder();
+        // register custom mapper adapters
+        gsonBuilder.registerTypeAdapter(SpringConfigurationMetadataValueProviderType.class,
+            new SpringConfigurationMetadataValueProviderTypeDeserializer());
+        gsonBuilder.registerTypeAdapterFactory(new GsonPostProcessEnablingTypeFactory());
+        SpringConfigurationMetadata springConfigurationMetadata = gsonBuilder.create()
             .fromJson(new BufferedReader(new InputStreamReader(inputStream)),
                 SpringConfigurationMetadata.class);
         buildMetadataHierarchy(module, rootSearchIndex, metadataContainerInfo,
@@ -400,7 +419,7 @@ public class SuggestionServiceImpl implements SuggestionService {
 
     List<MetadataContainerInfo> moduleContainersToRemove =
         computeContainersToRemove(moduleOrderEnumerator,
-        moduleSeenContainerPathToSeenContainerInfo);
+            moduleSeenContainerPathToSeenContainerInfo);
     moduleContainersToRemove.addAll(projectContainersToRemove);
 
     processContainers(module, newModuleContainersToProcess, moduleContainersToRemove,
@@ -415,11 +434,11 @@ public class SuggestionServiceImpl implements SuggestionService {
     String containerPath = metadataContainerInfo.getContainerPath();
     addGroupsToIndex(module, rootSearchIndex, springConfigurationMetadata, containerPath);
     addPropertiesToIndex(module, rootSearchIndex, springConfigurationMetadata, containerPath);
-    addHintsToIndex(rootSearchIndex, springConfigurationMetadata, containerPath);
+    addHintsToIndex(module, rootSearchIndex, springConfigurationMetadata, containerPath);
     debug(() -> log.debug("Done adding container to index"));
   }
 
-  private void addHintsToIndex(Trie<String, MetadataSuggestionNode> rootSearchIndex,
+  private void addHintsToIndex(Module module, Trie<String, MetadataSuggestionNode> rootSearchIndex,
       SpringConfigurationMetadata springConfigurationMetadata, String containerPath) {
     List<SpringConfigurationMetadataHint> hints = springConfigurationMetadata.getHints();
     if (hints != null) {
@@ -432,7 +451,7 @@ public class SuggestionServiceImpl implements SuggestionService {
           if (!closestMetadata.isProperty()) {
             log.error(
                 "Unexpected hint " + hint.getName() + " is assigned to  group " + closestMetadata
-                    .getPathFromRoot()
+                    .getPathFromRoot(module)
                     + " found. Hints can be only assigned to property. Ignoring the hint completely.Existing group belongs to ("
                     + closestMetadata.getBelongsTo().stream().collect(joining(","))
                     + "), New hint belongs " + containerPath);
@@ -453,7 +472,8 @@ public class SuggestionServiceImpl implements SuggestionService {
   private void addPropertiesToIndex(Module module,
       Trie<String, MetadataSuggestionNode> rootSearchIndex,
       SpringConfigurationMetadata springConfigurationMetadata, String containerPath) {
-    List<SpringConfigurationMetadataProperty> properties = springConfigurationMetadata.getProperties();
+    List<SpringConfigurationMetadataProperty> properties =
+        springConfigurationMetadata.getProperties();
     properties.sort(comparing(SpringConfigurationMetadataProperty::getName));
     for (SpringConfigurationMetadataProperty property : properties) {
       String[] pathSegments = toSanitizedPathSegments(property.getName());
@@ -466,7 +486,7 @@ public class SuggestionServiceImpl implements SuggestionService {
         boolean onlyRootSegmentExists = pathSegments.length == 1;
         if (onlyRootSegmentExists) {
           closestMetadata = MetadataPropertySuggestionNode
-              .newInstance(module, unsanitisedRootSegment, property, null, containerPath);
+              .newInstance(unsanitisedRootSegment, property, null, containerPath);
         } else {
           closestMetadata = MetadataNonPropertySuggestionNode
               .newInstance(unsanitisedRootSegment, null, containerPath);
@@ -480,8 +500,10 @@ public class SuggestionServiceImpl implements SuggestionService {
       }
 
       if (closestMetadata.isProperty()) {
-        log.error("Detected a duplicate metadata property for suggestion path " + closestMetadata.getPathFromRoot() + ". Ignoring property. Existing property belongs to ("
-            + closestMetadata.getBelongsTo().stream().collect(joining(",")) + "), New property belongs to " + containerPath);
+        log.error("Detected a duplicate metadata property for suggestion path " + closestMetadata
+            .getPathFromRoot(module) + ". Ignoring property. Existing property belongs to ("
+            + closestMetadata.getBelongsTo().stream().collect(joining(","))
+            + "), New property belongs to " + containerPath);
       } else {
         // Can happen when `a.b.c` is already added to the metadata tree from an earlier metadata source & now we are trying to add a group for `a.b`
         // In this e.g, startIndex would be 2. So, there is no point in adding children. We only need to update the tree appropriately
@@ -489,12 +511,14 @@ public class SuggestionServiceImpl implements SuggestionService {
           if (closestMetadata.isGroup()) {
             log.error(
                 "Detected conflict between a new metadata property & existing group for suggestion path "
-                    + closestMetadata.getPathFromRoot() + ". Ignoring property. Existing group belongs to (" + closestMetadata
-                    .getBelongsTo().stream().collect(joining(",")) + "), New property belongs to " + containerPath);
+                    + closestMetadata.getPathFromRoot(module)
+                    + ". Ignoring property. Existing group belongs to (" + closestMetadata
+                    .getBelongsTo().stream().collect(joining(",")) + "), New property belongs to "
+                    + containerPath);
           }
         } else {
           MetadataNonPropertySuggestionNode.class.cast(closestMetadata)
-              .addChildren(module, property, pathSegments, startIndex, containerPath);
+              .addChildren(property, pathSegments, startIndex, containerPath);
         }
       }
     }
@@ -535,7 +559,7 @@ public class SuggestionServiceImpl implements SuggestionService {
         if (closestMetadata.isProperty()) {
           log.error(
               "Detected conflict between an existing metadata property & new group for suggestion path "
-                  + closestMetadata.getPathFromRoot()
+                  + closestMetadata.getPathFromRoot(module)
                   + ". Ignoring new group. Existing Property belongs to (" + closestMetadata
                   .getBelongsTo().stream().collect(joining(",")) + "), New Group belongs to "
                   + containerPath);

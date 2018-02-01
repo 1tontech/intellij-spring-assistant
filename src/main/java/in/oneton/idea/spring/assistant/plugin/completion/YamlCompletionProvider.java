@@ -6,7 +6,6 @@ import com.intellij.codeInsight.completion.CompletionResultSet;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.module.Module;
-import com.intellij.openapi.module.ModuleUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.PsiElement;
@@ -19,7 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.intellij.psi.util.PsiTreeUtil.getParentOfType;
-import static in.oneton.idea.spring.assistant.plugin.Util.truncateIdeaDummyIdentifier;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.truncateIdeaDummyIdentifier;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findModuleForElement;
 
 class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
   @Override
@@ -32,12 +32,11 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
     }
 
     Project project = element.getProject();
-    Module module = ModuleUtil.findModuleForPsiElement(element);
+    Module module = findModuleForElement(element);
 
     SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
 
-    if ((module == null || !service.canProvideSuggestions(project, module)) && !service
-        .canProvideSuggestions(project)) {
+    if ((module == null || !service.canProvideSuggestions(project, module))) {
       return;
     }
 
@@ -48,13 +47,8 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
     String queryWithDotDelimitedPrefixes = truncateIdeaDummyIdentifier(element);
 
     if (keyValue == null) {
-      if (module == null) {
-        suggestions =
-            service.computeSuggestions(project, element, null, queryWithDotDelimitedPrefixes);
-      } else {
-        suggestions = service
-            .computeSuggestions(project, module, element, null, queryWithDotDelimitedPrefixes);
-      }
+      suggestions = service
+          .computeSuggestionsForKey(project, module, element, null, queryWithDotDelimitedPrefixes);
     } else {
       List<String> containerElements = new ArrayList<>();
       do {
@@ -62,13 +56,8 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
         keyValue = getParentOfType(keyValue, YAMLKeyValue.class);
       } while (keyValue != null);
 
-      if (module == null) {
-        suggestions = service
-            .computeSuggestions(project, element, containerElements, queryWithDotDelimitedPrefixes);
-      } else {
-        suggestions = service.computeSuggestions(project, module, element, containerElements,
-            queryWithDotDelimitedPrefixes);
-      }
+      suggestions = service.computeSuggestionsForKey(project, module, element, containerElements,
+          queryWithDotDelimitedPrefixes);
     }
 
     if (suggestions != null) {

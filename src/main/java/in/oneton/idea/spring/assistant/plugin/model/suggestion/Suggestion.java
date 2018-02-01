@@ -6,9 +6,10 @@ import com.intellij.codeInsight.lookup.LookupElementPresentation;
 import com.intellij.codeInsight.lookup.LookupElementRenderer;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.markup.TextAttributes;
+import com.intellij.openapi.module.Module;
 import in.oneton.idea.spring.assistant.plugin.insert.handler.YamlKeyInsertHandler;
 import in.oneton.idea.spring.assistant.plugin.insert.handler.YamlValueInsertHandler;
-import in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassSuggestionNode;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassMetadata;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -23,13 +24,13 @@ import java.util.List;
 import static com.intellij.openapi.util.text.StringUtil.shortenTextWithEllipsis;
 import static com.intellij.ui.JBColor.RED;
 import static com.intellij.ui.JBColor.YELLOW;
-import static in.oneton.idea.spring.assistant.plugin.Util.dotDelimitedOriginalNames;
-import static in.oneton.idea.spring.assistant.plugin.Util.getFirstSentenceWithoutDot;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getFirstSentenceWithoutDot;
 import static org.jetbrains.yaml.YAMLHighlighter.SCALAR_TEXT;
 
 @Getter
 @Builder
-@EqualsAndHashCode(of = "value")
+@EqualsAndHashCode(of = "pathOrValue")
 public class Suggestion implements Comparable<Suggestion> {
   public static final String PERIOD_DELIMITER = "\\.";
 
@@ -52,7 +53,7 @@ public class Suggestion implements Comparable<Suggestion> {
 
           String lookupString = element.getLookupString();
           presentation.setItemText(lookupString);
-          if (!lookupString.equals(suggestion.value)) {
+          if (!lookupString.equals(suggestion.pathOrValue)) {
             presentation.setItemTextBold(true);
           }
 
@@ -78,7 +79,12 @@ public class Suggestion implements Comparable<Suggestion> {
 
   @Nullable
   private Icon icon;
-  private String value;
+  /**
+   * Suggestion shown to user.
+   * If pathOrValue represents key in key: value, this can contain just one level of node name/can contains multiple levels dot delimited if suggestion matches multiple levels
+   * If the pathOrValue represents value in key: value, this value will only be one level
+   */
+  private String pathOrValue;
   @Nullable
   private String description;
   @Nullable
@@ -92,14 +98,14 @@ public class Suggestion implements Comparable<Suggestion> {
   /**
    * There are two approaches to storing a reference to suggestion
    * <ol>
-   * <li>Storing the whole path (support dynamic nodes aswell, as a single PsiClass as leaf might be referred via multiple paths)</li>
+   * <li>Storing the whole pathOrValue (support dynamic nodes aswell, as a single PsiClass as leaf might be referred via multiple paths)</li>
    * <li>Storing reference to leaf & navigate up till the root (efficient)</li>
    * </ol>
-   * The second solution does not address suggestions that are derived from {@link ClassSuggestionNode} as these nodes are not tied to a single branch of the suggestion tree
+   * The second solution does not address suggestions that are derived from {@link ClassMetadata} as these nodes are not tied to a single branch of the suggestion tree
    */
   private List<? extends SuggestionNode> matchesTopFirst;
   /**
-   * Whether or not the suggestion corresponds to value (within key -> value pair)
+   * Whether or not the suggestion corresponds to pathOrValue within key -> pathOrValue pair
    */
   private boolean forValue;
   /**
@@ -113,7 +119,7 @@ public class Suggestion implements Comparable<Suggestion> {
   private boolean yaml;
 
   public LookupElementBuilder newLookupElement() {
-    LookupElementBuilder builder = LookupElementBuilder.create(this, value);
+    LookupElementBuilder builder = LookupElementBuilder.create(this, pathOrValue);
     if (forValue) {
       if (description != null) {
         builder = builder.withTypeText(description, true);
@@ -126,23 +132,24 @@ public class Suggestion implements Comparable<Suggestion> {
     } else {
       // TODO: Add properties support
       builder = builder.withRenderer(CUSTOM_SUGGESTION_RENDERER)
-          .withInsertHandler(yaml ? new YamlKeyInsertHandler(this) : null);
+          .withInsertHandler(yaml ? new YamlKeyInsertHandler() : null);
     }
     return builder;
   }
 
-  public String getFullPath() {
-    return ancestralKeysDotDelimited + dotDelimitedOriginalNames(matchesTopFirst);
+  public String getFullPath(Module module) {
+    return ancestralKeysDotDelimited + dotDelimitedOriginalNames(module, matchesTopFirst);
   }
 
-  public String getSuggestionReplacement(String existingIndentation, String indentPerLevel) {
+  public String getSuggestionReplacement(Module module, String existingIndentation,
+      String indentPerLevel) {
     StringBuilder builder = new StringBuilder();
     int i = 0;
     do {
       SuggestionNode currentNode = matchesTopFirst.get(i);
       builder.append(existingIndentation)
           .append(getIndent(indentPerLevel, matchesTopFirst.size() - i - 1))
-          .append(currentNode.getOriginalName());
+          .append(currentNode.getOriginalName(module));
       i++;
     } while (i < matchesTopFirst.size());
     return builder.delete(0, existingIndentation.length()).toString();
@@ -163,12 +170,12 @@ public class Suggestion implements Comparable<Suggestion> {
     return builder.toString();
   }
 
-  public SuggestionNodeType getSuggestionType() {
-    return matchesTopFirst.get(matchesTopFirst.size() - 1).getType();
+  public SuggestionNodeType getSuggestionNodeType(Module module) {
+    return matchesTopFirst.get(matchesTopFirst.size() - 1).getSuggestionNodeType(module);
   }
 
   @Override
   public int compareTo(@NotNull Suggestion other) {
-    return value.compareTo(other.value);
+    return pathOrValue.compareTo(other.pathOrValue);
   }
 }

@@ -4,9 +4,9 @@ import com.intellij.openapi.module.Module;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
@@ -17,15 +17,6 @@ import static java.util.stream.Collectors.joining;
 public abstract class MetadataSuggestionNode implements SuggestionNode {
 
   //  static MetadataSuggestionNode NULL_NODE = null;
-
-  protected abstract String getName();
-
-  public abstract String getOriginalName();
-
-  @Nullable
-  protected abstract MetadataNonPropertySuggestionNode getParent();
-
-  public abstract Set<String> getBelongsTo();
 
   /**
    * If {@code matchAllSegments} is true, all {@code pathSegments} starting from {@code pathSegmentStartIndex} will be attempted to be matched. If a result is found, it will be returned. Else null
@@ -41,26 +32,62 @@ public abstract class MetadataSuggestionNode implements SuggestionNode {
       int pathSegmentStartIndex, boolean matchAllSegments);
 
   @Override
-  public SortedSet<Suggestion> findSuggestionsForKey(String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillParentNode, String[] querySegmentPrefixes,
-      int querySegmentPrefixStartIndex) {
-    return findSuggestionsForKey(ancestralKeysDotDelimited, matchesRootTillParentNode,
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
+      String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+    return findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited, matchesRootTillMe,
         querySegmentPrefixes, querySegmentPrefixStartIndex, true);
   }
 
   /**
+   * @param module                       module
    * @param ancestralKeysDotDelimited    all ancestral keys dot delimited, required for showing full path in documentation
-   * @param matchesRootTillParentNode    path from root till parent node
+   * @param matchesRootTillMe            path from root till current node
    * @param querySegmentPrefixes         the search text parts split based on period delimiter
    * @param querySegmentPrefixStartIndex current index in the `querySegmentPrefixes` to start search from
    * @param navigateDeepIfNoMatches      whether search should proceed further down if the search cannot find results at this level
    * @return Suggestions matching the given querySegmentPrefixes criteria from within the children
    */
   @Nullable
-  protected abstract SortedSet<Suggestion> findSuggestionsForKey(
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillParentNode,
+  protected abstract SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
+      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
       boolean navigateDeepIfNoMatches);
+
+
+  public void addRefCascadeTillRoot(String containerPath) {
+    MetadataSuggestionNode node = this;
+    do {
+      if (node.getBelongsTo().contains(containerPath)) {
+        break;
+      }
+      node.getBelongsTo().add(containerPath);
+      node = node.getParent();
+    } while (node != null && !node.isRoot());
+  }
+
+  public abstract Set<String> getBelongsTo();
+
+  /**
+   * @param containerPath Represents path to the metadata file container
+   * @return true if no children left & this item does not belong to any other source
+   */
+  public abstract boolean removeRefCascadeDown(String containerPath);
+
+  /**
+   * During reindexing lets make sure that we refresh references to proxies so that subsequent searches would be faster
+   *
+   * @param module idea module
+   */
+  public abstract void refreshClassProxy(Module module);
+
+  protected abstract String getName();
+
+  @NotNull
+  public abstract String getOriginalName(Module module);
+
+  @Nullable
+  protected abstract MetadataNonPropertySuggestionNode getParent();
 
   protected abstract boolean isRoot();
 
@@ -74,7 +101,7 @@ public abstract class MetadataSuggestionNode implements SuggestionNode {
    */
   public abstract boolean isProperty();
 
-  protected abstract boolean hasOnlyOneChild();
+  protected abstract boolean hasOnlyOneChild(Module module);
 
   public int numOfHopesToRoot() {
     int hopCount = 0;
@@ -86,41 +113,14 @@ public abstract class MetadataSuggestionNode implements SuggestionNode {
     return hopCount;
   }
 
-  public String getPathFromRoot() {
+  public String getPathFromRoot(Module module) {
     Stack<String> leafTillRoot = new Stack<>();
     MetadataSuggestionNode current = this;
     do {
-      leafTillRoot.push(current.getOriginalName());
+      leafTillRoot.push(current.getOriginalName(module));
       current = current.getParent();
     } while (current != null);
     return leafTillRoot.stream().collect(joining("."));
-  }
-
-  /**
-   * @param containerPath Represents path to the metadata file container
-   * @return true if no children left & this item does not belong to any other source
-   */
-  public abstract boolean removeRefCascadeDown(String containerPath);
-
-  public List<MetadataSuggestionNode> getNodesFromRootTillMe() {
-    List<MetadataSuggestionNode> rootTillMe = new ArrayList<>();
-    MetadataSuggestionNode current = this;
-    do {
-      rootTillMe.add(0, current);
-      current = current.getParent();
-    } while (current != null);
-    return rootTillMe;
-  }
-
-  public void addRefCascadeTillRoot(String containerPath) {
-    MetadataSuggestionNode node = this;
-    do {
-      if (node.getBelongsTo().contains(containerPath)) {
-        break;
-      }
-      node.getBelongsTo().add(containerPath);
-      node = node.getParent();
-    } while (node != null && !node.isRoot());
   }
 
   @Override
@@ -130,15 +130,10 @@ public abstract class MetadataSuggestionNode implements SuggestionNode {
 
   @Nullable
   @Override
-  public String getNameForDocumentation() {
-    return getType().representsArrayOrCollection() ? getOriginalName() + "[]" : getOriginalName();
+  public String getNameForDocumentation(Module module) {
+    return getSuggestionNodeType(module).representsArrayOrCollection() ?
+        getOriginalName(module) + "[]" :
+        getOriginalName(module);
   }
-
-  /**
-   * During reindexing lets make sure that we refresh references to proxies so that subsequent searches would be faster
-   *
-   * @param module idea module
-   */
-  public abstract void refreshClassProxy(Module module);
 
 }

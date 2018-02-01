@@ -2,17 +2,14 @@ package in.oneton.idea.spring.assistant.plugin.completion;
 
 import com.intellij.lang.Language;
 import com.intellij.lang.documentation.AbstractDocumentationProvider;
-import com.intellij.lang.java.JavaLanguage;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.module.Module;
-import com.intellij.openapi.module.ModuleUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.impl.light.LightElement;
-import in.oneton.idea.spring.assistant.plugin.ClassUtil;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
@@ -25,9 +22,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.intellij.lang.java.JavaLanguage.INSTANCE;
 import static com.intellij.psi.util.PsiTreeUtil.getParentOfType;
-import static in.oneton.idea.spring.assistant.plugin.ClassUtil.getKeyNameOfObject;
-import static in.oneton.idea.spring.assistant.plugin.Util.truncateIdeaDummyIdentifier;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getKeyNameOfObject;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.isYamlValue;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.truncateIdeaDummyIdentifier;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findModuleForElement;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class YamlDocumentationProvider extends AbstractDocumentationProvider {
@@ -35,15 +36,17 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
   public String generateDoc(PsiElement element, @Nullable PsiElement originalElement) {
     if (element instanceof DocumentationProxyElement) {
       DocumentationProxyElement proxyElement = DocumentationProxyElement.class.cast(element);
-      SuggestionNode target = proxyElement.target;
+      DocumentationProvider target = proxyElement.target;
 
-      // Intermediate nodes will not have
+      // Intermediate nodes will not have documentation
       if (target != null && target.supportsDocumentation()) {
+        Module module = findModuleForElement(element);
         if (proxyElement.requestedForTargetValue) {
-          return target.getDocumentationForValue(proxyElement.nodeNavigationPathDotDelimited,
-              proxyElement.value);
+          return target
+              .getDocumentationForValue(module, proxyElement.nodeNavigationPathDotDelimited,
+                  proxyElement.value);
         } else {
-          return target.getDocumentationForKey(proxyElement.nodeNavigationPathDotDelimited);
+          return target.getDocumentationForKey(module, proxyElement.nodeNavigationPathDotDelimited);
         }
       }
     }
@@ -63,9 +66,8 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       if (element != null) {
         text = element.getText();
       }
-      return new DocumentationProxyElement(psiManager, JavaLanguage.INSTANCE,
-          suggestion.getFullPath(),
-          // TODO: Fix this
+      return new DocumentationProxyElement(psiManager, INSTANCE,
+          suggestion.getFullPath(findModuleForElement(requireNonNull(element))),
           suggestion.getMatchesTopFirst().get(suggestion.getMatchesTopFirst().size() - 1),
           suggestion.isForValue(), text);
     }
@@ -85,7 +87,7 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
           ServiceManager.getService(element.getProject(), SuggestionService.class);
 
       Project project = element.getProject();
-      Module module = ModuleUtil.findModuleForPsiElement(element);
+      Module module = findModuleForElement(element);
 
       List<String> containerElements = new ArrayList<>();
       Optional<String> keyNameIfKey = getKeyNameOfObject(element);
@@ -107,11 +109,13 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
         if (matchedNodesFromRootTillLeaf != null) {
           SuggestionNode target =
               matchedNodesFromRootTillLeaf.get(matchedNodesFromRootTillLeaf.size() - 1);
-          if (target.isLeaf()) {
-            requestedForTargetValue = ClassUtil.isYamlValue(element);
+
+          // TODO: Should leaf take care of this?
+          if (target.isLeaf(module)) {
+            requestedForTargetValue = isYamlValue(element);
           }
           String targetNavigationPathDotDelimited =
-              matchedNodesFromRootTillLeaf.stream().map(SuggestionNode::getNameForDocumentation)
+              matchedNodesFromRootTillLeaf.stream().map(v -> v.getNameForDocumentation(module))
                   .collect(joining("."));
           return new DocumentationProxyElement(file.getManager(), file.getLanguage(),
               targetNavigationPathDotDelimited, target, requestedForTargetValue, value);
@@ -123,14 +127,14 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
 
   @ToString(of = "nodeNavigationPathDotDelimited")
   private static class DocumentationProxyElement extends LightElement {
-    private final SuggestionNode target;
+    private final DocumentationProvider target;
     private final boolean requestedForTargetValue;
     @Nullable
     private final String value;
     private final String nodeNavigationPathDotDelimited;
 
     DocumentationProxyElement(@NotNull final PsiManager manager, @NotNull final Language language,
-        String nodeNavigationPathDotDelimited, @NotNull final SuggestionNode target,
+        String nodeNavigationPathDotDelimited, @NotNull final DocumentationProvider target,
         boolean requestedForTargetValue, @Nullable String value) {
       super(manager, language);
       this.nodeNavigationPathDotDelimited = nodeNavigationPathDotDelimited;

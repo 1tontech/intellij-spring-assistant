@@ -1,81 +1,92 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json;
 
 import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 import com.intellij.codeInsight.documentation.DocumentationManager;
-import com.intellij.openapi.diagnostic.Logger;
-import in.oneton.idea.spring.assistant.plugin.SuggestionDocumentationHelper;
-import in.oneton.idea.spring.assistant.plugin.model.ValueType;
+import com.intellij.openapi.module.Module;
+import com.intellij.psi.PsiType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
-import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.MetadataNonPropertySuggestionNode;
-import lombok.Data;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.MapClassMetadataProxy;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.MetadataProxy;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.MetadataProxyInvokerWithReturnValue;
+import in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Array;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Stream;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
-import static in.oneton.idea.spring.assistant.plugin.Util.dotDelimitedOriginalNames;
-import static in.oneton.idea.spring.assistant.plugin.Util.methodForDocumentationNavigation;
-import static in.oneton.idea.spring.assistant.plugin.Util.newListWithMembers;
-import static in.oneton.idea.spring.assistant.plugin.Util.removeGenerics;
-import static in.oneton.idea.spring.assistant.plugin.Util.shortenedType;
-import static in.oneton.idea.spring.assistant.plugin.Util.typeForDocumentationNavigation;
-import static in.oneton.idea.spring.assistant.plugin.insert.handler.YamlValueInsertHandler.unescapeValue;
-import static in.oneton.idea.spring.assistant.plugin.model.ValueType.ARRAY;
-import static in.oneton.idea.spring.assistant.plugin.model.ValueType.BOOLEAN;
-import static in.oneton.idea.spring.assistant.plugin.model.ValueType.ENUM;
-import static in.oneton.idea.spring.assistant.plugin.model.ValueType.parse;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.MAP;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNDEFINED;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.VALUES;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassSuggestionNodeFactory.newMetadataProxy;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel.error;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel.warning;
-import static java.util.Arrays.stream;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.methodForDocumentationNavigation;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.removeGenerics;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.shortenedType;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.typeForDocumentationNavigation;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.safeGetValidType;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.compare;
-import static java.util.stream.Collectors.toSet;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 
 /**
  * Refer to https://docs.spring.io/spring-boot/docs/2.0.0.M6/reference/htmlsingle/#configuration-metadata-property-attributes
  */
-@Data
 @EqualsAndHashCode(of = "name")
 public class SpringConfigurationMetadataProperty
-    implements Comparable<SpringConfigurationMetadataProperty>, SuggestionDocumentationHelper {
-
-  private static final Logger log = Logger.getInstance(SpringConfigurationMetadataProperty.class);
+    implements Comparable<SpringConfigurationMetadataProperty>, GsonPostProcessable {
 
   /**
    * The full name of the PROPERTY. Names are in lower-case period-separated form (for example, server.servlet.path). This attribute is mandatory.
    */
+  @Setter
+  @Getter
   private String name;
   @Nullable
-  private String type;
+  @Setter
+  @SerializedName("type")
+  private String className;
   @Nullable
+  @Setter
   private String description;
   /**
    * The class name of the source that contributed this PROPERTY. For example, if the PROPERTY were from a class annotated with @ConfigurationProperties, this attribute would contain the fully qualified name of that class. If the source type is unknown, it may be omitted.
    */
   @Nullable
+  @Setter
   private String sourceType;
   /**
    * Specify whether the PROPERTY is deprecated. If the field is not deprecated or if that information is not known, it may be omitted. The next table offers more detail about the springConfigurationMetadataDeprecation attribute.
    */
   @Nullable
+  @Setter
   private SpringConfigurationMetadataDeprecation deprecation;
   /**
    * The default value, which is used if the PROPERTY is not specified. If the type of the PROPERTY is an ARRAY, it can be an ARRAY of value(s). If the default value is unknown, it may be omitted.
    */
   @Nullable
+  @Setter
   private Object defaultValue;
 
   /**
    * Represents either the only hint associated (or) key specific hint when the property represents a map
    */
   @Nullable
+  @Setter
   @Expose(deserialize = false)
   private SpringConfigurationMetadataHint genericOrKeyHint;
 
@@ -83,31 +94,102 @@ public class SpringConfigurationMetadataProperty
    * If the property of type map, the property can have both keys & values. This hint represents value
    */
   @Nullable
+  @Setter
   @Expose(deserialize = false)
   private SpringConfigurationMetadataHint valueHint;
 
+  /**
+   * Responsible for all suggestion queries that needs to be matched against a class
+   */
+  @Nullable
+  private MetadataProxy delegate;
+
+  @Nullable
+  private SuggestionNodeType nodeType;
+  private boolean delegateCreationAttempted;
+
   @Override
-  public int compareTo(@NotNull SpringConfigurationMetadataProperty o) {
-    return compare(this, o, comparing(thiz -> thiz.name));
+  public void doOnGsonDeserialization() {
+    if (isMapWithPredefinedKeys() || isMapWithPredefinedValues()) {
+      nodeType = MAP;
+    } else if (genericOrKeyHint != null) {
+      nodeType = VALUES;
+    }
+  }
+
+  @Nullable
+  public List<SuggestionNode> findChildDeepestKeyMatch(Module module,
+      List<SuggestionNode> matchesRootTillParentNode, String[] pathSegments,
+      int pathSegmentStartIndex) {
+    if (!isLeaf(module)) {
+      if (isMapWithPredefinedKeys()) { // map
+        assert genericOrKeyHint != null;
+        String pathSegment = pathSegments[pathSegmentStartIndex];
+        SpringConfigurationMetadataHintValue valueHint =
+            genericOrKeyHint.findHintValueWithName(pathSegment);
+        if (valueHint != null) {
+          matchesRootTillParentNode.add(new HintAwareSuggestionNode(valueHint, true));
+          boolean lastPathSegment = pathSegmentStartIndex == pathSegments.length - 1;
+          if (lastPathSegment) {
+            return matchesRootTillParentNode;
+          } else {
+            if (!isMapWithPredefinedValues()) {
+              return doWithDelegateOrReturnNull(module, delegate -> delegate
+                  .findDeepestSuggestionNode(module, matchesRootTillParentNode, pathSegments,
+                      pathSegmentStartIndex));
+            }
+          }
+        }
+      } else {
+        return doWithDelegateOrReturnNull(module, delegate -> delegate
+            .findDeepestSuggestionNode(module, matchesRootTillParentNode, pathSegments,
+                pathSegmentStartIndex));
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  public SortedSet<Suggestion> findChildKeySuggestionsForQueryPrefix(Module module,
+      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+    boolean lastPathSegment = querySegmentPrefixStartIndex == querySegmentPrefixes.length - 1;
+    if (lastPathSegment && !isLeaf(module)) {
+      if (isMapWithPredefinedKeys()) { // map
+        assert genericOrKeyHint != null;
+        String querySegment = querySegmentPrefixes[querySegmentPrefixStartIndex];
+        return genericOrKeyHint.findHintValuesWithPrefix(querySegment).stream().map(hintValue -> {
+          HintAwareSuggestionNode suggestionNode = new HintAwareSuggestionNode(hintValue, true);
+          return hintValue
+              .buildSuggestionForKey(module, ancestralKeysDotDelimited, matchesRootTillMe,
+                  suggestionNode, getMapKeyType(module));
+        }).collect(toCollection(TreeSet::new));
+      } else {
+        return doWithDelegateOrReturnNull(module, delegate -> delegate
+            .findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited, matchesRootTillMe,
+                querySegmentPrefixes, querySegmentPrefixStartIndex));
+      }
+    }
+    return null;
   }
 
   @NotNull
-  @Override
-  public Suggestion buildSuggestion(String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillParentNode, SuggestionNode currentNode) {
+  public Suggestion buildKeySuggestion(Module module, String ancestralKeysDotDelimited,
+      List<SuggestionNode> matchesRootTillMe) {
     Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().icon(currentNode.getType().getIcon())
-            .value(dotDelimitedOriginalNames(matchesRootTillParentNode, currentNode))
-            .description(this.description).shortType(shortenedType(this.type))
-            .defaultValue(defaultValueAsStr(defaultValue))
+        Suggestion.builder().icon(getSuggestionNodeType(module).getIcon())
+            .pathOrValue(dotDelimitedOriginalNames(module, matchesRootTillMe))
+            .description(description).shortType(shortenedType(className))
+            .defaultValue(getDefaultValueAsStr())
             .ancestralKeysDotDelimited(ancestralKeysDotDelimited)
-            .matchesTopFirst(newListWithMembers(matchesRootTillParentNode, currentNode));
+            .matchesTopFirst(matchesRootTillMe);
     if (deprecation != null) {
       builder.deprecationLevel(deprecation.getLevel() != null ? deprecation.getLevel() : warning);
     }
     return builder.build();
   }
 
+  @NotNull
   public String getDocumentationForKey(String nodeNavigationPathDotDelimited) {
     // Format for the documentation is as follows
     /*
@@ -124,10 +206,10 @@ public class SpringConfigurationMetadataProperty
         new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
 
     String typeInJavadocFormat = null;
-    if (type != null) {
+    if (className != null) {
       StringBuilder buffer = new StringBuilder();
       DocumentationManager
-          .createHyperlink(buffer, typeForDocumentationNavigation(type), type, false);
+          .createHyperlink(buffer, typeForDocumentationNavigation(className), className, false);
       typeInJavadocFormat = buffer.toString();
 
       builder.append(" (").append(typeInJavadocFormat).append(")");
@@ -138,8 +220,7 @@ public class SpringConfigurationMetadataProperty
     }
 
     if (defaultValue != null) {
-      builder.append("<p><em>Default value: </em>").append(defaultValueAsStr(defaultValue))
-          .append("</p>");
+      builder.append("<p><em>Default value: </em>").append(getDefaultValueAsStr()).append("</p>");
     }
 
     if (sourceType != null) {
@@ -148,136 +229,160 @@ public class SpringConfigurationMetadataProperty
       // lets show declaration point only if does not match the type
       if (typeInJavadocFormat == null || !sourceTypeInJavadocFormat.equals(typeInJavadocFormat)) {
         StringBuilder buffer = new StringBuilder();
-        DocumentationManager
-            .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
-                sourceTypeInJavadocFormat, false);
+        DocumentationManager.createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
+            sourceTypeInJavadocFormat, false);
         sourceTypeInJavadocFormat = buffer.toString();
 
         builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");
       }
     }
 
-    if (isDeprecated()) {
-      builder.append("<p><b>").append((deprecation == null || error != deprecation.getLevel()) ?
-          "WARNING: PROPERTY IS DEPRECATED" :
-          "ERROR: DO NOT USE THIS PROPERTY AS IT IS COMPLETELY UNSUPPORTED").append("</b></p>");
+    if (deprecation != null) {
+      builder.append("<p><b>").append(isDeprecatedError() ?
+          "ERROR: DO NOT USE THIS PROPERTY AS IT IS COMPLETELY UNSUPPORTED" :
+          "WARNING: PROPERTY IS DEPRECATED").append("</b></p>");
 
-      if (deprecation != null && deprecation.getReason() != null) {
+      if (deprecation.getReason() != null) {
         builder.append("@deprecated Reason: ").append(deprecation.getReason());
       }
 
-      if (deprecation != null && deprecation.getReplacement() != null) {
-        builder.append("<p>Replaced by property <b>").append(deprecation.getReplacement())
-            .append("</b></p>");
+      if (deprecation.getReplacement() != null) {
+        builder.append("<p>Replaced by property <b>").append(deprecation.getReplacement()).append("</b></p>");
       }
     }
 
     return builder.toString();
   }
 
-  @Nullable
-  public Set<Suggestion> getValueSuggestions(MetadataNonPropertySuggestionNode propertyNode) {
-    Set<Suggestion> suggestions = null;
+  public boolean isLeaf(Module module) {
+    return !isMapWithPredefinedKeys() && !isMapWithPredefinedValues() && !isLeafWithKnownValues()
+        && getSuggestionNodeType(module).representsLeaf();
+  }
 
-    if (hint != null && hint.getValues() != null) {
-      suggestions = stream(hint.getValues())
-          .filter(v -> !(v.getValue() instanceof Array) || !(v.getValue() instanceof Collection))
-          .map(choice -> Suggestion.builder().suggestion(choice.toString())
-              .description(choice.getDescription()).ref(propertyNode).forValue(true).build())
-          .collect(toSet());
-    }
+  @NotNull
+  public SuggestionNodeType getSuggestionNodeType(Module module) {
+    if (nodeType == null) {
+      if (className != null) {
+        refreshDelegate(module);
 
-    ValueType valueType = parse(type);
+        if (delegate != null) {
+          nodeType = delegate.getSuggestionNodeType(module);
+        }
 
-    Set<Suggestion> additionalSuggestions = null;
-
-    if (valueType == ARRAY) {
-      if (defaultValue instanceof Array) {
-        Object[] choices = Object[].class.cast(this.defaultValue);
-        additionalSuggestions = stream(choices).map(
-            choice -> Suggestion.builder().suggestion(choice.toString()).ref(propertyNode)
-                .forValue(true).build()).collect(toSet());
-      } else if (defaultValue instanceof Collection) {
-        @SuppressWarnings("unchecked")
-        Stream<Suggestion> choiceStream = Collection.class.cast(defaultValue).stream().map(
-            choice -> Suggestion.builder().suggestion(choice.toString()).ref(propertyNode)
-                .forValue(true).build());
-        additionalSuggestions = choiceStream.collect(toSet());
-      }
-    } else if (valueType == BOOLEAN) {
-      additionalSuggestions = new HashSet<>();
-      additionalSuggestions
-          .add(Suggestion.builder().suggestion("true").ref(propertyNode).forValue(true).build());
-      additionalSuggestions
-          .add(Suggestion.builder().suggestion("false").ref(propertyNode).forValue(true).build());
-    } else if (valueType == ENUM) {
-      Class<?> enumClazz = null;
-      try {
-        enumClazz = classLoader.loadClass(type);
-      } catch (ClassNotFoundException e) {
-        // This exception should not happen as we already know
-        log.error("Enum " + type + " could not be loaded. This path should never be hit", e);
-      }
-      additionalSuggestions = stream(enumClazz.getEnumConstants()).map(
-          v -> Suggestion.builder().suggestion(v.toString()).ref(propertyNode).forValue(true)
-              .build()).collect(toSet());
-    }
-
-    if (additionalSuggestions != null) {
-      if (suggestions != null) {
-        suggestions.addAll(additionalSuggestions);
+        if (nodeType == null) {
+          nodeType = UNKNOWN_CLASS;
+        }
       } else {
-        suggestions = additionalSuggestions;
+        nodeType = UNDEFINED;
       }
     }
 
-    if (suggestions != null && defaultValue != null && valueType != ARRAY) {
-      suggestions.stream().filter(v -> v.getSuggestion().equals(defaultValueAsStr(defaultValue)))
-          .findFirst().ifPresent(v -> v.setRepresentingDefaultValue(true));
-    }
-
-    return suggestions;
+    return nodeType;
   }
 
-  public String getDocumentationForValue(String nodeNavigationPathDotDelimited, String value) {
-    StringBuilder builder =
-        new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
-
-    if (type != null) {
-      StringBuilder buffer = new StringBuilder();
-      DocumentationManager
-          .createHyperlink(buffer, typeForDocumentationNavigation(type), type, false);
-      String typeInJavadocFormat = buffer.toString();
-
-      builder.append(" (").append(typeInJavadocFormat).append(")");
+  public void refreshDelegate(Module module) {
+    if (className != null) {
+      // Lets update the delegate information only if anything has changed from last time we saw this
+      PsiType type = getPsiType(module);
+      boolean validTypeExists = type != null;
+      // In the previous refresh, class could not be found. Now class is available in the classpath
+      if (validTypeExists) {
+        if (delegate == null) {
+          delegate = newMetadataProxy(module, type);
+          // TODO: uncomment below code. but fix infinite loops as objects can refer to each other. Refer to delegate.refreshMetadata on how to fix
+          //        } else {
+          //          delegate.refreshMetadata(module);
+        }
+      }
+      // In the previous refresh, class was available in classpath. Now it is no longer available
+      if (!validTypeExists && delegate != null) {
+        delegate = null;
+      }
     }
-
-    String trimmedValue = unescapeValue(value);
-    builder.append("<p>").append(trimmedValue).append("</p>");
-
-    Set<Suggestion> choices = getValueSuggestions(this);
-    if (choices != null) {
-      choices.stream().filter(choice -> choice.getSuggestion().equals(trimmedValue)).findFirst()
-          .ifPresent(suggestion -> {
-            if (suggestion.getDescription() != null) {
-              builder.append("<p>").append(suggestion.getDescription()).append("</p>");
-            }
-          });
-    }
-
-    return builder.toString();
+    delegateCreationAttempted = true;
   }
 
-  public boolean isDeprecated() {
-    return deprecation != null;
+  @Override
+  public int compareTo(@NotNull SpringConfigurationMetadataProperty o) {
+    return compare(this, o, comparing(thiz -> thiz.name));
   }
 
-  private String defaultValueAsStr(@Nullable Object defaultValue) {
+  @NotNull
+  public String getOriginalName() {
+    return name;
+  }
+
+  /**
+   * @return true if the property is deprecated & level is error, false otherwise
+   */
+  public boolean isDeprecatedError() {
+    return deprecation != null && deprecation.getLevel() == error;
+  }
+
+  public SortedSet<Suggestion> findSuggestionsForValues(Module module,
+      List<SuggestionNode> matchesRootTillContainerProperty, String prefix) {
+    assert isLeaf(module);
+    if (nodeType == VALUES) {
+      Collection<SpringConfigurationMetadataHintValue> matches =
+          requireNonNull(genericOrKeyHint).findHintValuesWithPrefix(prefix);
+      if (matches != null && matches.size() != 0) {
+        return matches.stream().map(match -> match
+            .buildSuggestionForKey(module, null, matchesRootTillContainerProperty,
+                new HintAwareSuggestionNode(match, false), getPsiType(module)))
+            .collect(toCollection(TreeSet::new));
+      }
+    } else {
+      return doWithDelegateOrReturnNull(module, delegate -> delegate
+          .findValueSuggestionsForPrefix(module, matchesRootTillContainerProperty, prefix));
+    }
+
+    return null;
+  }
+
+  private PsiType getPsiType(Module module) {
+    if (className != null) {
+      return safeGetValidType(module, className);
+    }
+    return null;
+  }
+
+  private boolean isMapWithPredefinedValues() {
+    return valueHint != null && valueHint.representsValueOfMap();
+  }
+
+  private boolean isMapWithPredefinedKeys() {
+    return isLeafWithKnownValues() && requireNonNull(genericOrKeyHint).representsKeyOfMap();
+  }
+
+  private boolean isLeafWithKnownValues() {
+    return genericOrKeyHint != null;
+  }
+
+  private <T> T doWithDelegateOrReturnNull(Module module,
+      MetadataProxyInvokerWithReturnValue<T> invoker) {
+    MetadataProxy delegate = getDelegate(module);
+    if (delegate != null) {
+      return invoker.invoke(delegate);
+    }
+    return null;
+  }
+
+  private <T> T doWithMapDelegateOrReturnNull(Module module,
+      MetadataProxyInvokerWithReturnValue<T> invoker) {
+    MetadataProxy delegate = getDelegate(module);
+    if (delegate != null) {
+      assert delegate instanceof MapClassMetadataProxy;
+      return invoker.invoke(MapClassMetadataProxy.class.cast(delegate));
+    }
+    return null;
+  }
+
+  private String getDefaultValueAsStr() {
     if (defaultValue != null && !(defaultValue instanceof Array)
         && !(defaultValue instanceof Collection)) {
-      if (type != null && defaultValue instanceof Double) {
+      if (className != null && defaultValue instanceof Double) {
         // if defaultValue is a number, its being parsed by gson as double & we will see an incorrect fraction when we take toString()
-        switch (type) {
+        switch (className) {
           case "java.lang.Integer":
             return Integer.toString(((Double) defaultValue).intValue());
           case "java.lang.Byte":
@@ -291,17 +396,160 @@ public class SpringConfigurationMetadataProperty
     return null;
   }
 
-  public boolean hasNonObjectDefaultValue() {
-    return defaultValue != null && defaultValue instanceof String;
+  @Nullable
+  private MetadataProxy getDelegate(Module module) {
+    if (!delegateCreationAttempted) {
+      refreshDelegate(module);
+    }
+    return delegate;
   }
 
-  public boolean hasValueHint() {
-    return valueHint != null;
+  @Nullable
+  private PsiType getMapKeyType(Module module) {
+    SuggestionNodeType nodeType = getSuggestionNodeType(module);
+    if (nodeType == MAP) {
+      return doWithDelegateOrReturnNull(module, delegate -> {
+        assert delegate instanceof MapClassMetadataProxy;
+        return MapClassMetadataProxy.class.cast(delegate).getMapKeyType();
+      });
+    }
+    return null;
   }
 
-  public boolean doesGenericHintRepresentsArray() {
-    return genericOrKeyHint != null && !hasValueHint() && genericOrKeyHint.getValues() != null
-        && genericOrKeyHint.getValues().length > 0;
+  @Nullable
+  private PsiType getMapValueType(Module module) {
+    SuggestionNodeType nodeType = getSuggestionNodeType(module);
+    if (nodeType == MAP) {
+      return doWithDelegateOrReturnNull(module, delegate -> {
+        assert delegate instanceof MapClassMetadataProxy;
+        return MapClassMetadataProxy.class.cast(delegate).getMapValueType();
+      });
+    }
+    return null;
+  }
+
+
+  class HintAwareSuggestionNode implements SuggestionNode {
+    private final SpringConfigurationMetadataHintValue target;
+    private final boolean representsMap;
+
+    /**
+     * @param target        hint value
+     * @param representsMap whether this node represents map or enum
+     */
+    HintAwareSuggestionNode(SpringConfigurationMetadataHintValue target, boolean representsMap) {
+      this.target = target;
+      this.representsMap = representsMap;
+    }
+
+    @Nullable
+    @Override
+    public List<SuggestionNode> findDeepestSuggestionNode(Module module,
+        List<SuggestionNode> matchesRootTillParentNode, String[] pathSegments,
+        int pathSegmentStartIndex) {
+      throw new IllegalAccessError("Should never be called");
+    }
+
+    @Nullable
+    @Override
+    public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
+        @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
+        String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+      assert representsMap;
+      return doWithMapDelegateOrReturnNull(module,
+          delegate -> MapClassMetadataProxy.class.cast(delegate)
+              .findChildKeySuggestionForQueryPrefix(module, ancestralKeysDotDelimited,
+                  matchesRootTillMe, querySegmentPrefixes, querySegmentPrefixStartIndex));
+    }
+
+    @Override
+    public boolean supportsDocumentation() {
+      return true;
+    }
+
+    @Override
+    public String getOriginalName(Module module) {
+      if (representsMap) {
+        return target.toString();
+      } else {
+        return SpringConfigurationMetadataProperty.this.getOriginalName();
+      }
+    }
+
+    @Nullable
+    @Override
+    public String getNameForDocumentation(Module module) {
+      return getOriginalName(module);
+    }
+
+    @Nullable
+    @Override
+    public String getDocumentationForKey(Module module, String nodeNavigationPathDotDelimited) {
+      return target
+          .getDocumentationForKey(module, nodeNavigationPathDotDelimited, getDelegate(module));
+    }
+
+    @Nullable
+    @Override
+    public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module,
+        List<SuggestionNode> matchesRootTillMe, String prefix) {
+      if (isMapWithPredefinedValues()) {
+        assert valueHint != null;
+        Collection<SpringConfigurationMetadataHintValue> matches =
+            valueHint.findHintValuesWithPrefix(prefix);
+        if (matches != null && matches.size() != 0) {
+          return matches.stream().map(match -> match
+              .buildSuggestionForValue(matchesRootTillMe, getDefaultValueAsStr(),
+                  getMapValueType(module))).collect(toCollection(TreeSet::new));
+        }
+      } else {
+        return doWithDelegateOrReturnNull(module,
+            delegate -> delegate.findValueSuggestionsForPrefix(module, matchesRootTillMe, prefix));
+      }
+      return null;
+    }
+
+    @Nullable
+    @Override
+    public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
+        String value) {
+      if (representsMap) {
+        if (isMapWithPredefinedValues()) {
+          assert valueHint != null;
+          Collection<SpringConfigurationMetadataHintValue> matches =
+              valueHint.findHintValuesWithPrefix(value);
+          assert matches != null && matches.size() == 1;
+          SpringConfigurationMetadataHintValue hint = matches.iterator().next();
+          return hint
+              .getDocumentationForValue(nodeNavigationPathDotDelimited, getMapValueType(module));
+        } else {
+          return doWithDelegateOrReturnNull(module, delegate -> delegate
+              .getDocumentationForValue(module, nodeNavigationPathDotDelimited, value));
+        }
+      } else {
+        return target
+            .getDocumentationForValue(nodeNavigationPathDotDelimited, getMapValueType(module));
+      }
+    }
+
+    @Override
+    public boolean isLeaf(Module module) {
+      if (isLeafWithKnownValues() || isMapWithPredefinedValues()) {
+        return true;
+      }
+      // whether the node is a leaf or not depends on the value of the map that containing property points to
+      return PsiCustomUtil.getSuggestionNodeType(getMapValueType(module)).representsLeaf();
+    }
+
+    @NotNull
+    @Override
+    public SuggestionNodeType getSuggestionNodeType(Module module) {
+      if (isLeafWithKnownValues() || isMapWithPredefinedValues()) { // predefined values
+        return ENUM;
+      }
+      return PsiCustomUtil.getSuggestionNodeType(getMapValueType(module));
+    }
+
   }
 
 }
