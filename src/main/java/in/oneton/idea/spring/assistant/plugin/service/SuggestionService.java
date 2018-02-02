@@ -5,6 +5,7 @@ import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import org.jetbrains.annotations.NotNull;
 
@@ -37,6 +38,7 @@ public interface SuggestionService {
 
   //  boolean canProvideSuggestions(Project project);
 
+  @SuppressWarnings("BooleanMethodIsAlwaysInverted")
   boolean canProvideSuggestions(Project project, Module module);
 
   //  /**
@@ -47,20 +49,21 @@ public interface SuggestionService {
   //   * @return results matching query string (without the containerElementsLeafToRoot). In the above example the values would be `simple.acknowledge-mode` & `simple.auto-startup`
   //   */
   //  @Nullable
-  //  List<LookupElementBuilder> computeSuggestionsForKey(Project project, PsiElement element,
+  //  List<LookupElementBuilder> findSuggestionsForQueryPrefix(Project project, PsiElement element,
   //      @Nullable List<String> ancestralKeys, String queryWithDotDelimitedPrefixes);
 
   /**
    * @param project                       project to which these suggestions should be shown
    * @param module                        module to which these suggestions should be shown
+   * @param fileType                      type of file requesting suggestion
    * @param element                       element on which search is triggered. Useful for cases like identifying chioces that were already selected incase of an enum, e.t.c
    * @param ancestralKeys                 hierarchy of element from where the suggestion is requested. i.e if in yml user is trying to get suggestions for `s.a` under `spring:\n\trabbitmq.listener:` element, then this value would ['spring', 'rabbitmq.listener']
    * @param queryWithDotDelimitedPrefixes query string user is trying to search for. In the above example, the value for this would be `s.a`
    * @return results matching query string (without the containerElementsLeafToRoot). In the above example the values would be `simple.acknowledge-mode` & `simple.auto-startup`
    */
   @Nullable
-  List<LookupElementBuilder> computeSuggestionsForKey(Project project, Module module,
-      PsiElement element,
-      @Nullable List<String> ancestralKeys, String queryWithDotDelimitedPrefixes);
+  List<LookupElementBuilder> findSuggestionsForQueryPrefix(Project project, Module module,
+      FileType fileType, PsiElement element, @Nullable List<String> ancestralKeys,
+      String queryWithDotDelimitedPrefixes);
 
 }

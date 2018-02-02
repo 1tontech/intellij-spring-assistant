@@ -2,6 +2,7 @@ package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -69,28 +70,28 @@ public abstract class ClassMetadata {
       int pathSegmentStartIndex);
 
   @Nullable
-  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillParentNode,
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     initIfNotAlready(module);
-    return doFindKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited,
-        matchesRootTillParentNode, querySegmentPrefixes, querySegmentPrefixStartIndex);
+    return doFindKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillParentNode,
+        numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex);
   }
 
   @Nullable
   protected abstract SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillParentNode,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex);
 
   @Nullable
-  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module,
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
     initIfNotAlready(module);
-    return doFindValueSuggestionsForPrefix(module, matchesRootTillMe, prefix);
+    return doFindValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix);
   }
 
   protected abstract SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module,
-      List<SuggestionNode> matchesRootTillMe, String prefix);
+      FileType fileType, List<SuggestionNode> matchesRootTillMe, String prefix);
 
   @Nullable
   public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,

@@ -3,6 +3,7 @@ package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import org.jetbrains.annotations.NotNull;
@@ -19,13 +20,13 @@ public class MapClassMetadataProxy extends ClassMetadataProxy {
 
   @Nullable
   public SortedSet<Suggestion> findChildKeySuggestionForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
+      FileType fileType, List<SuggestionNode> matchesRootTillMe, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     return doWithTargetAndReturn(target -> {
       assert target instanceof MapClassMetadata;
       return MapClassMetadata.class.cast(target)
-          .findChildKeySuggestionForQueryPrefix(module, ancestralKeysDotDelimited,
-              matchesRootTillMe, querySegmentPrefixes, querySegmentPrefixStartIndex);
+          .findChildKeySuggestionForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
+              querySegmentPrefixes, querySegmentPrefixStartIndex);
     }, null);
   }
 

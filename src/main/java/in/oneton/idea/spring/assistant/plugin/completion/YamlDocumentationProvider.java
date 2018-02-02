@@ -27,7 +27,7 @@ import static com.intellij.psi.util.PsiTreeUtil.getParentOfType;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getKeyNameOfObject;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.isYamlValue;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.truncateIdeaDummyIdentifier;
-import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findModuleForElement;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findModule;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -40,7 +40,7 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
 
       // Intermediate nodes will not have documentation
       if (target != null && target.supportsDocumentation()) {
-        Module module = findModuleForElement(element);
+        Module module = findModule(element);
         if (proxyElement.requestedForTargetValue) {
           return target
               .getDocumentationForValue(module, proxyElement.nodeNavigationPathDotDelimited,
@@ -62,14 +62,10 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
     if (object instanceof Suggestion) {
       //noinspection unchecked
       Suggestion suggestion = Suggestion.class.cast(object);
-      String text = null;
-      if (element != null) {
-        text = element.getText();
-      }
       return new DocumentationProxyElement(psiManager, INSTANCE,
-          suggestion.getFullPath(findModuleForElement(requireNonNull(element))),
+          suggestion.getFullPath(findModule(requireNonNull(element))),
           suggestion.getMatchesTopFirst().get(suggestion.getMatchesTopFirst().size() - 1),
-          suggestion.isForValue(), text);
+          suggestion.isForValue(), suggestion.getLeafOriginalNameOrValue());
     }
     return super.getDocumentationElementForLookupItem(psiManager, object, element);
   }
@@ -87,7 +83,7 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
           ServiceManager.getService(element.getProject(), SuggestionService.class);
 
       Project project = element.getProject();
-      Module module = findModuleForElement(element);
+      Module module = findModule(element);
 
       List<String> containerElements = new ArrayList<>();
       Optional<String> keyNameIfKey = getKeyNameOfObject(element);
@@ -101,7 +97,7 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       }
 
       requestedForTargetValue = false;
-      value = element.getText();
+      value = truncateIdeaDummyIdentifier(element.getText());
 
       if (containerElements.size() > 0) {
         matchedNodesFromRootTillLeaf =
@@ -110,7 +106,6 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
           SuggestionNode target =
               matchedNodesFromRootTillLeaf.get(matchedNodesFromRootTillLeaf.size() - 1);
 
-          // TODO: Should leaf take care of this?
           if (target.isLeaf(module)) {
             requestedForTargetValue = isYamlValue(element);
           }

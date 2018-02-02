@@ -7,14 +7,14 @@ import com.intellij.codeInsight.lookup.LookupElementRenderer;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.markup.TextAttributes;
 import com.intellij.openapi.module.Module;
-import in.oneton.idea.spring.assistant.plugin.insert.handler.YamlKeyInsertHandler;
-import in.oneton.idea.spring.assistant.plugin.insert.handler.YamlValueInsertHandler;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassMetadata;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -26,11 +26,13 @@ import static com.intellij.ui.JBColor.RED;
 import static com.intellij.ui.JBColor.YELLOW;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getFirstSentenceWithoutDot;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static org.jetbrains.yaml.YAMLHighlighter.SCALAR_TEXT;
 
 @Getter
-@Builder
-@EqualsAndHashCode(of = "pathOrValue")
+@EqualsAndHashCode(of = "suggestionToDisplay")
+@ToString
 public class Suggestion implements Comparable<Suggestion> {
   public static final String PERIOD_DELIMITER = "\\.";
 
@@ -53,7 +55,7 @@ public class Suggestion implements Comparable<Suggestion> {
 
           String lookupString = element.getLookupString();
           presentation.setItemText(lookupString);
-          if (!lookupString.equals(suggestion.pathOrValue)) {
+          if (!lookupString.equals(suggestion.value)) {
             presentation.setItemTextBold(true);
           }
 
@@ -78,14 +80,6 @@ public class Suggestion implements Comparable<Suggestion> {
       };
 
   @Nullable
-  private Icon icon;
-  /**
-   * Suggestion shown to user.
-   * If pathOrValue represents key in key: value, this can contain just one level of node name/can contains multiple levels dot delimited if suggestion matches multiple levels
-   * If the pathOrValue represents value in key: value, this value will only be one level
-   */
-  private String pathOrValue;
-  @Nullable
   private String description;
   @Nullable
   private String shortType;
@@ -93,33 +87,79 @@ public class Suggestion implements Comparable<Suggestion> {
   private String defaultValue;
   @Nullable
   private SpringConfigurationMetadataDeprecationLevel deprecationLevel;
-  @Nullable
-  private String ancestralKeysDotDelimited;
   /**
    * There are two approaches to storing a reference to suggestion
    * <ol>
-   * <li>Storing the whole pathOrValue (support dynamic nodes aswell, as a single PsiClass as leaf might be referred via multiple paths)</li>
+   * <li>Storing the whole value (support dynamic nodes aswell, as a single PsiClass as leaf might be referred via multiple paths)</li>
    * <li>Storing reference to leaf & navigate up till the root (efficient)</li>
    * </ol>
    * The second solution does not address suggestions that are derived from {@link ClassMetadata} as these nodes are not tied to a single branch of the suggestion tree
    */
+  @NotNull
   private List<? extends SuggestionNode> matchesTopFirst;
   /**
-   * Whether or not the suggestion corresponds to pathOrValue within key -> pathOrValue pair
+   * Defines the number of ancestors from root, below which the current suggestion should be shown
+   */
+  private int numOfAncestors;
+  /**
+   * Whether or not the suggestion corresponds to value within key -> value pair
    */
   private boolean forValue;
+  /**
+   * Will only be set when the suggestion is for value
+   * If value represents key in key: value, this can contain just one level of node name/can contains multiple levels dot delimited if suggestion matches multiple levels
+   * If the value represents value in key: value, this value will only be one level
+   */
+  @Nullable
+  private String value;
   /**
    * Whether the current value represents the default value
    */
   @Setter
   private boolean representingDefaultValue;
   /**
-   * Is this suggestion triggered for yaml/property file
+   * Type of file that requested this suggestion
    */
-  private boolean yaml;
+  @NotNull
+  private FileType fileType;
+  @Nullable
+  private Icon icon;
+
+  private String suggestionToDisplay;
+  private String pathDotDelimitedRootToLeaf;
+
+  @Builder
+  public Suggestion(@Nullable String description, @Nullable String shortType,
+      @Nullable String defaultValue,
+      @Nullable SpringConfigurationMetadataDeprecationLevel deprecationLevel,
+      @NotNull List<? extends SuggestionNode> matchesTopFirst, int numOfAncestors, boolean forValue,
+      @Nullable String value, boolean representingDefaultValue, @NotNull FileType fileType,
+      @Nullable Icon icon) {
+    if (!forValue) {
+      assert numOfAncestors < matchesTopFirst.size();
+    } else {
+      assert numOfAncestors == matchesTopFirst.size();
+    }
+
+    this.description = description;
+    this.shortType = shortType;
+    this.defaultValue = defaultValue;
+    this.deprecationLevel = deprecationLevel;
+    this.matchesTopFirst = matchesTopFirst;
+    this.numOfAncestors = numOfAncestors;
+    this.forValue = forValue;
+    this.value = value;
+    this.representingDefaultValue = representingDefaultValue;
+    this.fileType = fileType;
+    this.icon = icon;
+    this.pathDotDelimitedRootToLeaf =
+        matchesTopFirst.stream().map(SuggestionNode::getOriginalName).collect(joining("."));
+    this.suggestionToDisplay =
+        forValue ? value : dotDelimitedOriginalNames(matchesTopFirst, numOfAncestors);
+  }
 
   public LookupElementBuilder newLookupElement() {
-    LookupElementBuilder builder = LookupElementBuilder.create(this, pathOrValue);
+    LookupElementBuilder builder = LookupElementBuilder.create(this, suggestionToDisplay);
     if (forValue) {
       if (description != null) {
         builder = builder.withTypeText(description, true);
@@ -127,55 +167,42 @@ public class Suggestion implements Comparable<Suggestion> {
       if (representingDefaultValue) {
         builder = builder.bold();
       }
-      // TODO: Add properties support
-      builder = builder.withInsertHandler(yaml ? new YamlValueInsertHandler() : null);
+      builder = builder.withInsertHandler(fileType.newValueInsertHandler());
     } else {
-      // TODO: Add properties support
       builder = builder.withRenderer(CUSTOM_SUGGESTION_RENDERER)
-          .withInsertHandler(yaml ? new YamlKeyInsertHandler() : null);
+          .withInsertHandler(fileType.newKeyInsertHandler());
     }
     return builder;
   }
 
   public String getFullPath(Module module) {
-    return ancestralKeysDotDelimited + dotDelimitedOriginalNames(module, matchesTopFirst);
-  }
-
-  public String getSuggestionReplacement(Module module, String existingIndentation,
-      String indentPerLevel) {
-    StringBuilder builder = new StringBuilder();
-    int i = 0;
-    do {
-      SuggestionNode currentNode = matchesTopFirst.get(i);
-      builder.append(existingIndentation)
-          .append(getIndent(indentPerLevel, matchesTopFirst.size() - i - 1))
-          .append(currentNode.getOriginalName(module));
-      i++;
-    } while (i < matchesTopFirst.size());
-    return builder.delete(0, existingIndentation.length()).toString();
-  }
-
-  public String getNewOverallIndent(String existingIndentation, String indentPerLevel) {
-    return existingIndentation + getIndent(indentPerLevel, matchesTopFirst.size() - 1);
-  }
-
-  private String getIndent(String indent, int numOfHops) {
-    if (numOfHops == 0) {
-      return "";
-    }
-    StringBuilder builder = new StringBuilder();
-    for (int i = 0; i < numOfHops; i++) {
-      builder.append(indent);
-    }
-    return builder.toString();
+    return dotDelimitedOriginalNames(matchesTopFirst);
   }
 
   public SuggestionNodeType getSuggestionNodeType(Module module) {
-    return matchesTopFirst.get(matchesTopFirst.size() - 1).getSuggestionNodeType(module);
+    return getLastSuggestionNode().getSuggestionNodeType(module);
+  }
+
+  public SuggestionNode getLastSuggestionNode() {
+    return matchesTopFirst.get(matchesTopFirst.size() - 1);
   }
 
   @Override
   public int compareTo(@NotNull Suggestion other) {
-    return pathOrValue.compareTo(other.pathOrValue);
+    if (forValue) {
+      assert value != null;
+      assert other.value != null;
+      return value.compareTo(other.value);
+    } else {
+      return pathDotDelimitedRootToLeaf.compareTo(other.pathDotDelimitedRootToLeaf);
+    }
+  }
+
+  public List<? extends SuggestionNode> getMatchesForReplacement() {
+    return matchesTopFirst.stream().skip(numOfAncestors).collect(toList());
+  }
+
+  public String getLeafOriginalNameOrValue() {
+    return forValue ? value : getLastSuggestionNode().getOriginalName();
   }
 }

@@ -2,6 +2,7 @@ package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -20,7 +21,6 @@ import java.util.TreeSet;
 import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.BOOLEAN;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.valueOf;
 import static java.util.stream.Collectors.toCollection;
@@ -73,20 +73,20 @@ public class BooleanClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillParentNode,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     throw new IllegalAccessError(
         "Should not be called. To use as a map key call findDirectChild(..) instead");
   }
 
   @Override
-  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module,
+  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
     assert childrenTrie != null;
     SortedMap<String, Boolean> matchesMap = childrenTrie.prefixMap(prefix);
     if (matchesMap != null && matchesMap.size() != 0) {
-      return matchesMap.values().stream()
-          .map(val -> newSuggestion(module, null, matchesRootTillMe, false, val))
+      return matchesMap.values().stream().map(
+          val -> newSuggestion(fileType, matchesRootTillMe, matchesRootTillMe.size(), true, val))
           .collect(toCollection(TreeSet::new));
     }
     return null;
@@ -138,11 +138,16 @@ public class BooleanClassMetadata extends ClassMetadata {
     return PsiType.BOOLEAN;
   }
 
-  private Suggestion newSuggestion(Module module, String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillMe, boolean forKey, boolean value) {
-    return Suggestion.builder().ancestralKeysDotDelimited(ancestralKeysDotDelimited)
-        .pathOrValue(forKey ? dotDelimitedOriginalNames(module, matchesRootTillMe) : valueOf(value))
-        .matchesTopFirst(matchesRootTillMe).shortType("Boolean").icon(ENUM.getIcon()).build();
+  private Suggestion newSuggestion(FileType fileType, List<SuggestionNode> matchesRootTillMe,
+      int numOfAncestors, boolean forValue, boolean value) {
+    Suggestion.SuggestionBuilder builder =
+        Suggestion.builder().numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
+            .shortType("Boolean").icon(ENUM.getIcon()).fileType(fileType);
+    if (forValue) {
+      builder.value(valueOf(value));
+    }
+    builder.forValue(forValue);
+    return builder.build();
   }
 
   private class BooleanKeySuggestionDocumentationHelper implements SuggestionDocumentationHelper {
@@ -154,15 +159,15 @@ public class BooleanClassMetadata extends ClassMetadata {
 
     @Nullable
     @Override
-    public String getOriginalName(Module module) {
+    public String getOriginalName() {
       return value ? "true" : "false";
     }
 
     @NotNull
     @Override
-    public Suggestion buildSuggestion(Module module, String ancestralKeysDotDelimited,
-        List<SuggestionNode> matchesRootTillMe) {
-      return newSuggestion(module, ancestralKeysDotDelimited, matchesRootTillMe, true, value);
+    public Suggestion buildSuggestion(Module module, FileType fileType,
+        List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
+      return newSuggestion(fileType, matchesRootTillMe, numOfAncestors, false, value);
     }
 
     @Override

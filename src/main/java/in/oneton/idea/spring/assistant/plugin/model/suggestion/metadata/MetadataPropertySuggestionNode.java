@@ -1,6 +1,7 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata;
 
 import com.intellij.openapi.module.Module;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
@@ -85,6 +86,11 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
     return property.isLeaf(module);
   }
 
+  @Override
+  public boolean isMetadataNonProperty() {
+    return false;
+  }
+
   /**
    * Type information can come from `hint` & `type` attribute of `SpringConfigurationMetadataProperty`
    *
@@ -99,8 +105,8 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
 
   @NotNull
   @Override
-  public String getOriginalName(Module module) {
-    return property.getOriginalName();
+  public String getOriginalName() {
+    return originalName;
   }
 
   @Override
@@ -131,19 +137,10 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
     List<SuggestionNode> deepestMatch = null;
     boolean haveMoreSegments = pathSegmentStartIndex < pathSegments.length;
     if (haveMoreSegments) {
-      String pathSegment = pathSegments[pathSegmentStartIndex];
-      if (name.equals(pathSegment)) {
-        matchesRootTillParentNode.add(this);
-        boolean lastSegment = pathSegmentStartIndex == (pathSegments.length - 1);
-        if (lastSegment) {
-          deepestMatch = matchesRootTillParentNode;
-        } else {
-          if (!property.isLeaf(module)) {
-            deepestMatch = property
-                .findChildDeepestKeyMatch(module, matchesRootTillParentNode, pathSegments,
-                    pathSegmentStartIndex + 1);
-          }
-        }
+      if (!property.isLeaf(module)) {
+        deepestMatch = property
+            .findChildDeepestKeyMatch(module, matchesRootTillParentNode, pathSegments,
+                pathSegmentStartIndex);
       }
     }
 
@@ -152,39 +149,27 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
 
   @Nullable
   @Override
-  protected SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
-      boolean navigateDeepIfNoMatches) {
-    return findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited, matchesRootTillMe,
+  protected SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex, boolean navigateDeepIfNoMatches) {
+    return findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
         querySegmentPrefixes, querySegmentPrefixStartIndex);
   }
 
   @Nullable
   @Override
-  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex) {
     if (!property.isDeprecatedError()) {
       boolean lookingForConcreteNode = querySegmentPrefixStartIndex >= querySegmentPrefixes.length;
       if (lookingForConcreteNode) {
         return newSingleElementSortedSet(
-            property.buildKeySuggestion(module, ancestralKeysDotDelimited, matchesRootTillMe));
+            property.buildKeySuggestion(module, fileType, matchesRootTillMe, numOfAncestors));
       } else {
-        String querySegmentPrefix = querySegmentPrefixes[querySegmentPrefixStartIndex];
-        if (name.startsWith(querySegmentPrefix)) {
-          boolean lastQuerySegment =
-              querySegmentPrefixStartIndex == (querySegmentPrefixes.length - 1);
-          if (lastQuerySegment) {
-            return newSingleElementSortedSet(
-                property.buildKeySuggestion(module, ancestralKeysDotDelimited, matchesRootTillMe));
-          } else {
-            if (!property.isLeaf(module)) {
-              return property
-                  .findChildKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited,
-                      matchesRootTillMe, querySegmentPrefixes, querySegmentPrefixStartIndex + 1);
-            }
-          }
+        if (!property.isLeaf(module)) {
+          return property.findChildKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe,
+              numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex);
         }
       }
     }
@@ -199,17 +184,16 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
 
   @Nullable
   @Override
-  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module,
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
-    return property.findSuggestionsForValues(module, matchesRootTillMe, prefix);
+    return property.findSuggestionsForValues(module, fileType, matchesRootTillMe, prefix);
   }
 
   @Nullable
   @Override
   public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
       String value) {
-    throw new IllegalAccessError(
-        "Should never be accessed. If the property is a leaf & have hints, this method should have been called on HintAwareSuggestionNode, not on this object");
+    return property.getDocumentationForValue(module, nodeNavigationPathDotDelimited, value);
   }
 
   @Override
@@ -232,6 +216,11 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
     // since we have to delegate any further lookups to the delegate (which has additional cost associated with parsing & building childrenTrie dynamically)
     // lets always lie to caller that we have more than one child so that the search terminates at this node on the initial lookup
     return false;
+  }
+
+  @Override
+  public String toTree() {
+    return originalName + (isRoot() ? "(root + property)" : "(property)");
   }
 
   @Override

@@ -3,6 +3,7 @@ package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -66,19 +67,18 @@ public class IterableClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillParentNode,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     return doWithDelegateAndReturn(delegate -> delegate
-        .findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited,
-            matchesRootTillParentNode, querySegmentPrefixes, querySegmentPrefixStartIndex), null);
+        .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillParentNode,
+            numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex), null);
   }
 
   @Override
-  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module,
+  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
-    return doWithDelegateAndReturn(
-        delegate -> delegate.findValueSuggestionsForPrefix(module, matchesRootTillMe, prefix),
-        null);
+    return doWithDelegateAndReturn(delegate -> delegate
+        .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix), null);
   }
 
   @Nullable

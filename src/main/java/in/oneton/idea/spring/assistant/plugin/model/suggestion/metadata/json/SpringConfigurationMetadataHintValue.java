@@ -3,6 +3,7 @@ package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json;
 import com.google.gson.annotations.SerializedName;
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.MetadataProxy;
@@ -17,7 +18,6 @@ import java.util.List;
 import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
 import static in.oneton.idea.spring.assistant.plugin.insert.handler.YamlValueInsertHandler.unescapeValue;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.newListWithMembers;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.shortenedType;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassFqn;
@@ -75,19 +75,18 @@ public class SpringConfigurationMetadataHintValue {
   }
 
   @NotNull
-  public Suggestion buildSuggestionForKey(Module module, @Nullable String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillParentNode, SuggestionNode match,
+  public Suggestion buildSuggestionForKey(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors, SuggestionNode match,
       @Nullable PsiType keyType) {
-    Suggestion.SuggestionBuilder builder = Suggestion.builder().pathOrValue(
-        dotDelimitedOriginalNames(module, matchesRootTillParentNode) + "." + toString())
-        .description(description).ancestralKeysDotDelimited(ancestralKeysDotDelimited)
-        .matchesTopFirst(newListWithMembers(matchesRootTillParentNode, match));
+    Suggestion.SuggestionBuilder builder =
+        Suggestion.builder().description(description).numOfAncestors(numOfAncestors)
+            .matchesTopFirst(newListWithMembers(matchesRootTillParentNode, match));
 
     if (keyType != null) {
       builder.shortType(toClassNonQualifiedName(keyType));
       builder.icon(ENUM.getIcon());
     }
-    return builder.build();
+    return builder.fileType(fileType).build();
   }
 
   // TODO: Fix this
@@ -133,11 +132,12 @@ public class SpringConfigurationMetadataHintValue {
   }
 
   @NotNull
-  public Suggestion buildSuggestionForValue(List<? extends SuggestionNode> matchesRootTillLeaf,
-      @Nullable String defaultValue, @Nullable PsiType valueType) {
+  public Suggestion buildSuggestionForValue(FileType fileType,
+      List<? extends SuggestionNode> matchesRootTillLeaf, @Nullable String defaultValue,
+      @Nullable PsiType valueType) {
     Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().pathOrValue(toString()).description(description).forValue(true)
-            .matchesTopFirst(matchesRootTillLeaf);
+        Suggestion.builder().value(toString()).description(description).forValue(true)
+            .matchesTopFirst(matchesRootTillLeaf).numOfAncestors(matchesRootTillLeaf.size());
 
     if (valueType != null) {
       builder.shortType(shortenedType(valueType.getCanonicalText()));
@@ -145,7 +145,7 @@ public class SpringConfigurationMetadataHintValue {
     }
 
     builder.representingDefaultValue(toString().equals(defaultValue));
-    return builder.build();
+    return builder.fileType(fileType).build();
   }
 
   // TODO: Fix this

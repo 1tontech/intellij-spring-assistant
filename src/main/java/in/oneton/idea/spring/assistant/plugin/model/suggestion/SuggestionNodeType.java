@@ -1,12 +1,8 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion;
 
-import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.icons.AllIcons;
-import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
-
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getCodeStyleIntent;
 
 public enum SuggestionNodeType {
   BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, CHAR, STRING, /**
@@ -50,20 +46,6 @@ public enum SuggestionNodeType {
       return AllIcons.Json.Array;
     } else {
       return AllIcons.Json.Object;
-    }
-  }
-
-  @NotNull
-  public String getPlaceholderSufixForKey(InsertionContext insertionContext,
-      String existingIndentation) {
-    if (this == UNDEFINED || this == UNKNOWN_CLASS) {
-      return ":" + CARET;
-    } else if (representsLeaf()) {
-      return ": " + CARET;
-    } else if (representsArrayOrCollection()) {
-      return ":\n" + existingIndentation + getCodeStyleIntent(insertionContext) + "- " + CARET;
-    } else { // map or class
-      return ":\n" + existingIndentation + getCodeStyleIntent(insertionContext) + CARET;
     }
   }
 

@@ -6,6 +6,7 @@ import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiType;
 import gnu.trove.THashMap;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -27,9 +28,9 @@ import static com.intellij.codeInsight.documentation.DocumentationManager.create
 import static com.intellij.psi.PsiModifier.STATIC;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode.sanitise;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.computeDocumentation;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getReferredPsiType;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.isValidType;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassFqn;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassNonQualifiedName;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toValidPsiClass;
@@ -55,8 +56,7 @@ public class EnumClassMetadata extends ClassMetadata {
 
   @Override
   protected void init(Module module) {
-    PsiClass psiClass = toValidPsiClass(type);
-    init(psiClass);
+    init(type);
   }
 
   @Nullable
@@ -93,21 +93,21 @@ public class EnumClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillParentNode,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     throw new IllegalAccessError(
         "Should not be called. To use as a map key call findDirectChild(..) instead");
   }
 
   @Override
-  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module,
+  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
     if (childrenTrie != null) {
       SortedMap<String, PsiField> prefixMap = childrenTrie.prefixMap(prefix);
       if (prefixMap != null && prefixMap.size() != 0) {
-        return prefixMap.values().stream()
-            .map(psiField -> newSuggestion(module, null, matchesRootTillMe, false, psiField))
-            .collect(toCollection(TreeSet::new));
+        return prefixMap.values().stream().map(
+            psiField -> newSuggestion(fileType, matchesRootTillMe, matchesRootTillMe.size(), true,
+                psiField)).collect(toCollection(TreeSet::new));
       }
     }
     return null;
@@ -180,9 +180,9 @@ public class EnumClassMetadata extends ClassMetadata {
     return type;
   }
 
-  private void init(@Nullable PsiClass psiClass) {
-    if (psiClass != null) {
-      PsiField[] fields = psiClass.getFields();
+  private void init(@NotNull PsiClassType type) {
+    if (isValidType(type)) {
+      PsiField[] fields = requireNonNull(toValidPsiClass(type)).getFields();
       List<PsiField> acceptableFields = new ArrayList<>();
       for (PsiField field : fields) {
         if (field != null && !field.hasModifierProperty(STATIC)) {
@@ -197,16 +197,22 @@ public class EnumClassMetadata extends ClassMetadata {
           childrenTrie.put(sanitise(field.getName()), field);
         });
       }
+    } else {
+      childLookup = null;
+      childrenTrie = null;
     }
   }
 
-  private Suggestion newSuggestion(Module module, String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillMe, boolean forKey, @NotNull PsiField value) {
-    return Suggestion.builder().ancestralKeysDotDelimited(ancestralKeysDotDelimited).pathOrValue(
-        forKey ?
-            dotDelimitedOriginalNames(module, matchesRootTillMe) :
-            requireNonNull(value.getName())).matchesTopFirst(matchesRootTillMe)
-        .shortType(toClassNonQualifiedName(type)).icon(ENUM.getIcon()).build();
+  private Suggestion newSuggestion(FileType fileType, List<SuggestionNode> matchesRootTillMe,
+      int numOfAncestors, boolean forValue, @NotNull PsiField value) {
+    Suggestion.SuggestionBuilder builder =
+        Suggestion.builder().numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
+            .shortType(toClassNonQualifiedName(type)).icon(ENUM.getIcon()).fileType(fileType);
+    if (forValue) {
+      builder.value(requireNonNull(value.getName()));
+    }
+    builder.forValue(forValue);
+    return builder.build();
   }
 
 
@@ -219,15 +225,15 @@ public class EnumClassMetadata extends ClassMetadata {
 
     @Nullable
     @Override
-    public String getOriginalName(Module module) {
+    public String getOriginalName() {
       return field.getName();
     }
 
     @NotNull
     @Override
-    public Suggestion buildSuggestion(Module module, String ancestralKeysDotDelimited,
-        List<SuggestionNode> matchesRootTillMe) {
-      return newSuggestion(module, ancestralKeysDotDelimited, matchesRootTillMe, true, field);
+    public Suggestion buildSuggestion(Module module, FileType fileType,
+        List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
+      return newSuggestion(fileType, matchesRootTillMe, numOfAncestors, false, field);
     }
 
     @Override

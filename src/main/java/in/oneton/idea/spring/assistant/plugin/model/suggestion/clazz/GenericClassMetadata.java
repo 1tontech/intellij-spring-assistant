@@ -1,9 +1,9 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 
 import com.intellij.openapi.module.Module;
-import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -25,6 +25,7 @@ import static com.intellij.util.containers.ContainerUtil.isEmpty;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.KNOWN_CLASS;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.newListWithMembers;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getSanitisedPropertyToPsiMemberWrapper;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.isValidType;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toValidPsiClass;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toCollection;
@@ -45,17 +46,19 @@ public class GenericClassMetadata extends ClassMetadata {
 
   @Override
   protected void init(Module module) {
-    PsiClass psiClass = toValidPsiClass(type);
-    init(psiClass);
+    init(type);
   }
 
-  private void init(@Nullable PsiClass psiClass) {
-    if (psiClass != null) {
-      childLookup = getSanitisedPropertyToPsiMemberWrapper(psiClass);
+  private void init(@NotNull PsiClassType type) {
+    if (isValidType(type)) {
+      childLookup = getSanitisedPropertyToPsiMemberWrapper(toValidPsiClass(type));
       if (childLookup != null) {
         childrenTrie = new PatriciaTrie<>();
         childLookup.forEach((k, v) -> childrenTrie.put(k, v));
       }
+    } else {
+      childLookup = null;
+      childrenTrie = null;
     }
   }
 
@@ -111,7 +114,7 @@ public class GenericClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillCurrentNode,
+      FileType fileType, List<SuggestionNode> matchesRootTillCurrentNode, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     if (!isLeaf(module)) {
       if (childrenTrie != null) {
@@ -124,7 +127,7 @@ public class GenericClassMetadata extends ClassMetadata {
               querySegmentPrefixStartIndex == (querySegmentPrefixes.length - 1);
           if (lastQuerySegment) {
             return wrappers.stream().map(wrapper -> wrapper
-                .buildSuggestion(module, ancestralKeysDotDelimited, matchesRootTillCurrentNode))
+                .buildSuggestion(module, fileType, matchesRootTillCurrentNode, numOfAncestors))
                 .collect(toCollection(TreeSet::new));
           } else {
             SortedSet<Suggestion> suggestions = null;
@@ -133,9 +136,8 @@ public class GenericClassMetadata extends ClassMetadata {
                   unmodifiableList(newListWithMembers(matchesRootTillCurrentNode, wrapper));
               Set<Suggestion> matchedSuggestions =
                   wrapper.getMemberReferredClassMetadataProxy(module)
-                      .findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited,
-                          pathRootTillCurrentNode, querySegmentPrefixes,
-                          querySegmentPrefixStartIndex);
+                      .findKeySuggestionsForQueryPrefix(module, fileType, pathRootTillCurrentNode,
+                          numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex);
               if (matchedSuggestions != null) {
                 if (suggestions == null) {
                   suggestions = new TreeSet<>();
@@ -152,7 +154,7 @@ public class GenericClassMetadata extends ClassMetadata {
   }
 
   @Override
-  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module,
+  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
     throw new IllegalAccessError("Method should never be called for a generic class");
   }

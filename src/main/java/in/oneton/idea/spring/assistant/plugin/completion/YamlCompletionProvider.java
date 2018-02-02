@@ -18,8 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.intellij.psi.util.PsiTreeUtil.getParentOfType;
+import static in.oneton.idea.spring.assistant.plugin.completion.FileType.yaml;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.truncateIdeaDummyIdentifier;
-import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findModuleForElement;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findModule;
 
 class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
   @Override
@@ -32,7 +33,7 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
     }
 
     Project project = element.getProject();
-    Module module = findModuleForElement(element);
+    Module module = findModule(element);
 
     SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
 
@@ -47,8 +48,8 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
     String queryWithDotDelimitedPrefixes = truncateIdeaDummyIdentifier(element);
 
     if (keyValue == null) {
-      suggestions = service
-          .computeSuggestionsForKey(project, module, element, null, queryWithDotDelimitedPrefixes);
+      suggestions = service.findSuggestionsForQueryPrefix(project, module, yaml, element, null,
+          queryWithDotDelimitedPrefixes);
     } else {
       List<String> containerElements = new ArrayList<>();
       do {
@@ -56,8 +57,9 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
         keyValue = getParentOfType(keyValue, YAMLKeyValue.class);
       } while (keyValue != null);
 
-      suggestions = service.computeSuggestionsForKey(project, module, element, containerElements,
-          queryWithDotDelimitedPrefixes);
+      suggestions = service
+          .findSuggestionsForQueryPrefix(project, module, yaml, element, containerElements,
+              queryWithDotDelimitedPrefixes);
     }
 
     if (suggestions != null) {

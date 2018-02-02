@@ -1,6 +1,7 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata;
 
 import com.intellij.openapi.module.Module;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import org.jetbrains.annotations.Contract;
@@ -32,17 +33,18 @@ public abstract class MetadataSuggestionNode implements SuggestionNode {
       int pathSegmentStartIndex, boolean matchAllSegments);
 
   @Override
-  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
-    return findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited, matchesRootTillMe,
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex) {
+    return findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
         querySegmentPrefixes, querySegmentPrefixStartIndex, true);
   }
 
   /**
    * @param module                       module
-   * @param ancestralKeysDotDelimited    all ancestral keys dot delimited, required for showing full path in documentation
+   * @param fileType                     type of file requesting suggestion
    * @param matchesRootTillMe            path from root till current node
+   * @param numOfAncestors               all ancestral keys dot delimited, required for showing full path in documentation
    * @param querySegmentPrefixes         the search text parts split based on period delimiter
    * @param querySegmentPrefixStartIndex current index in the `querySegmentPrefixes` to start search from
    * @param navigateDeepIfNoMatches      whether search should proceed further down if the search cannot find results at this level
@@ -50,7 +52,7 @@ public abstract class MetadataSuggestionNode implements SuggestionNode {
    */
   @Nullable
   protected abstract SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
+      FileType fileType, List<SuggestionNode> matchesRootTillMe, @Nullable int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
       boolean navigateDeepIfNoMatches);
 
@@ -84,7 +86,7 @@ public abstract class MetadataSuggestionNode implements SuggestionNode {
   protected abstract String getName();
 
   @NotNull
-  public abstract String getOriginalName(Module module);
+  public abstract String getOriginalName();
 
   @Nullable
   protected abstract MetadataNonPropertySuggestionNode getParent();
@@ -117,7 +119,7 @@ public abstract class MetadataSuggestionNode implements SuggestionNode {
     Stack<String> leafTillRoot = new Stack<>();
     MetadataSuggestionNode current = this;
     do {
-      leafTillRoot.push(current.getOriginalName(module));
+      leafTillRoot.push(current.getOriginalName());
       current = current.getParent();
     } while (current != null);
     return leafTillRoot.stream().collect(joining("."));
@@ -132,8 +134,10 @@ public abstract class MetadataSuggestionNode implements SuggestionNode {
   @Override
   public String getNameForDocumentation(Module module) {
     return getSuggestionNodeType(module).representsArrayOrCollection() ?
-        getOriginalName(module) + "[]" :
-        getOriginalName(module);
+        getOriginalName() + "[]" :
+        getOriginalName();
   }
+
+  public abstract String toTree();
 
 }

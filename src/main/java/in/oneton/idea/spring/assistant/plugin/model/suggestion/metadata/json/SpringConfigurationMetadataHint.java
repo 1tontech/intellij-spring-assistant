@@ -48,11 +48,11 @@ public class SpringConfigurationMetadataHint implements GsonPostProcessable {
   }
 
   public boolean representsKeyOfMap() {
-    return KEY_REGEX_PATTERN_FOR_MAP.matcher(name).matches();
+    return KEY_REGEX_PATTERN_FOR_MAP.matcher(name).find();
   }
 
   public boolean representsValueOfMap() {
-    return VALUE_REGEX_PATTERN_FOR_MAP.matcher(name).matches();
+    return VALUE_REGEX_PATTERN_FOR_MAP.matcher(name).find();
   }
 
   @Override

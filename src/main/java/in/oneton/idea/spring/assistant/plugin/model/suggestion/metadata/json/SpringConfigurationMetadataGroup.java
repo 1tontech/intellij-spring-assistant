@@ -1,11 +1,10 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json;
 
 import com.intellij.codeInsight.documentation.DocumentationManager;
-import com.intellij.openapi.module.Module;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
-import in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.MetadataSuggestionNode;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.jetbrains.annotations.NotNull;
@@ -14,9 +13,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNDEFINED;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.methodForDocumentationNavigation;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.newListWithMembers;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.removeGenerics;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.shortenedType;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.typeForDocumentationNavigation;
@@ -40,7 +37,7 @@ public class SpringConfigurationMetadataGroup {
   @NotNull
   private SuggestionNodeType nodeType = UNDEFINED;
 
-  public String getDocumentation(Module module, String nodeNavigationPathDotDelimited) {
+  public String getDocumentation(String nodeNavigationPathDotDelimited) {
     // Format for the documentation is as follows
     /*
      * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
@@ -84,13 +81,11 @@ public class SpringConfigurationMetadataGroup {
     return builder.toString();
   }
 
-  public Suggestion newSuggestion(Module module, String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillParentNode, MetadataSuggestionNode currentNode) {
-    return Suggestion.builder()
-        .pathOrValue(dotDelimitedOriginalNames(module, matchesRootTillParentNode, currentNode))
-        .icon(nodeType.getIcon()).description(description).shortType(shortenedType(type))
-        .ancestralKeysDotDelimited(ancestralKeysDotDelimited)
-        .matchesTopFirst(newListWithMembers(matchesRootTillParentNode, currentNode)).build();
+  public Suggestion newSuggestion(FileType fileType, List<SuggestionNode> matchesRootTillParentNode,
+      int numOfAncestors) {
+    return Suggestion.builder().description(description).shortType(shortenedType(type))
+        .numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillParentNode)
+        .icon(nodeType.getIcon()).fileType(fileType).build();
   }
 
 }

@@ -2,6 +2,7 @@ package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -35,12 +36,12 @@ public interface MetadataProxy {
       int pathSegmentStartIndex);
 
   @Nullable
-  SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex);
+  SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex);
 
   @Nullable
-  SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module,
+  SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix);
 
   @Nullable

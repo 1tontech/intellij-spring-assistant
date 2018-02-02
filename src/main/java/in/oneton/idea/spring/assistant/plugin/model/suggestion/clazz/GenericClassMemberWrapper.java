@@ -5,6 +5,7 @@ import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiMember;
 import com.intellij.psi.PsiMethod;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -20,7 +21,6 @@ import static in.oneton.idea.spring.assistant.plugin.insert.handler.YamlValueIns
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassSuggestionNodeFactory.newMetadataProxy;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel.warning;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.methodForDocumentationNavigation;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.removeGenerics;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.computeDocumentation;
@@ -91,16 +91,16 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
 
   @Nullable
   @Override
-  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex) {
     return doWithMemberReferredClassProxy(module, proxy -> proxy
-        .findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited, matchesRootTillMe,
+        .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
             querySegmentPrefixes, querySegmentPrefixStartIndex), null);
   }
 
   @NotNull
-  public String getOriginalName(Module module) {
+  public String getOriginalName() {
     return originalName;
   }
 
@@ -118,15 +118,21 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
 
   @Nullable
   @Override
-  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module,
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
     return doWithMemberReferredClassProxy(module,
-        proxy -> proxy.findValueSuggestionsForPrefix(module, matchesRootTillMe, prefix), null);
+        proxy -> proxy.findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix),
+        null);
   }
 
   @Override
   public boolean isLeaf(Module module) {
     return doWithMemberReferredClassProxy(module, proxy -> proxy.isLeaf(module), true);
+  }
+
+  @Override
+  public boolean isMetadataNonProperty() {
+    return false;
   }
 
   private boolean computeDeprecationStatus() {
@@ -147,17 +153,16 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
 
   @NotNull
   @Override
-  public Suggestion buildSuggestion(Module module, String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillMe) {
+  public Suggestion buildSuggestion(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
     Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().pathOrValue(dotDelimitedOriginalNames(module, matchesRootTillMe))
-            .icon(proxy.getSuggestionNodeType(module).getIcon()).description(documentation)
-            .shortType(shortType).ancestralKeysDotDelimited(ancestralKeysDotDelimited)
+        Suggestion.builder().icon(proxy.getSuggestionNodeType(module).getIcon())
+            .description(documentation).shortType(shortType).numOfAncestors(numOfAncestors)
             .matchesTopFirst(matchesRootTillMe);
     if (deprecated) {
       builder.deprecationLevel(warning);
     }
-    return builder.build();
+    return builder.fileType(fileType).build();
   }
 
   @Override

@@ -2,6 +2,7 @@ package in.oneton.idea.spring.assistant.plugin.model.suggestion;
 
 import com.intellij.openapi.module.Module;
 import in.oneton.idea.spring.assistant.plugin.completion.DocumentationProvider;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionNodeTypeProvider;
 
 import javax.annotation.Nullable;
@@ -33,23 +34,23 @@ public interface SuggestionNode extends DocumentationProvider, SuggestionNodeTyp
 
   /**
    * @param module                       module
-   * @param ancestralKeysDotDelimited    all ancestral keys dot delimited, required for showing full path in documentation
+   * @param fileType                     type of file requesting suggestion
    * @param matchesRootTillMe            path from root till current node
+   * @param numOfAncestors               all ancestral keys dot delimited, required for showing full path in documentation
    * @param querySegmentPrefixes         the search text parts split based on period delimiter
    * @param querySegmentPrefixStartIndex current index in the `querySegmentPrefixes` to start search from
    * @return Suggestions matching the given querySegmentPrefixes criteria from within the children
    */
   @Nullable
-  SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex);
+  SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex);
 
   /**
-   * @param module module
    * @return original name without any sanitising, null if the suggestion node does not have any corresponding name
    */
   @Nullable
-  String getOriginalName(Module module);
+  String getOriginalName();
 
   @Nullable
   String getNameForDocumentation(Module module);
@@ -58,12 +59,13 @@ public interface SuggestionNode extends DocumentationProvider, SuggestionNodeTyp
    * Find all applicable suggestions for the given search text
    *
    * @param module            module
+   * @param fileType          type of file requesting suggestion
    * @param matchesRootTillMe path from root till current node
    * @param prefix            prefix to find matches for
    * @return suggestions that contain the given search text
    */
   @Nullable
-  SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module,
+  SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix);
 
   /**
@@ -71,5 +73,7 @@ public interface SuggestionNode extends DocumentationProvider, SuggestionNodeTyp
    * @return whether the node is a leaf or not
    */
   boolean isLeaf(Module module);
+
+  boolean isMetadataNonProperty();
 
 }

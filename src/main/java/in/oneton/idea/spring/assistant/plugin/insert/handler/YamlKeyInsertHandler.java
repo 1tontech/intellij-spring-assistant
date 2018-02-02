@@ -4,21 +4,28 @@ import com.intellij.codeInsight.completion.InsertHandler;
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.util.PsiTreeUtil;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.YAMLElementGenerator;
 import org.jetbrains.yaml.YAMLTokenTypes;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
+import java.util.List;
+
 import static com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction;
 import static com.intellij.openapi.editor.EditorModificationUtil.insertStringAtCaret;
-import static com.intellij.openapi.module.ModuleUtilCore.findModuleForPsiElement;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.CARET;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNDEFINED;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getCodeStyleIntent;
-import static java.util.Objects.requireNonNull;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getIndent;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getOverallIndent;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findModule;
 
 public class YamlKeyInsertHandler implements InsertHandler<LookupElement> {
 
@@ -27,17 +34,12 @@ public class YamlKeyInsertHandler implements InsertHandler<LookupElement> {
     if (!nextCharAfterSpacesAndQuotesIsColon(getStringAfterAutoCompletedValue(context))) {
       String existingIndentation = getExistingIndentation(context, lookupElement);
       Suggestion suggestion = (Suggestion) lookupElement.getObject();
-      String indent = getCodeStyleIntent(context);
-      String insertedText = suggestion.getSuggestionReplacement(
-          findModuleForPsiElement(requireNonNull(lookupElement.getPsiElement())),
-          existingIndentation, indent);
-      String additionalIndent = suggestion.getNewOverallIndent(existingIndentation, indent);
-
-      SuggestionNodeType type = suggestion.getSuggestionNodeType(
-          findModuleForPsiElement(requireNonNull(lookupElement.getPsiElement())));
-      final String suggestionWithCaret =
-          insertedText + type.getPlaceholderSufixForKey(context, additionalIndent);
-      final String suggestionWithoutCaret = suggestionWithCaret.replace(CARET, "");
+      String indentPerLevel = getCodeStyleIntent(context);
+      Module module = findModule(context);
+      String suggestionWithCaret =
+          getSuggestionReplacementWithCaret(module, suggestion, existingIndentation,
+              indentPerLevel);
+      String suggestionWithoutCaret = suggestionWithCaret.replace(CARET, "");
 
       PsiElement currentElement = context.getFile().findElementAt(context.getStartOffset());
       assert currentElement != null : "no element at " + context.getStartOffset();
@@ -118,6 +120,44 @@ public class YamlKeyInsertHandler implements InsertHandler<LookupElement> {
     Document document = context.getDocument();
     document.deleteString(context.getStartOffset(), context.getTailOffset());
     context.commitDocument();
+  }
+
+  @NotNull
+  private String getSuggestionReplacementWithCaret(Module module, Suggestion suggestion,
+      String existingIndentation, String indentPerLevel) {
+    StringBuilder builder = new StringBuilder();
+    int i = 0;
+    List<? extends SuggestionNode> matchesTopFirst = suggestion.getMatchesForReplacement();
+    do {
+      SuggestionNode currentNode = matchesTopFirst.get(i);
+      builder.append("\n").append(existingIndentation).append(getIndent(indentPerLevel, i))
+          .append(currentNode.getOriginalName()).append(":");
+      i++;
+    } while (i < matchesTopFirst.size());
+    builder.delete(0, existingIndentation.length() + 1);
+    String indentForNextLevel =
+        getOverallIndent(existingIndentation, indentPerLevel, matchesTopFirst.size());
+    String sufix = getPlaceholderSufixWithCaret(module, suggestion, indentForNextLevel);
+    builder.append(sufix);
+    return builder.toString();
+  }
+
+  @NotNull
+  private String getPlaceholderSufixWithCaret(Module module, Suggestion suggestion,
+      String indentForNextLevel) {
+    if (suggestion.getLastSuggestionNode().isMetadataNonProperty()) {
+      return "\n" + indentForNextLevel + CARET;
+    }
+    SuggestionNodeType nodeType = suggestion.getSuggestionNodeType(module);
+    if (nodeType == UNDEFINED || nodeType == UNKNOWN_CLASS) {
+      return CARET;
+    } else if (nodeType.representsLeaf()) {
+      return " " + CARET;
+    } else if (nodeType.representsArrayOrCollection()) {
+      return "\n" + indentForNextLevel + "- " + CARET;
+    } else { // map or class
+      return "\n" + indentForNextLevel + CARET;
+    }
   }
 
 }

@@ -4,6 +4,7 @@ import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -19,7 +20,6 @@ import static com.intellij.openapi.util.Key.create;
 import static com.intellij.psi.util.CachedValueProvider.Result.create;
 import static com.intellij.psi.util.CachedValuesManager.getCachedValue;
 import static com.intellij.psi.util.PsiModificationTracker.JAVA_STRUCTURE_MODIFICATION_COUNT;
-import static com.intellij.psi.util.PsiTypesUtil.getClassType;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassSuggestionNodeFactory.newClassMetadata;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toValidPsiClass;
@@ -30,7 +30,11 @@ public class ClassMetadataProxy implements MetadataProxy {
   @NotNull
   private final PsiClass targetClass;
 
+  @NotNull
+  private final PsiClassType type;
+
   ClassMetadataProxy(@NotNull PsiClassType type) {
+    this.type = type;
     targetClass = requireNonNull(toValidPsiClass(type));
   }
 
@@ -60,20 +64,21 @@ public class ClassMetadataProxy implements MetadataProxy {
 
   @Nullable
   @Override
-  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex) {
     return doWithTargetAndReturn(target -> target
-        .findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited, matchesRootTillMe,
+        .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
             querySegmentPrefixes, querySegmentPrefixStartIndex), null);
   }
 
   @Nullable
   @Override
-  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module,
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
     return doWithTargetAndReturn(
-        target -> target.findValueSuggestionsForPrefix(module, matchesRootTillMe, prefix), null);
+        target -> target.findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix),
+        null);
   }
 
   @Nullable
@@ -126,17 +131,18 @@ public class ClassMetadataProxy implements MetadataProxy {
     return defaultReturnValue;
   }
 
-  private void doWithTarget(TargetInvoker targetInvoker) {
-    ClassMetadata target = getTarget();
-    if (target != null) {
-      targetInvoker.invoke(target);
-    }
-  }
+  //  private void doWithTarget(TargetInvoker targetInvoker) {
+  //    ClassMetadata target = getTarget();
+  //    if (target != null) {
+  //      targetInvoker.invoke(target);
+  //    }
+  //  }
 
   private ClassMetadata getTarget() {
+    // TODO: Check if ValueHintPsiElement from spring boot can be used in anyway
+    // TODO: Verify if we will have just one Map for each type of Map/we can expect multiple
     return getCachedValue(targetClass, create("spring_assistant_plugin_class_metadata"),
-        () -> create(newClassMetadata(getClassType(targetClass)),
-            JAVA_STRUCTURE_MODIFICATION_COUNT));
+        () -> create(newClassMetadata(type), JAVA_STRUCTURE_MODIFICATION_COUNT));
   }
 
 

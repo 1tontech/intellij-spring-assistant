@@ -3,6 +3,7 @@ package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiArrayType;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -55,21 +56,20 @@ public class ArrayMetadataProxy implements MetadataProxy {
 
   @Nullable
   @Override
-  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, @Nullable int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     return doWithDelegateAndReturn(delegate -> delegate
-        .findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited, matchesRootTillMe,
+        .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
             querySegmentPrefixes, querySegmentPrefixStartIndex), null);
   }
 
   @Nullable
   @Override
-  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module,
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
-    return doWithDelegateAndReturn(
-        delegate -> delegate.findValueSuggestionsForPrefix(module, matchesRootTillMe, prefix),
-        null);
+    return doWithDelegateAndReturn(delegate -> delegate
+        .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix), null);
   }
 
   @Nullable

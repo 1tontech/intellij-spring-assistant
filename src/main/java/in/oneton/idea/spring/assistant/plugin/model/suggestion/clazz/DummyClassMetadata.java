@@ -2,6 +2,7 @@ package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -15,7 +16,6 @@ import java.util.SortedSet;
 
 import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
 import static com.intellij.openapi.util.text.StringUtil.isEmpty;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassFqn;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassNonQualifiedName;
 
@@ -123,13 +123,14 @@ public class DummyClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillParentNode,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode,
+      @Nullable int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex) {
     return null;
   }
 
   @Override
-  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module,
+  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
     return null;
   }
@@ -182,12 +183,11 @@ public class DummyClassMetadata extends ClassMetadata {
     }
   }
 
-  private Suggestion newSuggestion(Module module, String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillMe) {
+  private Suggestion newSuggestion(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
     Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().ancestralKeysDotDelimited(ancestralKeysDotDelimited)
-            .pathOrValue(dotDelimitedOriginalNames(module, matchesRootTillMe))
-            .matchesTopFirst(matchesRootTillMe).icon(nodeType.getIcon());
+        Suggestion.builder().numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
+            .icon(nodeType.getIcon()).fileType(fileType);
 
     PsiType psiType = getPsiType();
     if (psiType != null) {
@@ -207,15 +207,15 @@ public class DummyClassMetadata extends ClassMetadata {
 
     @Nullable
     @Override
-    public String getOriginalName(Module module) {
+    public String getOriginalName() {
       return value;
     }
 
     @NotNull
     @Override
-    public Suggestion buildSuggestion(Module module, String ancestralKeysDotDelimited,
-        List<SuggestionNode> matchesRootTillMe) {
-      return newSuggestion(module, ancestralKeysDotDelimited, matchesRootTillMe);
+    public Suggestion buildSuggestion(Module module, FileType fileType,
+        List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
+      return newSuggestion(module, fileType, matchesRootTillMe, numOfAncestors);
     }
 
     @Override

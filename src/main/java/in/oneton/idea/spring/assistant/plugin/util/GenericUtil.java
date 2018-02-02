@@ -141,30 +141,34 @@ public class GenericUtil {
     return type;
   }
 
-  public static String dotDelimitedOriginalNames(Module module,
+  public static String dotDelimitedOriginalNames(
       List<? extends SuggestionNode> matchesTopFirstTillParentNode, SuggestionNode currentNode) {
     StringBuilder builder = new StringBuilder();
 
     for (SuggestionNode aMatchesTopFirstTillParentNode : matchesTopFirstTillParentNode) {
-      String originalName = aMatchesTopFirstTillParentNode.getOriginalName(module);
+      String originalName = aMatchesTopFirstTillParentNode.getOriginalName();
       if (originalName != null) {
         builder.append(originalName).append(".");
       }
     }
 
-    String originalName = currentNode.getOriginalName(module);
+    String originalName = currentNode.getOriginalName();
     if (originalName != null) {
       builder.append(originalName);
     }
     return builder.toString();
   }
 
-  public static String dotDelimitedOriginalNames(Module module,
-      List<? extends SuggestionNode> matches) {
+  public static String dotDelimitedOriginalNames(List<? extends SuggestionNode> matches) {
+    return dotDelimitedOriginalNames(matches, 0);
+  }
+
+  public static String dotDelimitedOriginalNames(List<? extends SuggestionNode> matches,
+      int startIndex) {
     StringBuilder builder = new StringBuilder();
 
-    for (int i = 0; i < matches.size(); i++) {
-      String originalName = matches.get(i).getOriginalName(module);
+    for (int i = startIndex; i < matches.size(); i++) {
+      String originalName = matches.get(i).getOriginalName();
       if (originalName != null) {
         builder.append(originalName);
         boolean appendDot = i < matches.size() - 1;
@@ -174,6 +178,24 @@ public class GenericUtil {
       }
     }
     return builder.toString();
+  }
+
+  @NotNull
+  public static String getIndent(String indent, int numOfHops) {
+    if (numOfHops == 0) {
+      return "";
+    }
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < numOfHops; i++) {
+      builder.append(indent);
+    }
+    return builder.toString();
+  }
+
+  @NotNull
+  public static String getOverallIndent(String existingIndentation, String indentPerLevel,
+      int numOfLevels) {
+    return existingIndentation + getIndent(indentPerLevel, numOfLevels);
   }
 
   @NotNull
@@ -194,7 +216,8 @@ public class GenericUtil {
 
   public static boolean isYamlValue(final PsiElement element) {
     PsiElement parent = element.getParent();
-    return parent instanceof YAMLKeyValue && element == ((YAMLKeyValue) parent).getValue();
+    return parent instanceof YAMLKeyValue && element == ((YAMLKeyValue) parent).getValue()
+        || isYamlArrayElement(element);
   }
 
   private static Optional<YAMLKeyValue> getAsYamlKeyValue(final PsiElement psiElement) {

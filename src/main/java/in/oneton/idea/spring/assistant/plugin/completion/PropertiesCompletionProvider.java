@@ -12,7 +12,7 @@ class PropertiesCompletionProvider {
   //    }
   //
   //    Project project = element.getProject();
-  //    Module module = findModuleForElement(element);
+  //    Module module = findModule(element);
   //
   //    SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
   //

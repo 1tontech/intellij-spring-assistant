@@ -1,5 +1,6 @@
 package in.oneton.idea.spring.assistant.plugin.util;
 
+import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.impl.analysis.JavaGenericsUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
@@ -10,7 +11,6 @@ import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiInvalidElementAccessException;
 import com.intellij.psi.PsiMember;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiParameter;
@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.intellij.openapi.module.ModuleUtilCore.findModuleForFile;
 import static com.intellij.openapi.module.ModuleUtilCore.findModuleForPsiElement;
 import static com.intellij.openapi.util.Key.create;
 import static com.intellij.psi.CommonClassNames.JAVA_LANG_ITERABLE;
@@ -50,6 +51,7 @@ import static com.intellij.psi.util.PropertyUtil.getPropertyName;
 import static com.intellij.psi.util.PropertyUtil.isSimplePropertyGetter;
 import static com.intellij.psi.util.PropertyUtil.isSimplePropertySetter;
 import static com.intellij.psi.util.PsiModificationTracker.JAVA_STRUCTURE_MODIFICATION_COUNT;
+import static com.intellij.psi.util.PsiTypesUtil.getClassType;
 import static com.intellij.psi.util.PsiTypesUtil.hasUnresolvedComponents;
 import static com.intellij.psi.util.PsiUtil.extractIterableTypeParameter;
 import static com.intellij.psi.util.PsiUtil.resolveGenericsClassInType;
@@ -114,8 +116,11 @@ public class PsiCustomUtil {
       return ((PsiField) psiElement).getType();
     } else if (psiElement instanceof PsiMethod) {
       return requireNonNull(((PsiMethod) psiElement).getReturnType());
+    } else if (psiElement instanceof PsiClass) {
+      return getClassType((PsiClass) psiElement);
     }
-    throw new RuntimeException("Method supports psiElement of type PsiField & PsiMethod only");
+    throw new RuntimeException(
+        "Method supports psiElement of type PsiField, PsiMethod & PsiClass only");
   }
 
   public static PsiType getFirstTypeParameter(PsiClassType psiClassType) {
@@ -136,7 +141,7 @@ public class PsiCustomUtil {
   }
 
   @Nullable
-  private static Collection<PsiType> getTypeParameters(PsiType type) {
+  public static Collection<PsiType> getTypeParameters(PsiType type) {
     if (type instanceof PsiArrayType) {
       return getTypeParameters(((PsiArrayType) type).getComponentType());
     } else if (type instanceof PsiPrimitiveType) {
@@ -299,13 +304,10 @@ public class PsiCustomUtil {
         return true;
       }
       if (type instanceof PsiClassType) {
-        try {
-          // TODO: Need to check whether we should do resolveGenerics or not to avoid exception?
-          PsiClass psiClass = ((PsiClassType) type).resolve();
-          return psiClass != null && isValidElement(psiClass) && !hasUnresolvedComponents(type);
-        } catch (PsiInvalidElementAccessException e) {
-          return false;
-        }
+        PsiClassType.ClassResolveResult classResolveResult =
+            ((PsiClassType) type).resolveGenerics();
+        return classResolveResult.isValidResult() && isValidElement(
+            requireNonNull(classResolveResult.getElement())) && !hasUnresolvedComponents(type);
       }
       return false;
     }
@@ -496,8 +498,14 @@ public class PsiCustomUtil {
     return null;
   }
 
-  public static Module findModuleForElement(@NotNull PsiElement element) {
+  @Nullable
+  public static Module findModule(@NotNull PsiElement element) {
     return findModuleForPsiElement(element);
+  }
+
+  @Nullable
+  public static Module findModule(@NotNull InsertionContext context) {
+    return findModuleForFile(context.getFile().getVirtualFile(), context.getProject());
   }
 
   @Nullable

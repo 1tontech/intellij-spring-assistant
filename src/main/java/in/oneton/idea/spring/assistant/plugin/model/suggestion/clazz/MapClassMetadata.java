@@ -1,9 +1,9 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 
 import com.intellij.openapi.module.Module;
-import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiType;
+import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -23,7 +23,7 @@ import static in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassSuggestionNodeFactory.newMetadataProxy;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.newListWithMembers;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getTypeParameters;
-import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toValidPsiClass;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.isValidType;
 import static java.util.stream.Collectors.toCollection;
 
 public class MapClassMetadata extends ClassMetadata {
@@ -46,8 +46,7 @@ public class MapClassMetadata extends ClassMetadata {
 
   @Override
   protected void init(Module module) {
-    PsiClass psiClass = toValidPsiClass(type);
-    init(module, psiClass);
+    init(module, type);
   }
 
   @Nullable
@@ -93,7 +92,7 @@ public class MapClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
+      FileType fileType, List<SuggestionNode> matchesRootTillMe, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     boolean lastPathSegment = querySegmentPrefixStartIndex == querySegmentPrefixes.length - 1;
     if (lastPathSegment && keyMetadataProxy != null) {
@@ -101,10 +100,9 @@ public class MapClassMetadata extends ClassMetadata {
       Collection<? extends SuggestionDocumentationHelper> directChildKeyMatches =
           keyMetadataProxy.findDirectChildrenForQueryPrefix(module, querySegmentPrefix);
       if (!isEmpty(directChildKeyMatches)) {
-        return directChildKeyMatches.stream().map(helper -> helper
-            .buildSuggestion(module, ancestralKeysDotDelimited,
-                newListWithMembers(matchesRootTillMe, new MapKeySuggestionNode(helper))))
-            .collect(toCollection(TreeSet::new));
+        return directChildKeyMatches.stream().map(helper -> helper.buildSuggestion(module, fileType,
+            newListWithMembers(matchesRootTillMe, new MapKeySuggestionNode(helper)),
+            numOfAncestors)).collect(toCollection(TreeSet::new));
 
       }
     }
@@ -112,23 +110,24 @@ public class MapClassMetadata extends ClassMetadata {
   }
 
   public SortedSet<Suggestion> findChildKeySuggestionForQueryPrefix(Module module,
-      @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
+      FileType fileType, List<SuggestionNode> matchesRootTillMe, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     if (valueMetadataProxy != null) {
       return valueMetadataProxy
-          .findKeySuggestionsForQueryPrefix(module, ancestralKeysDotDelimited, matchesRootTillMe,
+          .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
               querySegmentPrefixes, querySegmentPrefixStartIndex);
     }
     return null;
   }
 
   @Override
-  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module,
+  protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
     if (valueMetadataProxy != null) {
       boolean valueIsLeaf = valueMetadataProxy.isLeaf(module);
       assert valueIsLeaf;
-      return valueMetadataProxy.findValueSuggestionsForPrefix(module, matchesRootTillMe, prefix);
+      return valueMetadataProxy
+          .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix);
     }
     return null;
   }
@@ -169,16 +168,26 @@ public class MapClassMetadata extends ClassMetadata {
     return type;
   }
 
-  private void init(Module module, PsiClass psiClass) {
-    if (psiClass != null) {
-      Collection<PsiType> typeParameters = getTypeParameters(psiClass);
+  private void init(Module module, PsiClassType type) {
+    if (isValidType(type)) {
+      Collection<PsiType> typeParameters = getTypeParameters(type);
+      // If Map is raw, there are still two type parameters
       if (typeParameters != null && typeParameters.size() == 2) {
         Iterator<PsiType> iterator = typeParameters.iterator();
         keyType = iterator.next();
-        keyMetadataProxy = newMetadataProxy(module, keyType);
+        if (keyType != null) {
+          keyMetadataProxy = newMetadataProxy(module, keyType);
+        }
         valueType = iterator.next();
-        valueMetadataProxy = newMetadataProxy(module, valueType);
+        if (valueType != null) {
+          valueMetadataProxy = newMetadataProxy(module, valueType);
+        }
       }
+    } else {
+      keyType = null;
+      keyMetadataProxy = null;
+      valueType = null;
+      valueMetadataProxy = null;
     }
   }
 
@@ -211,11 +220,11 @@ public class MapClassMetadata extends ClassMetadata {
 
     @Nullable
     @Override
-    public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-        @Nullable String ancestralKeysDotDelimited, List<SuggestionNode> matchesRootTillMe,
-        String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
-      return findChildKeySuggestionForQueryPrefix(module, ancestralKeysDotDelimited,
-          matchesRootTillMe, querySegmentPrefixes, querySegmentPrefixStartIndex);
+    public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+        List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+        int querySegmentPrefixStartIndex) {
+      return findChildKeySuggestionForQueryPrefix(module, fileType, matchesRootTillMe,
+          numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex);
     }
 
     @Override
@@ -225,10 +234,11 @@ public class MapClassMetadata extends ClassMetadata {
 
     @Nullable
     @Override
-    public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module,
+    public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
         List<SuggestionNode> matchesRootTillMe, String prefix) {
       if (valueMetadataProxy != null) {
-        return valueMetadataProxy.findValueSuggestionsForPrefix(module, matchesRootTillMe, prefix);
+        return valueMetadataProxy
+            .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix);
       }
       return null;
     }
@@ -248,16 +258,21 @@ public class MapClassMetadata extends ClassMetadata {
       return valueMetadataProxy == null || valueMetadataProxy.isLeaf(module);
     }
 
+    @Override
+    public boolean isMetadataNonProperty() {
+      return false;
+    }
+
     @Nullable
     @Override
-    public String getOriginalName(Module module) {
-      return helper.getOriginalName(module);
+    public String getOriginalName() {
+      return helper.getOriginalName();
     }
 
     @Nullable
     @Override
     public String getNameForDocumentation(Module module) {
-      return getOriginalName(module);
+      return getOriginalName();
     }
 
     @Override

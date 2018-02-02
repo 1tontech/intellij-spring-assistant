@@ -13,14 +13,14 @@ public interface SuggestionDocumentationHelper {
   SuggestionDocumentationHelper EXCEPTION_RAISING_INSTANCE = new SuggestionDocumentationHelper() {
     @NotNull
     @Override
-    public String getOriginalName(Module module) {
+    public String getOriginalName() {
       throw new IllegalAccessError("Should never be called");
     }
 
     @NotNull
     @Override
-    public Suggestion buildSuggestion(Module module, String ancestralKeysDotDelimited,
-        List<SuggestionNode> matchesRootTillMe) {
+    public Suggestion buildSuggestion(Module module, FileType fileType,
+        List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
       throw new IllegalAccessError("Should never be called");
     }
 
@@ -37,11 +37,11 @@ public interface SuggestionDocumentationHelper {
   };
 
   @Nullable
-  String getOriginalName(Module module);
+  String getOriginalName();
 
   @NotNull
-  Suggestion buildSuggestion(Module module, String ancestralKeysDotDelimited,
-      List<SuggestionNode> matchesRootTillMe);
+  Suggestion buildSuggestion(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors);
 
   /**
    * @return false if an intermediate node (neither group, nor property, nor class). true otherwise
