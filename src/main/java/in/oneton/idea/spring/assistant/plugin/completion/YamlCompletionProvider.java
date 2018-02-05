@@ -12,15 +12,23 @@ import com.intellij.psi.PsiElement;
 import com.intellij.util.ProcessingContext;
 import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLMapping;
+import org.jetbrains.yaml.psi.YAMLSequence;
+import org.jetbrains.yaml.psi.YAMLSequenceItem;
+import org.jetbrains.yaml.psi.YAMLValue;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import static com.intellij.psi.util.PsiTreeUtil.getParentOfType;
 import static in.oneton.idea.spring.assistant.plugin.completion.FileType.yaml;
+import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode.sanitise;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.truncateIdeaDummyIdentifier;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findModule;
+import static java.util.Objects.requireNonNull;
 
 class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
   @Override
@@ -41,29 +49,71 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
       return;
     }
 
-    YAMLKeyValue keyValue = getParentOfType(element, YAMLKeyValue.class);
+    Set<String> siblingsToExclude = null;
+
+    PsiElement elementContext = element.getContext();
+    PsiElement parent = requireNonNull(elementContext).getParent();
+    if (parent instanceof YAMLSequence) {
+      // lets force user to create array element prefix before he can ask for sugegstions
+      return;
+    }
+    if (parent instanceof YAMLSequenceItem) {
+      for (PsiElement child : parent.getParent().getChildren()) {
+        if (child != parent) {
+          if (child instanceof YAMLSequenceItem) {
+            YAMLValue value = YAMLSequenceItem.class.cast(child).getValue();
+            if (value != null) {
+              siblingsToExclude = getNewIfNotPresent(siblingsToExclude);
+              siblingsToExclude.add(sanitise(value.getText()));
+            }
+          } else if (child instanceof YAMLKeyValue) {
+            siblingsToExclude = getNewIfNotPresent(siblingsToExclude);
+            siblingsToExclude.add(sanitise(YAMLKeyValue.class.cast(child).getKeyText()));
+          }
+        }
+      }
+    } else if (parent instanceof YAMLMapping) {
+      for (PsiElement child : parent.getChildren()) {
+        if (child != elementContext) {
+          if (child instanceof YAMLKeyValue) {
+            siblingsToExclude = getNewIfNotPresent(siblingsToExclude);
+            siblingsToExclude.add(sanitise(YAMLKeyValue.class.cast(child).getKeyText()));
+          }
+        }
+      }
+    }
 
     List<LookupElementBuilder> suggestions;
-    // For top level element, since there is no parent keyValue would be null
+    // For top level element, since there is no parent parentKeyValue would be null
     String queryWithDotDelimitedPrefixes = truncateIdeaDummyIdentifier(element);
 
-    if (keyValue == null) {
-      suggestions = service.findSuggestionsForQueryPrefix(project, module, yaml, element, null,
-          queryWithDotDelimitedPrefixes);
-    } else {
-      List<String> containerElements = new ArrayList<>();
-      do {
-        containerElements.add(0, truncateIdeaDummyIdentifier(keyValue.getKeyText()));
-        keyValue = getParentOfType(keyValue, YAMLKeyValue.class);
-      } while (keyValue != null);
+    List<String> ancestralKeys = null;
+    PsiElement context = elementContext;
+    do {
+      if (context instanceof YAMLKeyValue) {
+        if (ancestralKeys == null) {
+          ancestralKeys = new ArrayList<>();
+        }
+        ancestralKeys.add(0, truncateIdeaDummyIdentifier(((YAMLKeyValue) context).getKeyText()));
+      }
+      context = requireNonNull(context).getParent();
+    } while (context != null);
 
-      suggestions = service
-          .findSuggestionsForQueryPrefix(project, module, yaml, element, containerElements,
-              queryWithDotDelimitedPrefixes);
-    }
+    suggestions = service
+        .findSuggestionsForQueryPrefix(project, module, yaml, element, ancestralKeys,
+            queryWithDotDelimitedPrefixes, siblingsToExclude);
 
     if (suggestions != null) {
       suggestions.forEach(resultSet::addElement);
     }
   }
+
+  @NotNull
+  private Set<String> getNewIfNotPresent(@Nullable Set<String> siblingsToExclude) {
+    if (siblingsToExclude == null) {
+      return new HashSet<>();
+    }
+    return siblingsToExclude;
+  }
+
 }

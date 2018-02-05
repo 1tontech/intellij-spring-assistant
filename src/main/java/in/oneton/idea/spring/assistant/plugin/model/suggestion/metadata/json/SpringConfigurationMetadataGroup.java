@@ -1,5 +1,6 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json;
 
+import com.google.gson.annotations.SerializedName;
 import com.intellij.codeInsight.documentation.DocumentationManager;
 import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
@@ -17,7 +18,7 @@ import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimit
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.methodForDocumentationNavigation;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.removeGenerics;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.shortenedType;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.typeForDocumentationNavigation;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.updateClassNameAsJavadocHtml;
 
 /**
  * Refer to https://docs.spring.io/spring-boot/docs/2.0.0/reference/htmlsingle/#configuration-metadata-group-attributes
@@ -28,7 +29,8 @@ public class SpringConfigurationMetadataGroup {
 
   private String name;
   @Nullable
-  private String type;
+  @SerializedName("type")
+  private String className;
   @Nullable
   private String description;
   @Nullable
@@ -50,11 +52,10 @@ public class SpringConfigurationMetadataGroup {
     StringBuilder builder =
         new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
 
-    if (type != null) {
-      StringBuilder buffer = new StringBuilder();
-      DocumentationManager
-          .createHyperlink(buffer, typeForDocumentationNavigation(type), type, false);
-      builder.append(" (").append(buffer.toString()).append(")");
+    if (className != null) {
+      builder.append(" (");
+      updateClassNameAsJavadocHtml(builder, className);
+      builder.append(")");
     }
 
     if (description != null) {
@@ -69,7 +70,7 @@ public class SpringConfigurationMetadataGroup {
       }
 
       // lets show declaration point only if does not match the type
-      if (type == null || !sourceTypeInJavadocFormat.equals(type)) {
+      if (!sourceTypeInJavadocFormat.equals(removeGenerics(className))) {
         StringBuilder buffer = new StringBuilder();
         DocumentationManager
             .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
@@ -86,7 +87,7 @@ public class SpringConfigurationMetadataGroup {
       int numOfAncestors) {
     return Suggestion.builder()
         .suggestionToDisplay(dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors))
-        .description(description).shortType(shortenedType(type)).numOfAncestors(numOfAncestors)
+        .description(description).shortType(shortenedType(className)).numOfAncestors(numOfAncestors)
         .matchesTopFirst(matchesRootTillMe).icon(nodeType.getIcon()).fileType(fileType).build();
   }
 

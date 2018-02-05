@@ -71,7 +71,6 @@ public class SuggestionServiceImpl implements SuggestionService {
   private volatile boolean indexingInProgress;
 
   SuggestionServiceImpl() {
-
     moduleNameToSeenContainerPathToContainerInfo = new THashMap<>();
     moduleNameToRootSearchIndex = new THashMap<>();
   }
@@ -94,11 +93,6 @@ public class SuggestionServiceImpl implements SuggestionService {
 
   private static String firstPathSegment(String element) {
     return element.trim().split(PERIOD_DELIMITER, -1)[0];
-  }
-
-  public static String lastPathSegment(String element) {
-    String[] parts = element.trim().split(PERIOD_DELIMITER, -1);
-    return parts[parts.length - 1];
   }
 
   @Override
@@ -211,10 +205,10 @@ public class SuggestionServiceImpl implements SuggestionService {
   @Override
   public List<LookupElementBuilder> findSuggestionsForQueryPrefix(Project project, Module module,
       FileType fileType, PsiElement element, @Nullable List<String> ancestralKeys,
-      String queryWithDotDelimitedPrefixes) {
+      String queryWithDotDelimitedPrefixes, @Nullable Set<String> siblingsToExclude) {
     return doFindSuggestionsForQueryPrefix(module,
         moduleNameToRootSearchIndex.get(module.getName()), fileType, element, ancestralKeys,
-        queryWithDotDelimitedPrefixes);
+        queryWithDotDelimitedPrefixes, siblingsToExclude);
   }
 
   private List<MetadataContainerInfo> computeNewContainersToProcess(OrderEnumerator orderEnumerator,
@@ -259,7 +253,8 @@ public class SuggestionServiceImpl implements SuggestionService {
 
   private List<LookupElementBuilder> doFindSuggestionsForQueryPrefix(Module module,
       Trie<String, MetadataSuggestionNode> rootSearchIndex, FileType fileType, PsiElement element,
-      @Nullable List<String> ancestralKeys, String queryWithDotDelimitedPrefixes) {
+      @Nullable List<String> ancestralKeys, String queryWithDotDelimitedPrefixes,
+      @Nullable Set<String> siblingsToExclude) {
     debug(() -> log.debug("Search requested for " + queryWithDotDelimitedPrefixes));
     StopWatch timer = new StopWatch();
     timer.start();
@@ -293,11 +288,11 @@ public class SuggestionServiceImpl implements SuggestionService {
             if (startSearchFrom.isLeaf(module)) {
               suggestions = startSearchFrom.findValueSuggestionsForPrefix(module, fileType,
                   unmodifiableList(matchesRootToDeepest),
-                  truncateIdeaDummyIdentifier(element.getText()));
+                  truncateIdeaDummyIdentifier(element.getText()), siblingsToExclude);
             } else {
               suggestions = startSearchFrom.findKeySuggestionsForQueryPrefix(module, fileType,
                   unmodifiableList(matchesRootToDeepest), matchesRootToDeepest.size(),
-                  querySegmentPrefixes, 0);
+                  querySegmentPrefixes, 0, siblingsToExclude);
             }
           }
         }
@@ -318,9 +313,19 @@ public class SuggestionServiceImpl implements SuggestionService {
           querySegmentPrefixStartIndex = 1;
         }
 
-        suggestions =
-            doFindSuggestionsForQueryPrefix(module, fileType, childNodes, querySegmentPrefixes,
-                querySegmentPrefixStartIndex);
+        Collection<MetadataSuggestionNode> nodesToSearchAgainst;
+        if (siblingsToExclude != null) {
+          Set<MetadataSuggestionNode> nodesToExclude = siblingsToExclude.stream()
+              .flatMap(exclude -> rootSearchIndex.prefixMap(exclude).values().stream())
+              .collect(toSet());
+          nodesToSearchAgainst =
+              childNodes.stream().filter(node -> !nodesToExclude.contains(node)).collect(toList());
+        } else {
+          nodesToSearchAgainst = childNodes;
+        }
+
+        suggestions = doFindSuggestionsForQueryPrefix(module, fileType, nodesToSearchAgainst,
+            querySegmentPrefixes, querySegmentPrefixStartIndex);
       }
 
       if (suggestions != null) {
@@ -468,7 +473,7 @@ public class SuggestionServiceImpl implements SuggestionService {
             findDeepestMetadataMatch(rootSearchIndex, pathSegments, true);
         if (closestMetadata != null) {
           if (!closestMetadata.isProperty()) {
-            log.error(
+            log.warn(
                 "Unexpected hint " + hint.getName() + " is assigned to  group " + closestMetadata
                     .getPathFromRoot(module)
                     + " found. Hints can be only assigned to property. Ignoring the hint completely.Existing group belongs to ("
@@ -525,16 +530,15 @@ public class SuggestionServiceImpl implements SuggestionService {
           MetadataNonPropertySuggestionNode.class.cast(closestMetadata)
               .addChildren(property, pathSegments, startIndex, containerArchiveOrFileRef);
         } else {
-          log.error(
-              "Detected conflict between a new property & existing property for suggestion path "
-                  + closestMetadata.getPathFromRoot(module)
-                  + ". Ignoring property. Existing non property node belongs to (" + closestMetadata
-                  .getBelongsTo().stream().collect(joining(",")) + "), New property belongs to "
-                  + containerArchiveOrFileRef);
+          log.warn("Detected conflict between a new group & existing property for suggestion path "
+              + closestMetadata.getPathFromRoot(module)
+              + ". Ignoring property. Existing non property node belongs to (" + closestMetadata
+              .getBelongsTo().stream().collect(joining(",")) + "), New property belongs to "
+              + containerArchiveOrFileRef);
         }
       } else {
         if (!closestMetadata.isProperty()) {
-          log.error(
+          log.warn(
               "Detected conflict between a new metadata property & existing non property node for suggestion path "
                   + closestMetadata.getPathFromRoot(module)
                   + ". Ignoring property. Existing non property node belongs to (" + closestMetadata
@@ -582,7 +586,7 @@ public class SuggestionServiceImpl implements SuggestionService {
         }
 
         if (closestMetadata.isProperty()) {
-          log.error(
+          log.warn(
               "Detected conflict between an existing metadata property & new group for suggestion path "
                   + closestMetadata.getPathFromRoot(module)
                   + ". Ignoring new group. Existing Property belongs to (" + closestMetadata
@@ -639,13 +643,13 @@ public class SuggestionServiceImpl implements SuggestionService {
     }
   }
 
+  @SuppressWarnings("unused")
   private String toTree() {
     StringBuilder builder = new StringBuilder();
     moduleNameToRootSearchIndex.forEach((k, v) -> {
       builder.append("Module: ").append(k).append("\n");
       v.values().forEach(root -> builder
-          .append(root.toTree().trim().replaceAll("^", "  ").replaceAll("\n", "\n  "))
-          .append("\n"));
+          .append(root.toTree().trim().replaceAll("^", "  ").replaceAll("\n", "\n  ")).append("\n"));
     });
     return builder.toString();
   }

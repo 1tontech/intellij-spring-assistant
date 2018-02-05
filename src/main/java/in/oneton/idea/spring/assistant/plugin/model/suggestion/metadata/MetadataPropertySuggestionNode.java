@@ -149,18 +149,9 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
 
   @Nullable
   @Override
-  protected SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
-      int querySegmentPrefixStartIndex, boolean navigateDeepIfNoMatches) {
-    return findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
-        querySegmentPrefixes, querySegmentPrefixStartIndex);
-  }
-
-  @Nullable
-  @Override
   public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
-      int querySegmentPrefixStartIndex) {
+      int querySegmentPrefixStartIndex, @Nullable Set<String> siblingsToExclude) {
     if (!property.isDeprecatedError()) {
       boolean lookingForConcreteNode = querySegmentPrefixStartIndex >= querySegmentPrefixes.length;
       if (lookingForConcreteNode) {
@@ -169,7 +160,8 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
       } else {
         if (!property.isLeaf(module)) {
           return property.findChildKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe,
-              numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex);
+              numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex,
+              siblingsToExclude);
         }
       }
     }
@@ -185,8 +177,10 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
   @Nullable
   @Override
   public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, String prefix) {
-    return property.findSuggestionsForValues(module, fileType, matchesRootTillMe, prefix);
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude) {
+    return property
+        .findSuggestionsForValues(module, fileType, matchesRootTillMe, prefix, siblingsToExclude);
   }
 
   @Nullable

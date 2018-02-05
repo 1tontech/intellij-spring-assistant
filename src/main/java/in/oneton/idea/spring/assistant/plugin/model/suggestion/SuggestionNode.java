@@ -7,6 +7,7 @@ import in.oneton.idea.spring.assistant.plugin.completion.SuggestionNodeTypeProvi
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedSet;
 
 public interface SuggestionNode
@@ -47,6 +48,21 @@ public interface SuggestionNode
       List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
       int querySegmentPrefixStartIndex);
 
+  /**
+   * @param module                       module
+   * @param fileType                     type of file requesting suggestion
+   * @param matchesRootTillMe            path from root till current node
+   * @param numOfAncestors               all ancestral keys dot delimited, required for showing full path in documentation
+   * @param querySegmentPrefixes         the search text parts split based on period delimiter
+   * @param querySegmentPrefixStartIndex current index in the `querySegmentPrefixes` to start search from
+   * @param siblingsToExclude            siblings to exclude from search
+   * @return Suggestions matching the given querySegmentPrefixes criteria from within the children
+   */
+  @Nullable
+  SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex, @Nullable Set<String> siblingsToExclude);
+
   @Nullable
   String getNameForDocumentation(Module module);
 
@@ -62,6 +78,21 @@ public interface SuggestionNode
   @Nullable
   SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix);
+
+  /**
+   * Find all applicable suggestions for the given search text
+   *
+   * @param module            module
+   * @param fileType          type of file requesting suggestion
+   * @param matchesRootTillMe path from root till current node
+   * @param prefix            prefix to find matches for
+   * @param siblingsToExclude siblings to exclude from search
+   * @return suggestions that contain the given search text
+   */
+  @Nullable
+  SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude);
 
   /**
    * @param module module

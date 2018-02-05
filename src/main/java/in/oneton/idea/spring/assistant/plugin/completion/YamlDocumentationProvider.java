@@ -17,17 +17,15 @@ import lombok.ToString;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.intellij.lang.java.JavaLanguage.INSTANCE;
-import static com.intellij.psi.util.PsiTreeUtil.getParentOfType;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getKeyNameOfObject;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.isYamlValue;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.truncateIdeaDummyIdentifier;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findModule;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class YamlDocumentationProvider extends AbstractDocumentationProvider {
@@ -74,8 +72,7 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       @Nullable PsiElement element) {
     if (element != null) {
       List<SuggestionNode> matchedNodesFromRootTillLeaf;
-      boolean requestedForTargetValue;
-      String value;
+      boolean requestedForTargetValue = false;
 
       SuggestionService suggestionService =
           ServiceManager.getService(element.getProject(), SuggestionService.class);
@@ -83,30 +80,34 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       Project project = element.getProject();
       Module module = findModule(element);
 
-      List<String> containerElements = new ArrayList<>();
-      Optional<String> keyNameIfKey = getKeyNameOfObject(element);
-      keyNameIfKey.ifPresent(containerElements::add);
-      YAMLKeyValue keyValue = getParentOfType(element, YAMLKeyValue.class);
+      List<String> ancestralKeys = null;
+      PsiElement elementContext = element.getContext();
+      PsiElement context = elementContext;
+      do {
+        if (context instanceof YAMLKeyValue) {
+          if (ancestralKeys == null) {
+            ancestralKeys = new ArrayList<>();
+          }
+          ancestralKeys.add(0, truncateIdeaDummyIdentifier(((YAMLKeyValue) context).getKeyText()));
+        }
+        context = requireNonNull(context).getParent();
+      } while (context != null);
 
-      while (keyValue != null) {
-        assert keyValue.getKey() != null;
-        containerElements.add(0, truncateIdeaDummyIdentifier(keyValue.getKeyText()));
-        keyValue = getParentOfType(keyValue, YAMLKeyValue.class);
+      String value = null;
+      if (elementContext instanceof YAMLKeyValue) {
+        value = truncateIdeaDummyIdentifier(((YAMLKeyValue) elementContext).getKeyText());
+        requestedForTargetValue = false;
+      } else if (elementContext instanceof YAMLPlainTextImpl) {
+        value = truncateIdeaDummyIdentifier(element.getText());
+        requestedForTargetValue = true;
       }
 
-      requestedForTargetValue = false;
-      value = truncateIdeaDummyIdentifier(element.getText());
-
-      if (containerElements.size() > 0) {
+      if (ancestralKeys != null) {
         matchedNodesFromRootTillLeaf =
-            suggestionService.findMatchedNodesRootTillEnd(project, module, containerElements);
+            suggestionService.findMatchedNodesRootTillEnd(project, module, ancestralKeys);
         if (matchedNodesFromRootTillLeaf != null) {
           SuggestionNode target =
               matchedNodesFromRootTillLeaf.get(matchedNodesFromRootTillLeaf.size() - 1);
-
-          if (target.isLeaf(module)) {
-            requestedForTargetValue = isYamlValue(element);
-          }
           String targetNavigationPathDotDelimited =
               matchedNodesFromRootTillLeaf.stream().map(v -> v.getNameForDocumentation(module))
                   .collect(joining("."));

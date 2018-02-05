@@ -61,8 +61,15 @@ public class ClassMetadataProxy implements MetadataProxy {
   @Override
   public Collection<? extends SuggestionDocumentationHelper> findDirectChildrenForQueryPrefix(
       Module module, String querySegmentPrefix) {
-    return doWithTargetAndReturn(module,
-        target -> target.findDirectChildrenForQueryPrefix(module, querySegmentPrefix), null);
+    return findDirectChildrenForQueryPrefix(module, querySegmentPrefix, null);
+  }
+
+  @Nullable
+  @Override
+  public Collection<? extends SuggestionDocumentationHelper> findDirectChildrenForQueryPrefix(
+      Module module, String querySegmentPrefix, @Nullable Set<String> siblingsToExclude) {
+    return doWithTargetAndReturn(module, target -> target
+        .findDirectChildrenForQueryPrefix(module, querySegmentPrefix, siblingsToExclude), null);
   }
 
   @Nullable
@@ -87,11 +94,29 @@ public class ClassMetadataProxy implements MetadataProxy {
 
   @Nullable
   @Override
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex, @Nullable Set<String> siblingsToExclude) {
+    return doWithTargetAndReturn(module, target -> target
+        .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
+            querySegmentPrefixes, querySegmentPrefixStartIndex, siblingsToExclude), null);
+  }
+
+  @Nullable
+  @Override
   public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
-    return doWithTargetAndReturn(module,
-        target -> target.findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix),
-        null);
+    return findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix, null);
+  }
+
+  @Nullable
+  @Override
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude) {
+    return doWithTargetAndReturn(module, target -> target
+        .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix,
+            siblingsToExclude), null);
   }
 
   @Nullable
@@ -139,13 +164,6 @@ public class ClassMetadataProxy implements MetadataProxy {
     return defaultReturnValue;
   }
 
-  //  private void doWithTarget(TargetInvoker targetInvoker) {
-  //    ClassMetadata target = getTarget();
-  //    if (target != null) {
-  //      targetInvoker.invoke(target);
-  //    }
-  //  }
-
   private ClassMetadata getTarget(Module module) {
     String fqn = typeToFqn(module, type);
     if (fqn != null) {
@@ -167,11 +185,6 @@ public class ClassMetadataProxy implements MetadataProxy {
 
   protected interface TargetInvokerWithReturnValue<T> {
     T invoke(ClassMetadata classMetadata);
-  }
-
-
-  private interface TargetInvoker {
-    void invoke(ClassMetadata classMetadata);
   }
 
 }

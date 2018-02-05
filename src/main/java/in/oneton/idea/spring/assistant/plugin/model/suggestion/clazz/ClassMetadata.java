@@ -12,6 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedSet;
 
 /**
@@ -57,6 +58,15 @@ public abstract class ClassMetadata {
   protected abstract Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
       Module module, String querySegmentPrefix);
 
+  public Collection<? extends SuggestionDocumentationHelper> findDirectChildrenForQueryPrefix(
+      Module module, String querySegmentPrefix, @Nullable Set<String> siblingsToExclude) {
+    initIfNotAlready(module);
+    return doFindDirectChildrenForQueryPrefix(module, querySegmentPrefix, siblingsToExclude);
+  }
+
+  protected abstract Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
+      Module module, String querySegmentPrefix, @Nullable Set<String> siblingsToExclude);
+
   @Nullable
   public List<SuggestionNode> findDeepestSuggestionNode(Module module,
       List<SuggestionNode> matchesRootTillParentNode, String[] pathSegments,
@@ -86,14 +96,38 @@ public abstract class ClassMetadata {
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex);
 
   @Nullable
-  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, String prefix) {
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
+      @Nullable Set<String> siblingsToExclude) {
     initIfNotAlready(module);
-    return doFindValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix);
+    return doFindKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillParentNode,
+        numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex, siblingsToExclude);
+  }
+
+  @Nullable
+  protected abstract SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
+      @Nullable Set<String> siblingsToExclude);
+
+  @Nullable
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType, List<SuggestionNode> matchesRootTillMe, String prefix) {
+    return findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix, null);
+  }
+
+  @Nullable
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude) {
+    initIfNotAlready(module);
+    return doFindValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix,
+        siblingsToExclude);
   }
 
   protected abstract SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module,
-      FileType fileType, List<SuggestionNode> matchesRootTillMe, String prefix);
+      FileType fileType, List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude);
 
   @Nullable
   public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,

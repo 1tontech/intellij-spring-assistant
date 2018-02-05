@@ -29,6 +29,8 @@ import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.isValidT
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toValidPsiClass;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toCollection;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 public class GenericClassMetadata extends ClassMetadata {
 
@@ -76,12 +78,20 @@ public class GenericClassMetadata extends ClassMetadata {
   @Override
   protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
       Module module, String querySegmentPrefix) {
+    return doFindDirectChildrenForQueryPrefix(module, querySegmentPrefix, null);
+  }
+
+  @Override
+  protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
+      Module module, String querySegmentPrefix, @Nullable Set<String> siblingsToExclude) {
     // TODO: Does spring Environment support setting any type other than boolean, number, string & enum to be set as keys. If not we should throw an exception
     // For now lets allow
-    if (childrenTrie != null) {
-      SortedMap<String, GenericClassMemberWrapper> prefixMap =
-          childrenTrie.prefixMap(querySegmentPrefix);
+    if (childrenTrie != null && childLookup != null) {
+      SortedMap<String, GenericClassMemberWrapper> prefixMap = childrenTrie.prefixMap(querySegmentPrefix);
       if (!isEmpty(prefixMap)) {
+        if (siblingsToExclude != null) {
+          return getMatchesAfterExclusions(childLookup, prefixMap, siblingsToExclude);
+        }
         return prefixMap.values();
       }
     }
@@ -114,38 +124,51 @@ public class GenericClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      FileType fileType, List<SuggestionNode> matchesRootTillCurrentNode, int numOfAncestors,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors, String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+    return doFindKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillParentNode,
+        numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex, null);
+  }
+
+  @Nullable
+  @Override
+  protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
+      @Nullable Set<String> siblingsToExclude) {
     if (!isLeaf(module)) {
-      if (childrenTrie != null) {
+      if (childrenTrie != null && childLookup != null) {
         String querySegmentPrefix = querySegmentPrefixes[querySegmentPrefixStartIndex];
-        SortedMap<String, GenericClassMemberWrapper> sortedPrefixToMemberWrapper =
-            childrenTrie.prefixMap(querySegmentPrefix);
-        if (sortedPrefixToMemberWrapper.size() != 0) {
-          Collection<GenericClassMemberWrapper> wrappers = sortedPrefixToMemberWrapper.values();
-          boolean lastQuerySegment =
-              querySegmentPrefixStartIndex == (querySegmentPrefixes.length - 1);
-          if (lastQuerySegment) {
-            return wrappers.stream().map(wrapper -> wrapper.buildSuggestionForKey(module, fileType,
-                unmodifiableList(newListWithMembers(matchesRootTillCurrentNode, wrapper)),
-                numOfAncestors)).collect(toCollection(TreeSet::new));
-          } else {
-            SortedSet<Suggestion> suggestions = null;
-            for (GenericClassMemberWrapper wrapper : wrappers) {
-              List<SuggestionNode> pathRootTillCurrentNode =
-                  unmodifiableList(newListWithMembers(matchesRootTillCurrentNode, wrapper));
-              Set<Suggestion> matchedSuggestions =
-                  wrapper.getMemberReferredClassMetadataProxy(module)
-                      .findKeySuggestionsForQueryPrefix(module, fileType, pathRootTillCurrentNode,
-                          numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex);
-              if (matchedSuggestions != null) {
-                if (suggestions == null) {
-                  suggestions = new TreeSet<>();
+        SortedMap<String, GenericClassMemberWrapper> sortedPrefixToMemberWrapper = childrenTrie.prefixMap(querySegmentPrefix);
+        if (!isEmpty(sortedPrefixToMemberWrapper)) {
+          Collection<GenericClassMemberWrapper> wrappers =
+              getMatchesAfterExclusions(childLookup, sortedPrefixToMemberWrapper,
+                  siblingsToExclude);
+          if (!isEmpty(wrappers)) {
+            boolean lastQuerySegment =
+                querySegmentPrefixStartIndex == (querySegmentPrefixes.length - 1);
+            if (lastQuerySegment) {
+              return wrappers.stream().map(wrapper -> wrapper
+                  .buildSuggestionForKey(module, fileType,
+                      unmodifiableList(newListWithMembers(matchesRootTillParentNode, wrapper)),
+                      numOfAncestors)).collect(toCollection(TreeSet::new));
+            } else {
+              SortedSet<Suggestion> suggestions = null;
+              for (GenericClassMemberWrapper wrapper : wrappers) {
+                List<SuggestionNode> pathRootTillCurrentNode =
+                    unmodifiableList(newListWithMembers(matchesRootTillParentNode, wrapper));
+                Set<Suggestion> matchedSuggestions =
+                    wrapper.getMemberReferredClassMetadataProxy(module)
+                        .findKeySuggestionsForQueryPrefix(module, fileType, pathRootTillCurrentNode,
+                            numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex);
+                if (matchedSuggestions != null) {
+                  if (suggestions == null) {
+                    suggestions = new TreeSet<>();
+                  }
+                  suggestions.addAll(matchedSuggestions);
                 }
-                suggestions.addAll(matchedSuggestions);
               }
+              return suggestions;
             }
-            return suggestions;
           }
         }
       }
@@ -153,9 +176,24 @@ public class GenericClassMetadata extends ClassMetadata {
     return null;
   }
 
+  private Collection<GenericClassMemberWrapper> getMatchesAfterExclusions(
+      @NotNull Map<String, GenericClassMemberWrapper> childLookup,
+      SortedMap<String, GenericClassMemberWrapper> sortedPrefixToMemberWrapper,
+      @Nullable Set<String> siblingsToExclude) {
+    Collection<GenericClassMemberWrapper> wrappers = sortedPrefixToMemberWrapper.values();
+    if (siblingsToExclude != null) {
+      Set<GenericClassMemberWrapper> exclusionMembers =
+          siblingsToExclude.stream().map(childLookup::get).collect(toSet());
+      wrappers =
+          wrappers.stream().filter(value -> !exclusionMembers.contains(value)).collect(toList());
+    }
+    return wrappers;
+  }
+
   @Override
   protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, String prefix) {
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude) {
     // Can be called if the class is specified as a value within an array & the class does nto have any children
     return null;
   }

@@ -62,8 +62,14 @@ public class MapClassMetadata extends ClassMetadata {
   @Override
   protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
       Module module, String querySegmentPrefix) {
-    return doWithKeyDelegateOrReturnNull(
-        delegate -> delegate.findDirectChildrenForQueryPrefix(module, querySegmentPrefix));
+    return doFindDirectChildrenForQueryPrefix(module, querySegmentPrefix, null);
+  }
+
+  @Override
+  protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
+      Module module, String querySegmentPrefix, @Nullable Set<String> siblingsToExclude) {
+    return doWithKeyDelegateOrReturnNull(delegate -> delegate
+        .findDirectChildrenForQueryPrefix(module, querySegmentPrefix, siblingsToExclude));
   }
 
   @Nullable
@@ -93,19 +99,27 @@ public class MapClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      FileType fileType, List<SuggestionNode> matchesRootTillMe, int numOfAncestors,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors, String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+    return doFindKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillParentNode,
+        numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex, null);
+  }
+
+  @Nullable
+  @Override
+  protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
+      @Nullable Set<String> siblingsToExclude) {
     boolean lastPathSegment = querySegmentPrefixStartIndex == querySegmentPrefixes.length - 1;
     if (lastPathSegment) {
       return doWithKeyDelegateOrReturnNull(proxy -> {
         String querySegmentPrefix = querySegmentPrefixes[querySegmentPrefixStartIndex];
-        Collection<? extends SuggestionDocumentationHelper> directChildKeyMatches =
-            proxy.findDirectChildrenForQueryPrefix(module, querySegmentPrefix);
-        if (!isEmpty(directChildKeyMatches)) {
-          return directChildKeyMatches.stream().map(helper -> helper
-              .buildSuggestionForKey(module, fileType,
-                  newListWithMembers(matchesRootTillMe, new MapKeySuggestionNode(helper)),
-                  numOfAncestors)).collect(toCollection(TreeSet::new));
+        Collection<? extends SuggestionDocumentationHelper> matches =
+            proxy.findDirectChildrenForQueryPrefix(module, querySegmentPrefix, siblingsToExclude);
+        if (!isEmpty(matches)) {
+          return matches.stream().map(helper -> helper.buildSuggestionForKey(module, fileType,
+              newListWithMembers(matchesRootTillParentNode, new MapKeySuggestionNode(helper)),
+              numOfAncestors)).collect(toCollection(TreeSet::new));
         }
         return null;
       });
@@ -113,22 +127,25 @@ public class MapClassMetadata extends ClassMetadata {
     return null;
   }
 
-  public SortedSet<Suggestion> findChildKeySuggestionForQueryPrefix(Module module,
-      FileType fileType, List<SuggestionNode> matchesRootTillMe, int numOfAncestors,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
-    return doWithValueDelegateOrReturnNull(proxy -> proxy
-        .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
-            querySegmentPrefixes, querySegmentPrefixStartIndex));
-  }
-
   @Override
   protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, String prefix) {
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude) {
     return doWithValueDelegateOrReturnNull(proxy -> {
       boolean valueIsLeaf = proxy.isLeaf(module);
       assert valueIsLeaf;
-      return proxy.findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix);
+      return proxy.findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix,
+          siblingsToExclude);
     });
+  }
+
+  public SortedSet<Suggestion> findChildKeySuggestionForQueryPrefix(Module module,
+      FileType fileType, List<SuggestionNode> matchesRootTillMe, int numOfAncestors,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
+      @Nullable Set<String> siblingsToExclude) {
+    return doWithValueDelegateOrReturnNull(proxy -> proxy
+        .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
+            querySegmentPrefixes, querySegmentPrefixStartIndex, siblingsToExclude));
   }
 
   @Nullable
@@ -236,8 +253,17 @@ public class MapClassMetadata extends ClassMetadata {
     public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
         List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
         int querySegmentPrefixStartIndex) {
+      return findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
+          querySegmentPrefixes, querySegmentPrefixStartIndex, null);
+    }
+
+    @Nullable
+    @Override
+    public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+        List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+        int querySegmentPrefixStartIndex, @Nullable Set<String> siblingsToExclude) {
       return findChildKeySuggestionForQueryPrefix(module, fileType, matchesRootTillMe,
-          numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex);
+          numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex, siblingsToExclude);
     }
 
     @Override
@@ -249,8 +275,17 @@ public class MapClassMetadata extends ClassMetadata {
     @Override
     public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
         List<SuggestionNode> matchesRootTillMe, String prefix) {
+      return findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix, null);
+    }
+
+    @Nullable
+    @Override
+    public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
+        List<SuggestionNode> matchesRootTillMe, String prefix,
+        @Nullable Set<String> siblingsToExclude) {
       return doWithValueDelegateOrReturnNull(proxy -> proxy
-          .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix));
+          .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix,
+              siblingsToExclude));
     }
 
     @Override

@@ -37,25 +37,15 @@ public abstract class MetadataSuggestionNode implements SuggestionNode {
       List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
       int querySegmentPrefixStartIndex) {
     return findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
-        querySegmentPrefixes, querySegmentPrefixStartIndex, true);
+        querySegmentPrefixes, querySegmentPrefixStartIndex, null);
   }
 
-  /**
-   * @param module                       module
-   * @param fileType                     type of file requesting suggestion
-   * @param matchesRootTillMe            path from root till current node
-   * @param numOfAncestors               all ancestral keys dot delimited, required for showing full path in documentation
-   * @param querySegmentPrefixes         the search text parts split based on period delimiter
-   * @param querySegmentPrefixStartIndex current index in the `querySegmentPrefixes` to start search from
-   * @param navigateDeepIfNoMatches      whether search should proceed further down if the search cannot find results at this level
-   * @return Suggestions matching the given querySegmentPrefixes criteria from within the children
-   */
   @Nullable
-  protected abstract SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module,
-      FileType fileType, List<SuggestionNode> matchesRootTillMe, @Nullable int numOfAncestors,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
-      boolean navigateDeepIfNoMatches);
-
+  @Override
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, String prefix) {
+    return findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix, null);
+  }
 
   public void addRefCascadeTillRoot(String containerPath) {
     MetadataSuggestionNode node = this;

@@ -14,11 +14,14 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 
 import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
+import static com.intellij.util.containers.ContainerUtil.isEmpty;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.BOOLEAN;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
@@ -54,11 +57,17 @@ public class BooleanClassMetadata extends ClassMetadata {
   @Override
   protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
       Module module, String querySegmentPrefix) {
+    return doFindDirectChildrenForQueryPrefix(module, querySegmentPrefix, null);
+  }
+
+  @Override
+  protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
+      Module module, String querySegmentPrefix, @Nullable Set<String> siblingsToExclude) {
     assert childrenTrie != null;
     SortedMap<String, Boolean> prefixMap = childrenTrie.prefixMap(querySegmentPrefix);
-    if (prefixMap != null && prefixMap.size() != 0) {
-      return prefixMap.values().stream().map(BooleanKeySuggestionDocumentationHelper::new)
-          .collect(toList());
+    if (!isEmpty(prefixMap)) {
+      Stream<Boolean> matchStream = getMatchStreamAfterExclusion(prefixMap, siblingsToExclude);
+      return matchStream.map(BooleanKeySuggestionDocumentationHelper::new).collect(toList());
     }
     return null;
   }
@@ -81,13 +90,25 @@ public class BooleanClassMetadata extends ClassMetadata {
         "Should not be called. To use as a map key call findDirectChild(..) instead");
   }
 
+  @Nullable
+  @Override
+  protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
+      @Nullable Set<String> siblingsToExclude) {
+    throw new IllegalAccessError(
+        "Should not be called. To use as a map key call findDirectChild(..) instead");
+  }
+
   @Override
   protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, String prefix) {
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude) {
     assert childrenTrie != null;
     SortedMap<String, Boolean> matchesMap = childrenTrie.prefixMap(prefix);
-    if (matchesMap != null && matchesMap.size() != 0) {
-      return matchesMap.values().stream().map(
+    if (!isEmpty(matchesMap)) {
+      Stream<Boolean> matchStream = getMatchStreamAfterExclusion(matchesMap, siblingsToExclude);
+      return matchStream.map(
           val -> newSuggestion(fileType, matchesRootTillMe, matchesRootTillMe.size(), true, val))
           .collect(toCollection(TreeSet::new));
     }
@@ -134,6 +155,18 @@ public class BooleanClassMetadata extends ClassMetadata {
   @Override
   public PsiType getPsiType(Module module) {
     return PsiType.BOOLEAN;
+  }
+
+  private Stream<Boolean> getMatchStreamAfterExclusion(SortedMap<String, Boolean> prefixMap,
+      @Nullable Set<String> siblingsToExclude) {
+    Stream<Boolean> matchStream;
+    if (siblingsToExclude != null) {
+      matchStream = prefixMap.values().stream()
+          .filter(value -> !siblingsToExclude.contains(value.toString()));
+    } else {
+      matchStream = prefixMap.values().stream();
+    }
+    return matchStream;
   }
 
   private Suggestion newSuggestion(FileType fileType, List<SuggestionNode> matchesRootTillMe,

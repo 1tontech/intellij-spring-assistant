@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedSet;
 
 class IterableKeySuggestionNode implements SuggestionNode {
@@ -31,11 +32,19 @@ class IterableKeySuggestionNode implements SuggestionNode {
   @Nullable
   @Override
   public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+    return findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
+        querySegmentPrefixes, querySegmentPrefixStartIndex, null);
+  }
+
+  @Nullable
+  @Override
+  public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
-      int querySegmentPrefixStartIndex) {
+      int querySegmentPrefixStartIndex, @Nullable Set<String> siblingsToExclude) {
     return unwrapped
         .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
-            querySegmentPrefixes, querySegmentPrefixStartIndex);
+            querySegmentPrefixes, querySegmentPrefixStartIndex, siblingsToExclude);
   }
 
   @Override
@@ -47,7 +56,16 @@ class IterableKeySuggestionNode implements SuggestionNode {
   @Override
   public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
-    return unwrapped.findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix);
+    return findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix, null);
+  }
+
+  @Nullable
+  @Override
+  public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude) {
+    return unwrapped.findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix,
+        siblingsToExclude);
   }
 
   @Override

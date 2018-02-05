@@ -7,7 +7,7 @@ public enum DynamicEnum {
   /**
    * Val1 documentation
    */
-  VAL1,
+  val1,
   /**
    * Val2 documentation
    */

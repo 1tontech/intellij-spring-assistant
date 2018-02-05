@@ -2,6 +2,7 @@ package in.oneton.idea.spring.assistant.plugin.util;
 
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.impl.analysis.JavaGenericsUtil;
+import com.intellij.codeInsight.javadoc.JavaDocInfoGenerator;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.util.Key;
@@ -97,8 +98,9 @@ public class PsiCustomUtil {
   @Nullable
   public static PsiType safeGetValidType(@NotNull Module module, @NotNull String fqn) {
     try {
+      // Intellij  expects inner classes to be referred via `.` instead of `$`
       PsiType type = JavaPsiFacade.getInstance(module.getProject()).getParserFacade()
-          .createTypeFromText(fqn, null);
+          .createTypeFromText(fqn.replaceAll("\\$", "."), null);
       boolean typeValid = isValidType(type);
       if (typeValid) {
         if (type instanceof PsiClassType) {
@@ -112,17 +114,6 @@ public class PsiCustomUtil {
       debug(() -> log.debug("Unable to find class fqn " + fqn));
       return null;
     }
-  }
-
-  @Nullable
-  public static PsiClass getContainingClass(PsiElement psiElement) {
-    if (psiElement instanceof PsiField) {
-      return ((PsiField) psiElement).getContainingClass();
-    }
-    if (psiElement instanceof PsiMethod) {
-      return ((PsiMethod) psiElement).getContainingClass();
-    }
-    throw new RuntimeException("Method supports psiElement of type PsiField & PsiMethod only");
   }
 
   @NotNull
@@ -185,10 +176,26 @@ public class PsiCustomUtil {
         PsiClass psiClass = requireNonNull(classResolveResult.getElement());
         if (psiClass.isEnum()) {
           return ENUM;
-        } else if ("java.math.BigDecimal"
-            .equals(psiClass.getQualifiedName())) { // TODO: Add BigDecimal & Charset node types
+        } else if ("java.math.BigDecimal".equals(psiClass.getQualifiedName())) {
           return DOUBLE;
-        } else if ("java.nio.charset.Charset".equals(psiClass.getQualifiedName())) {
+        } else if ("java.nio.charset.Charset".equals(psiClass.getQualifiedName())
+            // charset is a string
+            || "java.net.InetAddress".equals(psiClass.getQualifiedName()) // ip address or hostname
+            || "java.net.URI".equals(psiClass.getQualifiedName()) // url
+            || requireNonNull(psiClass.getQualifiedName()).startsWith("java.lang.Class")
+            // expecting class name
+            || "org.springframework.core.io.Resource".equals(psiClass.getQualifiedName())
+            // spring resource such as classpath://myfile.json, file:///opt/myfile.json
+            || "java.util.Date".equals(psiClass.getQualifiedName()) || "java.sql.Date"
+            .equals(psiClass.getQualifiedName()) || "java.time.LocalDate"
+            .equals(psiClass.getQualifiedName()) || "java.time.LocalTime"
+            .equals(psiClass.getQualifiedName()) || "java.time.LocalDateTime"
+            .equals(psiClass.getQualifiedName()) || "java.time.ZoneId"
+            .equals(psiClass.getQualifiedName()) || "java.time.ZonedDateTime"
+            .equals(psiClass.getQualifiedName()) || "java.time.Instant"
+            .equals(psiClass.getQualifiedName()) || "java.time.Duration"
+            .equals(psiClass.getQualifiedName())// date & duation
+            || "java.time.Period".equals(psiClass.getQualifiedName())) {
           return STRING;
         } else if (isMap(psiClass)) {
           return MAP;
@@ -242,10 +249,7 @@ public class PsiCustomUtil {
     } else if (type instanceof PsiPrimitiveType) {
       return type.getPresentableText();
     } else if (type instanceof PsiClassType) {
-      PsiClass psiClass = toValidPsiClass((PsiClassType) type);
-      if (psiClass != null) {
-        return psiClass.getQualifiedName();
-      }
+      return type.getCanonicalText();
     }
     return null;
   }
@@ -267,7 +271,8 @@ public class PsiCustomUtil {
   }
 
   private static boolean isMap(@NotNull PsiClass psiClass) {
-    return isClassSameOrDescendantOf(psiClass, JAVA_UTIL_MAP);
+    return isClassSameOrDescendantOf(psiClass, JAVA_UTIL_MAP) || isClassSameOrDescendantOf(psiClass,
+        "java.util.Hashtable");
   }
 
   private static boolean isIterable(@NotNull PsiClass psiClass) {
@@ -591,7 +596,10 @@ public class PsiCustomUtil {
       throw new RuntimeException("Method supports targets of type PsiField & PsiMethod only");
     }
     if (docComment != null) {
-      return docComment.getText();
+      StringBuilder builder = new StringBuilder();
+      new JavaDocInfoGenerator(member.getProject(), member)
+          .generateCommonSection(builder, docComment);
+      return builder.toString().trim();
     }
     return null;
   }

@@ -12,6 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedSet;
 
 import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
@@ -115,6 +116,12 @@ public class DummyClassMetadata extends ClassMetadata {
     return null;
   }
 
+  @Override
+  protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
+      Module module, String querySegmentPrefix, @Nullable Set<String> siblingsToExclude) {
+    return null;
+  }
+
   @Nullable
   @Override
   protected List<SuggestionNode> doFindDeepestSuggestionNode(Module module,
@@ -131,9 +138,19 @@ public class DummyClassMetadata extends ClassMetadata {
     return null;
   }
 
+  @Nullable
+  @Override
+  protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
+      @Nullable Set<String> siblingsToExclude) {
+    return null;
+  }
+
   @Override
   protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, String prefix) {
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude) {
     return null;
   }
 

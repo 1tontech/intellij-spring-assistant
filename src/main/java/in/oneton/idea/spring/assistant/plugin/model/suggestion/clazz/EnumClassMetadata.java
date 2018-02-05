@@ -1,5 +1,6 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 
+import com.intellij.lang.java.JavaDocumentationProvider;
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiClassType;
@@ -20,23 +21,25 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 
-import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
+import static com.intellij.util.containers.ContainerUtil.isEmpty;
+import static in.oneton.idea.spring.assistant.plugin.insert.handler.YamlValueInsertHandler.unescapeValue;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode.sanitise;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.computeDocumentation;
-import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getReferredPsiType;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.isValidType;
-import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassFqn;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassNonQualifiedName;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toValidPsiClass;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 public class EnumClassMetadata extends ClassMetadata {
 
@@ -71,14 +74,31 @@ public class EnumClassMetadata extends ClassMetadata {
   @Override
   protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
       Module module, String querySegmentPrefix) {
-    if (childrenTrie != null) {
+    return doFindDirectChildrenForQueryPrefix(module, querySegmentPrefix, null);
+  }
+
+  @Override
+  protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
+      Module module, String querySegmentPrefix, @Nullable Set<String> siblingsToExclude) {
+    if (childrenTrie != null && childLookup != null) {
       SortedMap<String, PsiField> prefixMap = childrenTrie.prefixMap(querySegmentPrefix);
-      if (prefixMap != null && prefixMap.size() != 0) {
-        return prefixMap.values().stream().map(EnumKeySuggestionDocumentationHelper::new)
-            .collect(toList());
+      if (!isEmpty(prefixMap)) {
+        return getMatchStreamAfterExclusions(childLookup, prefixMap.values(), siblingsToExclude)
+            .map(EnumKeySuggestionDocumentationHelper::new).collect(toList());
       }
     }
     return null;
+  }
+
+  private Stream<PsiField> getMatchStreamAfterExclusions(@NotNull Map<String, PsiField> childLookup,
+      Collection<PsiField> values, @Nullable Set<String> siblingsToExclude) {
+    if (siblingsToExclude != null) {
+      Set<PsiField> exclusionMembers =
+          siblingsToExclude.stream().map(childLookup::get).collect(toSet());
+      return values.stream().filter(value -> !exclusionMembers.contains(value));
+    } else {
+      return values.stream();
+    }
   }
 
   @Nullable
@@ -96,18 +116,29 @@ public class EnumClassMetadata extends ClassMetadata {
       FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     throw new IllegalAccessError(
-        "Should not be called. To use as a map key call findDirectChild(..) instead");
+        "Should not be called. To use as a map key call doFindDirectChildrenForQueryPrefix(..) instead");
+  }
+
+  @Nullable
+  @Override
+  protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
+      @Nullable Set<String> siblingsToExclude) {
+    throw new IllegalAccessError(
+        "Should not be called. To use as a map key call doFindDirectChildrenForQueryPrefix(..) instead");
   }
 
   @Override
   protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, String prefix) {
-    if (childrenTrie != null) {
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude) {
+    if (childrenTrie != null && childLookup != null) {
       SortedMap<String, PsiField> prefixMap = childrenTrie.prefixMap(prefix);
-      if (prefixMap != null && prefixMap.size() != 0) {
-        return prefixMap.values().stream().map(
-            psiField -> newSuggestion(fileType, matchesRootTillMe, matchesRootTillMe.size(), true,
-                psiField)).collect(toCollection(TreeSet::new));
+      if (!isEmpty(prefixMap)) {
+        return getMatchStreamAfterExclusions(childLookup, prefixMap.values(), siblingsToExclude)
+            .map(psiField -> newSuggestion(fileType, matchesRootTillMe, matchesRootTillMe.size(),
+                true, psiField)).collect(toCollection(TreeSet::new));
       }
     }
     return null;
@@ -118,32 +149,9 @@ public class EnumClassMetadata extends ClassMetadata {
   protected String doGetDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
       String value) {
     if (childLookup != null) {
-      // Format for the documentation is as follows
-      /*
-       * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
-       * <p>Long description</p>
-       * or of this type
-       * <p><b>Type</b> {@link com.acme.Array}[]</p>
-       * <p><b>Declared at</b>{@link com.acme.GenericRemovedClass#method}></p> <-- only for groups with method info
-       */
-      StringBuilder builder =
-          new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
-
-      String classFqn = toClassFqn(type);
-      if (classFqn != null) {
-        StringBuilder linkBuilder = new StringBuilder();
-        createHyperlink(linkBuilder, classFqn, classFqn, false);
-        builder.append(" (").append(linkBuilder.toString()).append(")");
-      }
-
-      PsiField psiField = childLookup.get(value);
-      builder.append("<p>").append(requireNonNull(psiField.getName())).append("</p>");
-
-      String documentation = computeDocumentation(psiField);
-      if (documentation != null) {
-        builder.append("<p>").append(documentation).append("</p>");
-      }
-      return builder.toString();
+      PsiField type = childLookup.get(value);
+      return "<b>" + nodeNavigationPathDotDelimited + "</b> = <b>" + unescapeValue(value) + "</b>"
+          + new JavaDocumentationProvider().generateDoc(type, type);
     }
     return null;
   }
@@ -192,7 +200,8 @@ public class EnumClassMetadata extends ClassMetadata {
       int numOfAncestors, boolean forValue, @NotNull PsiField value) {
     Suggestion.SuggestionBuilder builder =
         Suggestion.builder().numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
-            .shortType(toClassNonQualifiedName(type)).icon(ENUM.getIcon()).fileType(fileType);
+            .shortType(toClassNonQualifiedName(type)).description(computeDocumentation(value))
+            .icon(ENUM.getIcon()).fileType(fileType);
     if (forValue) {
       builder.suggestionToDisplay(requireNonNull(value.getName()));
     } else {
@@ -231,26 +240,8 @@ public class EnumClassMetadata extends ClassMetadata {
     @NotNull
     @Override
     public String getDocumentationForKey(Module module, String nodeNavigationPathDotDelimited) {
-      /*
-       * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
-       * <p>Long description</p>
-       */
-      StringBuilder builder =
-          new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
-
-      String classFqn = toClassFqn(getReferredPsiType(field));
-
-      if (classFqn != null) {
-        StringBuilder linkBuilder = new StringBuilder();
-        createHyperlink(linkBuilder, classFqn, classFqn, false);
-        builder.append(" (").append(linkBuilder.toString()).append(")");
-      }
-
-      String documentation = computeDocumentation(field);
-      if (documentation != null) {
-        builder.append("<p>").append(documentation).append("</p>");
-      }
-      return builder.toString();
+      return "<b>" + nodeNavigationPathDotDelimited + "</b>" + new JavaDocumentationProvider()
+          .generateDoc(field, field);
     }
 
     @NotNull

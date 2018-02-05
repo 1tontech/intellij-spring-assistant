@@ -149,6 +149,11 @@
       "name": "custom.group.collection.property",
       "description": "Custom collection child property",
       "type": "com.acme.model.DynamicRoot"
+    },
+    {
+      "name": "custom.enum",
+      "description": "enum property",
+      "type": "com.acme.model.DynamicEnum"
     }
   ]
 }

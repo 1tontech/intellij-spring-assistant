@@ -13,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -53,8 +54,15 @@ public class IterableClassMetadata extends ClassMetadata {
   @Override
   protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
       Module module, String querySegmentPrefix) {
-    return doWithDelegateOrReturnNull(
-        delegate -> delegate.findDirectChildrenForQueryPrefix(module, querySegmentPrefix));
+    return doFindDirectChildrenForQueryPrefix(module, querySegmentPrefix, null);
+  }
+
+  @Override
+  protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
+      Module module, String querySegmentPrefix, @Nullable Set<String> siblingsToExclude) {
+    // TODO: Should each element be wrapped inside Iterale Suggestion element?
+    return doWithDelegateOrReturnNull(delegate -> delegate
+        .findDirectChildrenForQueryPrefix(module, querySegmentPrefix, siblingsToExclude));
   }
 
   @Nullable
@@ -89,19 +97,27 @@ public class IterableClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      FileType fileType, List<SuggestionNode> matchesRootTillMe, int numOfAncestors,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors, String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
+    return doFindKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillParentNode,
+        numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex, null);
+  }
+
+  @Nullable
+  @Override
+  protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex,
+      @Nullable Set<String> siblingsToExclude) {
     return doWithDelegateAndReturn(delegate -> {
       String querySegmentPrefix = querySegmentPrefixes[querySegmentPrefixStartIndex];
       Collection<? extends SuggestionDocumentationHelper> matches =
-          delegate.findDirectChildrenForQueryPrefix(module, querySegmentPrefix);
+          delegate.findDirectChildrenForQueryPrefix(module, querySegmentPrefix, siblingsToExclude);
       if (!isEmpty(matches)) {
         return matches.stream().map(helper -> {
           // TODO: Need to identify a better mechanism than this dirty way. Probably use ClassSuggestionNode as return type for findDirectChildrenForQueryPrefix
           // since we are in an iterable(multiple values), keys would be requested, only if the object we are referring is not a leaf => GenericClassWrapper
           assert helper instanceof SuggestionNode;
-          List<SuggestionNode> rootTillMe = newListWithMembers(matchesRootTillMe,
-              new IterableKeySuggestionNode((SuggestionNode) helper));
+          List<SuggestionNode> rootTillMe = newListWithMembers(matchesRootTillParentNode, new IterableKeySuggestionNode((SuggestionNode) helper));
           return helper.buildSuggestionForKey(module, fileType, rootTillMe, numOfAncestors);
         }).collect(toCollection(TreeSet::new));
       }
@@ -111,9 +127,11 @@ public class IterableClassMetadata extends ClassMetadata {
 
   @Override
   protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, String prefix) {
+      List<SuggestionNode> matchesRootTillMe, String prefix,
+      @Nullable Set<String> siblingsToExclude) {
     return doWithDelegateAndReturn(delegate -> delegate
-        .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix), null);
+        .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix,
+            siblingsToExclude), null);
   }
 
   @Nullable

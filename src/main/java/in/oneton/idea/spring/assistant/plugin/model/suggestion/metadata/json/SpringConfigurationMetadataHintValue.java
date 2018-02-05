@@ -15,12 +15,12 @@ import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.List;
 
-import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
 import static in.oneton.idea.spring.assistant.plugin.insert.handler.YamlValueInsertHandler.unescapeValue;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.newListWithMembers;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.shortenedType;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.updateClassNameAsJavadocHtml;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassFqn;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassNonQualifiedName;
 import static java.util.Objects.requireNonNull;
@@ -91,44 +91,24 @@ public class SpringConfigurationMetadataHintValue {
     return builder.fileType(fileType).build();
   }
 
-  // TODO: Fix this
   @NotNull
   public String getDocumentationForKey(Module module, String nodeNavigationPathDotDelimited,
       @Nullable MetadataProxy delegate) {
-    // Format for the documentation is as follows
-    /*
-     * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
-     * <p>Long description</p>
-     * or of this type
-     * <p><b>Type</b> {@link com.acme.Array}[]</p>
-     * <p><b>Declared at</b>{@link com.acme.GenericRemovedClass#method}></p> <-- only for groups with method info
-     */
     StringBuilder builder =
         new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
 
     if (delegate != null && delegate.getPsiType(module) != null) {
       String classFqn = toClassFqn(requireNonNull(delegate.getPsiType(module)));
       if (classFqn != null) {
-        StringBuilder linkBuilder = new StringBuilder();
-        createHyperlink(linkBuilder, classFqn, classFqn, false);
-        builder.append(" (").append(linkBuilder.toString()).append(")");
+        builder.append(" (");
+        updateClassNameAsJavadocHtml(builder, classFqn);
+        builder.append(")");
       }
     }
 
     if (description != null) {
       builder.append("<p>").append(description).append("</p>");
     }
-
-    //    String sourceType = getContainingClass(member).toString();
-    //    String sourceTypeInJavadocFormat = removeGenerics(sourceType);
-    //    sourceTypeInJavadocFormat += ("." + sourceType);
-    //
-    //    StringBuilder buffer = new StringBuilder();
-    //    DocumentationManager
-    //        .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
-    //            sourceTypeInJavadocFormat, false);
-    //    sourceTypeInJavadocFormat = buffer.toString();
-    //    builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");
 
     return builder.toString();
   }
@@ -150,46 +130,23 @@ public class SpringConfigurationMetadataHintValue {
     return builder.fileType(fileType).build();
   }
 
-  // TODO: Fix this
   @NotNull
   public String getDocumentationForValue(@NotNull String nodeNavigationPathDotDelimited,
       @Nullable PsiType mapValueType) {
-    // Format for the documentation is as follows
-    /*
-     * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
-     * <p>Long description</p>
-     * or of this type
-     * <p><b>Type</b> {@link com.acme.Array}[]</p>
-     * <p><b>Declared at</b>{@link com.acme.GenericRemovedClass#method}></p> <-- only for groups with method info
-     */
     StringBuilder builder =
-        new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
+        new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>= <b>")
+            .append(unescapeValue(unescapeValue(toString()))).append("</b>");
 
     if (mapValueType != null) {
       String className = mapValueType.getCanonicalText();
-      StringBuilder linkBuilder = new StringBuilder();
-      createHyperlink(linkBuilder, className, className, false);
-      builder.append(" (").append(linkBuilder.toString()).append(")");
+      builder.append(" (");
+      updateClassNameAsJavadocHtml(builder, className);
+      builder.append(")");
     }
-
-    String trimmedValue = unescapeValue(toString());
-    builder.append("<p>").append(trimmedValue).append("</p>");
-
 
     if (description != null) {
       builder.append("<p>").append(description).append("</p>");
     }
-
-    //    String sourceType = getContainingClass(member).toString();
-    //    String sourceTypeInJavadocFormat = removeGenerics(sourceType);
-    //    sourceTypeInJavadocFormat += ("." + sourceType);
-    //
-    //    StringBuilder buffer = new StringBuilder();
-    //    DocumentationManager
-    //        .createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
-    //            sourceTypeInJavadocFormat, false);
-    //    sourceTypeInJavadocFormat = buffer.toString();
-    //    builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");
 
     return builder.toString();
   }

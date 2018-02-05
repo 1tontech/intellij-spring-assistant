@@ -11,10 +11,6 @@ import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
-import org.jetbrains.yaml.psi.YAMLSequence;
-import org.jetbrains.yaml.psi.YAMLSequenceItem;
-import org.jetbrains.yaml.psi.YAMLValue;
-import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
 
 import java.text.BreakIterator;
 import java.util.ArrayList;
@@ -28,6 +24,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.intellij.codeInsight.completion.CompletionUtilCore.DUMMY_IDENTIFIER_TRIMMED;
+import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
 import static com.intellij.openapi.util.text.StringUtil.containsChar;
 import static com.intellij.openapi.util.text.StringUtil.endsWithChar;
 import static com.intellij.openapi.util.text.StringUtil.isNotEmpty;
@@ -35,14 +32,14 @@ import static com.intellij.openapi.util.text.StringUtil.replace;
 import static java.text.BreakIterator.getSentenceInstance;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;
-import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 
 @UtilityClass
 public class GenericUtil {
   private static final Pattern PACKAGE_REMOVAL_PATTERN =
       Pattern.compile("[a-zA-Z_][a-zA-Z_0-9]*\\.");
-  private static final Pattern GENERIC_SECTION_REMOVAL_PATTERN = Pattern.compile("<[^>]+>");
+  private static final Pattern GENERIC_SECTION_REMOVAL_PATTERN =
+      Pattern.compile("<(?<commaDelimitedTypes>[^>]+)>");
   //  private static final Pattern CLASSNAME_MATCH_PATTERN =
   //      Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*(?:\\.[a-zA-Z_][a-zA-Z_0-9]*)*)");
 
@@ -50,6 +47,28 @@ public class GenericUtil {
 
   public static String typeForDocumentationNavigation(String type) {
     return type.replaceAll("\\$", ".");
+  }
+
+  public static void updateClassNameAsJavadocHtml(StringBuilder buffer, String type) {
+    Matcher matcher = GENERIC_SECTION_REMOVAL_PATTERN.matcher(type);
+    String baseClass = type;
+    boolean parametersPresent = matcher.find();
+    String[] typeParameters = null;
+    if (parametersPresent) {
+      typeParameters = matcher.group("commaDelimitedTypes").split(",");
+      baseClass = matcher.replaceAll("");
+    }
+    createHyperlink(buffer, typeForDocumentationNavigation(baseClass), baseClass, false);
+    if (typeParameters != null) {
+      buffer.append("&lt;");
+      for (int i = 0; i < typeParameters.length; i++) {
+        updateClassNameAsJavadocHtml(buffer, typeParameters[i]);
+        if (i != typeParameters.length - 1) {
+          buffer.append(", ");
+        }
+      }
+      buffer.append("&gt;");
+    }
   }
 
   public static String methodForDocumentationNavigation(String typeAndMethod) {
@@ -205,51 +224,9 @@ public class GenericUtil {
     return suggestions;
   }
 
-  public static boolean isYamlArrayElement(final PsiElement element) {
-    return element instanceof YAMLValue && element.getParent() instanceof YAMLSequence;
-  }
-
-  public static boolean isYamlKey(final PsiElement element) {
-    PsiElement parent = element.getParent();
-    return parent instanceof YAMLKeyValue && element == ((YAMLKeyValue) parent).getKey();
-  }
-
-  public static boolean isYamlValue(final PsiElement element) {
-    PsiElement parent = element.getParent();
-    return parent instanceof YAMLKeyValue && element == ((YAMLKeyValue) parent).getValue()
-        || isYamlArrayElement(element);
-  }
-
-  private static Optional<YAMLKeyValue> getAsYamlKeyValue(final PsiElement psiElement) {
-    return ofNullable(psiElement).map(PsiElement::getParent)
-        .filter(el -> el instanceof YAMLKeyValue).map(YAMLKeyValue.class::cast)
-        .filter(value -> value.getKey() == psiElement);
-  }
-
   public static Optional<String> getKeyNameOfObject(final PsiElement psiElement) {
     return Optional.of(psiElement).filter(el -> el instanceof YAMLKeyValue)
         .map(YAMLKeyValue.class::cast).map(YAMLKeyValue::getName);
   }
-
-  public static boolean isArrayStringElement(final PsiElement psiElement) {
-    return psiElement.getParent() instanceof YAMLPlainTextImpl && psiElement.getParent()
-        .getParent() instanceof YAMLSequenceItem;
-  }
-
-  public static Optional<String> getKeyNameIfKey(final PsiElement psiElement) {
-    return getAsYamlKeyValue(psiElement).map(YAMLKeyValue::getKeyText);
-  }
-
-  //  public static boolean isValue(final PsiElement psiElement) {
-  //    //@formatter:off
-//    return !(isBlank(psiElement.getText()) || psiElement instanceof YAMLKeyValue)
-//        && ofNullable(psiElement.getParent())
-//              .map(PsiElement::getParent)
-//              .filter(el -> el instanceof YAMLKeyValue)
-//              .map(YAMLKeyValue.class::cast)
-//              .filter(el -> el.getValue() == psiElement.getParent())
-//              .isPresent();
-//    //@formatter:on
-  //  }
 
 }
