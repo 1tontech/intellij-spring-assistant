@@ -1,0 +1,38 @@
+#gp:
+#  p:
+#    cmap:
+#      kenum:
+#        vbool:
+#          enum1: true
+#          enum3: false
+#      raw:
+#        aa: aa
+#    clist:
+#      leaf:
+#        - enum3
+#        - enum1
+#    clist:
+#      class:
+#        - dynamicChild:
+#            childProp:
+#          enumProp: VAL2
+#          boolProp: true
+#          enumKeyToDynamicChildValueMap:
+#            VAL2:
+#              childProp:
+rootProperty: dasda
+custom:
+  collection:
+    with:
+      enum:
+        key:
+          - boolProp: true
+            childCollection:
+              - childProp: dsa
+            enumProp: VAL1
+            enumCollection:
+              - VAL1
+              - VAL2
+            childCollection:
+              - childProp: asad
+              - childProp: sdad

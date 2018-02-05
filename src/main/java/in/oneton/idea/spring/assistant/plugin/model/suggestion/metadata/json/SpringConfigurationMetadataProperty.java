@@ -16,6 +16,7 @@ import in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -33,6 +34,7 @@ import static in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassSuggestionNodeFactory.newMetadataProxy;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel.error;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel.warning;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.methodForDocumentationNavigation;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.removeGenerics;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.shortenedType;
@@ -150,8 +152,8 @@ public class SpringConfigurationMetadataProperty
         return genericOrKeyHint.findHintValuesWithPrefix(querySegment).stream().map(hintValue -> {
           HintAwareSuggestionNode suggestionNode = new HintAwareSuggestionNode(hintValue);
           return hintValue
-              .buildSuggestionForKey(module, fileType, matchesRootTillMe, numOfAncestors,
-                  suggestionNode, getMapKeyType(module));
+              .buildSuggestionForKey(fileType, matchesRootTillMe, numOfAncestors, suggestionNode,
+                  getMapKeyType(module));
         }).collect(toCollection(TreeSet::new));
       } else {
         return doWithDelegateOrReturnNull(module, delegate -> delegate
@@ -165,10 +167,11 @@ public class SpringConfigurationMetadataProperty
   @NotNull
   public Suggestion buildKeySuggestion(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
-    Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().icon(getSuggestionNodeType(module).getIcon()).description(description)
-            .shortType(shortenedType(className)).defaultValue(getDefaultValueAsStr())
-            .numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe);
+    Suggestion.SuggestionBuilder builder = Suggestion.builder()
+        .suggestionToDisplay(dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors))
+        .description(description).shortType(shortenedType(className))
+        .defaultValue(getDefaultValueAsStr()).numOfAncestors(numOfAncestors)
+        .matchesTopFirst(matchesRootTillMe).icon(getSuggestionNodeType(module).getIcon());
     if (deprecation != null) {
       builder.deprecationLevel(deprecation.getLevel() != null ? deprecation.getLevel() : warning);
     }
@@ -243,7 +246,8 @@ public class SpringConfigurationMetadataProperty
   }
 
   public boolean isLeaf(Module module) {
-    return isLeafWithKnownValues() || getSuggestionNodeType(module).representsLeaf();
+    return isLeafWithKnownValues() || getSuggestionNodeType(module).representsLeaf()
+        || doWithDelegateOrReturnDefault(module, delegate -> delegate.isLeaf(module), true);
   }
 
   @NotNull
@@ -358,13 +362,20 @@ public class SpringConfigurationMetadataProperty
     return !isMapWithPredefinedKeys() && !isMapWithPredefinedValues() && genericOrKeyHint != null;
   }
 
-  private <T> T doWithDelegateOrReturnNull(Module module,
-      MetadataProxyInvokerWithReturnValue<T> invoker) {
+  @Contract("_, _, !null -> !null; _, _, null -> null")
+  private <T> T doWithDelegateOrReturnDefault(Module module,
+      MetadataProxyInvokerWithReturnValue<T> invoker, T defaultValue) {
     MetadataProxy delegate = getDelegate(module);
     if (delegate != null) {
       return invoker.invoke(delegate);
     }
-    return null;
+    return defaultValue;
+  }
+
+  @Nullable
+  private <T> T doWithDelegateOrReturnNull(Module module,
+      MetadataProxyInvokerWithReturnValue<T> invoker) {
+    return doWithDelegateOrReturnDefault(module, invoker, null);
   }
 
   private <T> T doWithMapDelegateOrReturnNull(Module module,
@@ -410,7 +421,7 @@ public class SpringConfigurationMetadataProperty
     if (nodeType == MAP) {
       return doWithDelegateOrReturnNull(module, delegate -> {
         assert delegate instanceof MapClassMetadataProxy;
-        return MapClassMetadataProxy.class.cast(delegate).getMapKeyType();
+        return MapClassMetadataProxy.class.cast(delegate).getMapKeyType(module);
       });
     }
     return null;
@@ -422,7 +433,7 @@ public class SpringConfigurationMetadataProperty
     if (nodeType == MAP) {
       return doWithDelegateOrReturnNull(module, delegate -> {
         assert delegate instanceof MapClassMetadataProxy;
-        return MapClassMetadataProxy.class.cast(delegate).getMapValueType();
+        return MapClassMetadataProxy.class.cast(delegate).getMapValueType(module);
       });
     }
     return null;

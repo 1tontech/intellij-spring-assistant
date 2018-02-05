@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- *
+ * dynamic child documentation
  */
 public class DynamicChild {
   /**

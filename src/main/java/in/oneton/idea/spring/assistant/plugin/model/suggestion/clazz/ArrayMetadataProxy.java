@@ -14,9 +14,13 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.SortedSet;
+import java.util.TreeSet;
 
+import static com.intellij.util.containers.ContainerUtil.isEmpty;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ARRAY;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassSuggestionNodeFactory.newMetadataProxy;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.newListWithMembers;
+import static java.util.stream.Collectors.toCollection;
 
 public class ArrayMetadataProxy implements MetadataProxy {
 
@@ -49,19 +53,49 @@ public class ArrayMetadataProxy implements MetadataProxy {
   public List<SuggestionNode> findDeepestSuggestionNode(Module module,
       List<SuggestionNode> matchesRootTillParentNode, String[] pathSegments,
       int pathSegmentStartIndex) {
-    return doWithDelegateAndReturn(delegate -> delegate
-        .findDeepestSuggestionNode(module, matchesRootTillParentNode, pathSegments,
-            pathSegmentStartIndex), null);
+    return doWithDelegateAndReturn(delegate -> {
+      String pathSegment = pathSegments[pathSegmentStartIndex];
+      SuggestionDocumentationHelper directChildKeyMatch =
+          delegate.findDirectChild(module, pathSegment);
+      if (directChildKeyMatch != null) {
+        // TODO: Need to identify a better mechanism than this dirty way. Probably use ClassSuggestionNode as return type for findDirectChildrenForQueryPrefix
+        // since we are in an iterable(multiple values), keys would be requested, only if the object we are referring is not a leaf => GenericClassWrapper
+        assert directChildKeyMatch instanceof SuggestionNode;
+        matchesRootTillParentNode
+            .add(new IterableKeySuggestionNode((SuggestionNode) directChildKeyMatch));
+        boolean lastPathSegment = pathSegmentStartIndex == pathSegments.length - 1;
+        if (lastPathSegment) {
+          return matchesRootTillParentNode;
+        } else {
+          return delegate.findDeepestSuggestionNode(module, matchesRootTillParentNode, pathSegments,
+              pathSegmentStartIndex);
+        }
+      }
+      return null;
+    }, null);
   }
 
   @Nullable
   @Override
   public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, @Nullable int numOfAncestors,
-      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
-    return doWithDelegateAndReturn(delegate -> delegate
-        .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
-            querySegmentPrefixes, querySegmentPrefixStartIndex), null);
+      List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
+      int querySegmentPrefixStartIndex) {
+    return doWithDelegateAndReturn(delegate -> {
+      String querySegmentPrefix = querySegmentPrefixes[querySegmentPrefixStartIndex];
+      Collection<? extends SuggestionDocumentationHelper> matches =
+          delegate.findDirectChildrenForQueryPrefix(module, querySegmentPrefix);
+      if (!isEmpty(matches)) {
+        return matches.stream().map(helper -> {
+          // TODO: Need to identify a better mechanism than this dirty way. Probably use ClassSuggestionNode as return type for findDirectChildrenForQueryPrefix
+          // since we are in an iterable(multiple values), keys would be requested, only if the object we are referring is not a leaf => GenericClassWrapper
+          assert helper instanceof SuggestionNode;
+          List<SuggestionNode> rootTillMe = newListWithMembers(matchesRootTillMe,
+              new IterableKeySuggestionNode((SuggestionNode) helper));
+          return helper.buildSuggestionForKey(module, fileType, rootTillMe, numOfAncestors);
+        }).collect(toCollection(TreeSet::new));
+      }
+      return null;
+    }, null);
   }
 
   @Nullable
@@ -84,11 +118,6 @@ public class ArrayMetadataProxy implements MetadataProxy {
   public boolean isLeaf(Module module) {
     return doWithDelegateAndReturn(delegate -> delegate.isLeaf(module), true);
   }
-
-  //  @Override
-  //  public void refreshMetadata(Module module) {
-  //    doWithDelegate(delegate -> delegate.refreshMetadata(module));
-  //  }
 
   @NotNull
   @Override

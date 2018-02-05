@@ -13,6 +13,7 @@ import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeTyp
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
+import javax.swing.*;
 import java.util.List;
 import java.util.SortedSet;
 
@@ -21,8 +22,8 @@ import static in.oneton.idea.spring.assistant.plugin.insert.handler.YamlValueIns
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.ClassSuggestionNodeFactory.newMetadataProxy;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel.warning;
-import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.methodForDocumentationNavigation;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.removeGenerics;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.typeForDocumentationNavigation;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.computeDocumentation;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getContainingClass;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getReferredPsiType;
@@ -30,9 +31,6 @@ import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassF
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassNonQualifiedName;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
-
-// TODO: Should the psiMember also be accessed via the cache as this also might become invalid as soon as the class becomes invalid?
-
 
 /**
  * Documentation is never requested for a class, instead its requested for properties within the class.
@@ -64,7 +62,7 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
   }
 
   public MetadataProxy getMemberReferredClassMetadataProxy(Module module) {
-    if (proxy != null) {
+    if (proxy == null) {
       proxy = newMetadataProxy(module, getReferredPsiType(member));
     }
     return proxy;
@@ -153,12 +151,14 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
 
   @NotNull
   @Override
-  public Suggestion buildSuggestion(Module module, FileType fileType,
+  public Suggestion buildSuggestionForKey(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
+    Icon icon = doWithMemberReferredClassProxy(module, proxy -> proxy.getSuggestionNodeType(module),
+        UNKNOWN_CLASS).getIcon();
     Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().icon(proxy.getSuggestionNodeType(module).getIcon())
-            .description(documentation).shortType(shortType).numOfAncestors(numOfAncestors)
-            .matchesTopFirst(matchesRootTillMe);
+        Suggestion.builder().suggestionToDisplay(originalName).description(documentation)
+            .shortType(shortType).numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
+            .icon(icon);
     if (deprecated) {
       builder.deprecationLevel(warning);
     }
@@ -199,12 +199,11 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
 
     PsiClass sourceTypePsiClass = getContainingClass(member);
     if (sourceTypePsiClass != null) {
-      String sourceType = sourceTypePsiClass.toString();
+      String sourceType = sourceTypePsiClass.getQualifiedName();
       String sourceTypeInJavadocFormat = removeGenerics(sourceType);
-      sourceTypeInJavadocFormat += ("." + sourceType);
 
       StringBuilder buffer = new StringBuilder();
-      createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
+      createHyperlink(buffer, typeForDocumentationNavigation(sourceTypeInJavadocFormat),
           sourceTypeInJavadocFormat, false);
       sourceTypeInJavadocFormat = buffer.toString();
       builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");

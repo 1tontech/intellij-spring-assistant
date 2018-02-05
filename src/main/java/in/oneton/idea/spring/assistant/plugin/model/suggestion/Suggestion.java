@@ -26,6 +26,7 @@ import static com.intellij.ui.JBColor.RED;
 import static com.intellij.ui.JBColor.YELLOW;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getFirstSentenceWithoutDot;
+import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.jetbrains.yaml.YAMLHighlighter.SCALAR_TEXT;
@@ -55,7 +56,7 @@ public class Suggestion implements Comparable<Suggestion> {
 
           String lookupString = element.getLookupString();
           presentation.setItemText(lookupString);
-          if (!lookupString.equals(suggestion.value)) {
+          if (!lookupString.equals(suggestion.suggestionToDisplay)) {
             presentation.setItemTextBold(true);
           }
 
@@ -79,6 +80,8 @@ public class Suggestion implements Comparable<Suggestion> {
         }
       };
 
+  @NotNull
+  private String suggestionToDisplay;
   @Nullable
   private String description;
   @Nullable
@@ -106,13 +109,6 @@ public class Suggestion implements Comparable<Suggestion> {
    */
   private boolean forValue;
   /**
-   * Will only be set when the suggestion is for value
-   * If value represents key in key: value, this can contain just one level of node name/can contains multiple levels dot delimited if suggestion matches multiple levels
-   * If the value represents value in key: value, this value will only be one level
-   */
-  @Nullable
-  private String value;
-  /**
    * Whether the current value represents the default value
    */
   @Setter
@@ -125,22 +121,15 @@ public class Suggestion implements Comparable<Suggestion> {
   @Nullable
   private Icon icon;
 
-  private String suggestionToDisplay;
   private String pathDotDelimitedRootToLeaf;
 
   @Builder
-  public Suggestion(@Nullable String description, @Nullable String shortType,
-      @Nullable String defaultValue,
+  public Suggestion(@NotNull String suggestionToDisplay, @Nullable String description,
+      @Nullable String shortType, @Nullable String defaultValue,
       @Nullable SpringConfigurationMetadataDeprecationLevel deprecationLevel,
       @NotNull List<? extends SuggestionNode> matchesTopFirst, int numOfAncestors, boolean forValue,
-      @Nullable String value, boolean representingDefaultValue, @NotNull FileType fileType,
-      @Nullable Icon icon) {
-    if (!forValue) {
-      assert numOfAncestors < matchesTopFirst.size();
-    } else {
-      assert numOfAncestors == matchesTopFirst.size();
-    }
-
+      boolean representingDefaultValue, @NotNull FileType fileType, @Nullable Icon icon) {
+    this.suggestionToDisplay = suggestionToDisplay;
     this.description = description;
     this.shortType = shortType;
     this.defaultValue = defaultValue;
@@ -148,14 +137,11 @@ public class Suggestion implements Comparable<Suggestion> {
     this.matchesTopFirst = matchesTopFirst;
     this.numOfAncestors = numOfAncestors;
     this.forValue = forValue;
-    this.value = value;
     this.representingDefaultValue = representingDefaultValue;
     this.fileType = fileType;
     this.icon = icon;
     this.pathDotDelimitedRootToLeaf =
         matchesTopFirst.stream().map(SuggestionNode::getOriginalName).collect(joining("."));
-    this.suggestionToDisplay =
-        forValue ? value : dotDelimitedOriginalNames(matchesTopFirst, numOfAncestors);
   }
 
   public LookupElementBuilder newLookupElement() {
@@ -175,7 +161,7 @@ public class Suggestion implements Comparable<Suggestion> {
     return builder;
   }
 
-  public String getFullPath(Module module) {
+  public String getFullPath() {
     return dotDelimitedOriginalNames(matchesTopFirst);
   }
 
@@ -189,20 +175,21 @@ public class Suggestion implements Comparable<Suggestion> {
 
   @Override
   public int compareTo(@NotNull Suggestion other) {
-    if (forValue) {
-      assert value != null;
-      assert other.value != null;
-      return value.compareTo(other.value);
-    } else {
-      return pathDotDelimitedRootToLeaf.compareTo(other.pathDotDelimitedRootToLeaf);
+    int pathRootToLeafComparisonValue =
+        pathDotDelimitedRootToLeaf.compareTo(other.pathDotDelimitedRootToLeaf);
+    if (pathRootToLeafComparisonValue == 0) {
+      return suggestionToDisplay.compareTo(other.suggestionToDisplay);
+    }
+    return pathRootToLeafComparisonValue;
+  }
+
+  @NotNull
+  public List<? extends OriginalNameProvider> getMatchesForReplacement() {
+    if (matchesTopFirst.size() > numOfAncestors) {
+      return matchesTopFirst.stream().skip(numOfAncestors).collect(toList());
+    } else { // can happen when user is trying to select as a child of array, in this case, the suggestion itself becomes the original name
+      return singletonList(() -> suggestionToDisplay);
     }
   }
 
-  public List<? extends SuggestionNode> getMatchesForReplacement() {
-    return matchesTopFirst.stream().skip(numOfAncestors).collect(toList());
-  }
-
-  public String getLeafOriginalNameOrValue() {
-    return forValue ? value : getLastSuggestionNode().getOriginalName();
-  }
 }

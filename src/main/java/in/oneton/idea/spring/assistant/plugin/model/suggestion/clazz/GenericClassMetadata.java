@@ -126,9 +126,9 @@ public class GenericClassMetadata extends ClassMetadata {
           boolean lastQuerySegment =
               querySegmentPrefixStartIndex == (querySegmentPrefixes.length - 1);
           if (lastQuerySegment) {
-            return wrappers.stream().map(wrapper -> wrapper
-                .buildSuggestion(module, fileType, matchesRootTillCurrentNode, numOfAncestors))
-                .collect(toCollection(TreeSet::new));
+            return wrappers.stream().map(wrapper -> wrapper.buildSuggestionForKey(module, fileType,
+                unmodifiableList(newListWithMembers(matchesRootTillCurrentNode, wrapper)),
+                numOfAncestors)).collect(toCollection(TreeSet::new));
           } else {
             SortedSet<Suggestion> suggestions = null;
             for (GenericClassMemberWrapper wrapper : wrappers) {
@@ -156,7 +156,8 @@ public class GenericClassMetadata extends ClassMetadata {
   @Override
   protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
-    throw new IllegalAccessError("Method should never be called for a generic class");
+    // Can be called if the class is specified as a value within an array & the class does nto have any children
+    return null;
   }
 
   @Nullable
@@ -167,24 +168,9 @@ public class GenericClassMetadata extends ClassMetadata {
   }
 
   @Override
-  public boolean isLeaf(Module module) {
+  public boolean doCheckIsLeaf(Module module) {
     return childLookup == null || childLookup.size() == 0;
   }
-
-  //  @Override
-  //  public void refreshMetadata(Module module) {
-  //    PsiClass psiClass = toValidPsiClass(type);
-  //    if (psiClass != null) {
-  //      if (childLookup == null && childrenTrie == null) {
-  //        init(psiClass);
-  //      }
-  //    } else {
-  //      if (childLookup != null && childrenTrie != null) {
-  //        childLookup = null;
-  //        childrenTrie = null;
-  //      }
-  //    }
-  //  }
 
   @NotNull
   @Override
@@ -194,7 +180,7 @@ public class GenericClassMetadata extends ClassMetadata {
 
   @NotNull
   @Override
-  public PsiType getPsiType() {
+  public PsiType getPsiType(Module module) {
     return type;
   }
 }

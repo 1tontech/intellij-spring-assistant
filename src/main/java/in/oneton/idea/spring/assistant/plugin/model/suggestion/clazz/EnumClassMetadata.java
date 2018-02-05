@@ -25,9 +25,9 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
-import static com.intellij.psi.PsiModifier.STATIC;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode.sanitise;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.computeDocumentation;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getReferredPsiType;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.isValidType;
@@ -149,24 +149,9 @@ public class EnumClassMetadata extends ClassMetadata {
   }
 
   @Override
-  public boolean isLeaf(Module module) {
+  public boolean doCheckIsLeaf(Module module) {
     return true;
   }
-
-  //  @Override
-  //  public void refreshMetadata(Module module) {
-  //    PsiClass psiClass = toValidPsiClass(type);
-  //    if (psiClass != null) {
-  //      if (childLookup == null && childrenTrie == null) {
-  //        init(psiClass);
-  //      }
-  //    } else {
-  //      if (childLookup != null && childrenTrie != null) {
-  //        childLookup = null;
-  //        childrenTrie = null;
-  //      }
-  //    }
-  //  }
 
   @NotNull
   @Override
@@ -176,7 +161,7 @@ public class EnumClassMetadata extends ClassMetadata {
 
   @Nullable
   @Override
-  public PsiType getPsiType() {
+  public PsiType getPsiType(Module module) {
     return type;
   }
 
@@ -185,7 +170,7 @@ public class EnumClassMetadata extends ClassMetadata {
       PsiField[] fields = requireNonNull(toValidPsiClass(type)).getFields();
       List<PsiField> acceptableFields = new ArrayList<>();
       for (PsiField field : fields) {
-        if (field != null && !field.hasModifierProperty(STATIC)) {
+        if (field != null && field.getType().equals(type)) {
           acceptableFields.add(field);
         }
       }
@@ -209,7 +194,9 @@ public class EnumClassMetadata extends ClassMetadata {
         Suggestion.builder().numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
             .shortType(toClassNonQualifiedName(type)).icon(ENUM.getIcon()).fileType(fileType);
     if (forValue) {
-      builder.value(requireNonNull(value.getName()));
+      builder.suggestionToDisplay(requireNonNull(value.getName()));
+    } else {
+      builder.suggestionToDisplay(dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors));
     }
     builder.forValue(forValue);
     return builder.build();
@@ -231,7 +218,7 @@ public class EnumClassMetadata extends ClassMetadata {
 
     @NotNull
     @Override
-    public Suggestion buildSuggestion(Module module, FileType fileType,
+    public Suggestion buildSuggestionForKey(Module module, FileType fileType,
         List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
       return newSuggestion(fileType, matchesRootTillMe, numOfAncestors, false, field);
     }
@@ -264,6 +251,12 @@ public class EnumClassMetadata extends ClassMetadata {
         builder.append("<p>").append(documentation).append("</p>");
       }
       return builder.toString();
+    }
+
+    @NotNull
+    @Override
+    public SuggestionNodeType getSuggestionNodeType(Module module) {
+      return ENUM;
     }
   }
 

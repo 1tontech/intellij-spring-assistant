@@ -1,0 +1,17 @@
+{
+  "hints": [
+    {
+      "name": "gp.p.c"
+    }
+  ],
+  "groups": [
+    {
+      "name": "gp"
+    }
+  ],
+  "properties": [
+    {
+      "name": "gp.p.c"
+    }
+  ]
+}

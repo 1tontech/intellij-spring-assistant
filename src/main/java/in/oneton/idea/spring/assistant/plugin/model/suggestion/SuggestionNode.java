@@ -9,7 +9,8 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.SortedSet;
 
-public interface SuggestionNode extends DocumentationProvider, SuggestionNodeTypeProvider {
+public interface SuggestionNode
+    extends OriginalNameProvider, DocumentationProvider, SuggestionNodeTypeProvider {
 
   static String sanitise(String name) {
     return name.trim().replaceAll("_", "").replace("-", "").toLowerCase();
@@ -45,12 +46,6 @@ public interface SuggestionNode extends DocumentationProvider, SuggestionNodeTyp
   SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
       int querySegmentPrefixStartIndex);
-
-  /**
-   * @return original name without any sanitising, null if the suggestion node does not have any corresponding name
-   */
-  @Nullable
-  String getOriginalName();
 
   @Nullable
   String getNameForDocumentation(Module module);

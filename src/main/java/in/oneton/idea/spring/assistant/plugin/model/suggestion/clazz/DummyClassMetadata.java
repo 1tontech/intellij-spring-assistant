@@ -16,6 +16,9 @@ import java.util.SortedSet;
 
 import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
 import static com.intellij.openapi.util.text.StringUtil.isEmpty;
+import static com.intellij.psi.CommonClassNames.JAVA_LANG_STRING;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.safeGetValidType;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassFqn;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassNonQualifiedName;
 
@@ -123,9 +126,8 @@ public class DummyClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SortedSet<Suggestion> doFindKeySuggestionsForQueryPrefix(Module module,
-      FileType fileType, List<SuggestionNode> matchesRootTillParentNode,
-      @Nullable int numOfAncestors, String[] querySegmentPrefixes,
-      int querySegmentPrefixStartIndex) {
+      FileType fileType, List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors,
+      String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     return null;
   }
 
@@ -143,13 +145,9 @@ public class DummyClassMetadata extends ClassMetadata {
   }
 
   @Override
-  public boolean isLeaf(Module module) {
+  public boolean doCheckIsLeaf(Module module) {
     return true;
   }
-
-  //  @Override
-  //  public void refreshMetadata(Module module) {
-  //  }
 
   @NotNull
   @Override
@@ -159,7 +157,7 @@ public class DummyClassMetadata extends ClassMetadata {
 
   @Nullable
   @Override
-  public PsiType getPsiType() {
+  public PsiType getPsiType(Module module) {
     switch (nodeType) {
       case BYTE:
         return PsiType.BYTE;
@@ -168,32 +166,19 @@ public class DummyClassMetadata extends ClassMetadata {
       case INT:
         return PsiType.INT;
       case LONG:
-        return PsiType.INT;
+        return PsiType.LONG;
       case FLOAT:
-        return PsiType.INT;
+        return PsiType.FLOAT;
       case DOUBLE:
-        return PsiType.INT;
+        return PsiType.DOUBLE;
       case CHAR:
-        return PsiType.INT;
+        return PsiType.CHAR;
       case STRING:
-        return PsiType.INT;
+        return safeGetValidType(module, JAVA_LANG_STRING);
       case UNKNOWN_CLASS:
       default:
         return null;
     }
-  }
-
-  private Suggestion newSuggestion(Module module, FileType fileType,
-      List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
-    Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
-            .icon(nodeType.getIcon()).fileType(fileType);
-
-    PsiType psiType = getPsiType();
-    if (psiType != null) {
-      builder.shortType(toClassNonQualifiedName(psiType));
-    }
-    return builder.build();
   }
 
 
@@ -213,9 +198,18 @@ public class DummyClassMetadata extends ClassMetadata {
 
     @NotNull
     @Override
-    public Suggestion buildSuggestion(Module module, FileType fileType,
+    public Suggestion buildSuggestionForKey(Module module, FileType fileType,
         List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
-      return newSuggestion(module, fileType, matchesRootTillMe, numOfAncestors);
+      Suggestion.SuggestionBuilder builder = Suggestion.builder()
+          .suggestionToDisplay(dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors))
+          .numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
+          .icon(nodeType.getIcon()).fileType(fileType);
+
+      PsiType psiType = getPsiType(module);
+      if (psiType != null) {
+        builder.shortType(toClassNonQualifiedName(psiType));
+      }
+      return builder.build();
     }
 
     @Override
@@ -233,7 +227,7 @@ public class DummyClassMetadata extends ClassMetadata {
       StringBuilder builder =
           new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
 
-      PsiType psiType = getPsiType();
+      PsiType psiType = getPsiType(module);
       if (psiType != null) {
         String classFqn = toClassFqn(psiType);
         StringBuilder linkBuilder = new StringBuilder();
@@ -244,6 +238,11 @@ public class DummyClassMetadata extends ClassMetadata {
       return builder.toString();
     }
 
+    @NotNull
+    @Override
+    public SuggestionNodeType getSuggestionNodeType(Module module) {
+      return nodeType;
+    }
   }
 
 }

@@ -296,7 +296,7 @@ public class SuggestionServiceImpl implements SuggestionService {
                   truncateIdeaDummyIdentifier(element.getText()));
             } else {
               suggestions = startSearchFrom.findKeySuggestionsForQueryPrefix(module, fileType,
-                  unmodifiableList(matchesRootToDeepest), ancestralKeySegments.length,
+                  unmodifiableList(matchesRootToDeepest), matchesRootToDeepest.size(),
                   querySegmentPrefixes, 0);
             }
           }

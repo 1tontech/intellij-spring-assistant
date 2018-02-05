@@ -3,6 +3,7 @@ package in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz;
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiType;
+import com.intellij.psi.PsiTypeParameter;
 import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
@@ -12,8 +13,10 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -24,6 +27,7 @@ import static in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.Clas
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.newListWithMembers;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getTypeParameters;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.isValidType;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
 public class MapClassMetadata extends ClassMetadata {
@@ -52,15 +56,14 @@ public class MapClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected SuggestionDocumentationHelper doFindDirectChild(Module module, String pathSegment) {
-    throw new IllegalAccessError(
-        "Should never be called, as there can be never the case of Map<Map<K, V1>, V2>");
+    return doWithKeyDelegateOrReturnNull(delegate -> delegate.findDirectChild(module, pathSegment));
   }
 
   @Override
   protected Collection<? extends SuggestionDocumentationHelper> doFindDirectChildrenForQueryPrefix(
       Module module, String querySegmentPrefix) {
-    throw new IllegalAccessError(
-        "Should never be called, as there can be never the case of Map<Map<K, V1>, V2>");
+    return doWithKeyDelegateOrReturnNull(
+        delegate -> delegate.findDirectChildrenForQueryPrefix(module, querySegmentPrefix));
   }
 
   @Nullable
@@ -68,25 +71,23 @@ public class MapClassMetadata extends ClassMetadata {
   protected List<SuggestionNode> doFindDeepestSuggestionNode(Module module,
       List<SuggestionNode> matchesRootTillParentNode, String[] pathSegments,
       int pathSegmentStartIndex) {
-    if (keyMetadataProxy != null) {
+    return doWithKeyDelegateOrReturnNull(keyProxy -> {
       String pathSegment = pathSegments[pathSegmentStartIndex];
       SuggestionDocumentationHelper directChildKeyMatch =
-          keyMetadataProxy.findDirectChild(module, pathSegment);
+          keyProxy.findDirectChild(module, pathSegment);
       if (directChildKeyMatch != null) {
         matchesRootTillParentNode.add(new MapKeySuggestionNode(directChildKeyMatch));
         boolean lastPathSegment = pathSegmentStartIndex == pathSegments.length - 1;
         if (lastPathSegment) {
           return matchesRootTillParentNode;
         } else {
-          if (valueMetadataProxy != null) {
-            return valueMetadataProxy
-                .findDeepestSuggestionNode(module, matchesRootTillParentNode, pathSegments,
-                    pathSegmentStartIndex + 1);
-          }
+          return doWithValueDelegateOrReturnNull(valueProxy -> valueProxy
+              .findDeepestSuggestionNode(module, matchesRootTillParentNode, pathSegments,
+                  pathSegmentStartIndex + 1));
         }
       }
-    }
-    return null;
+      return null;
+    });
   }
 
   @Nullable
@@ -95,16 +96,19 @@ public class MapClassMetadata extends ClassMetadata {
       FileType fileType, List<SuggestionNode> matchesRootTillMe, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
     boolean lastPathSegment = querySegmentPrefixStartIndex == querySegmentPrefixes.length - 1;
-    if (lastPathSegment && keyMetadataProxy != null) {
-      String querySegmentPrefix = querySegmentPrefixes[querySegmentPrefixStartIndex];
-      Collection<? extends SuggestionDocumentationHelper> directChildKeyMatches =
-          keyMetadataProxy.findDirectChildrenForQueryPrefix(module, querySegmentPrefix);
-      if (!isEmpty(directChildKeyMatches)) {
-        return directChildKeyMatches.stream().map(helper -> helper.buildSuggestion(module, fileType,
-            newListWithMembers(matchesRootTillMe, new MapKeySuggestionNode(helper)),
-            numOfAncestors)).collect(toCollection(TreeSet::new));
-
-      }
+    if (lastPathSegment) {
+      return doWithKeyDelegateOrReturnNull(proxy -> {
+        String querySegmentPrefix = querySegmentPrefixes[querySegmentPrefixStartIndex];
+        Collection<? extends SuggestionDocumentationHelper> directChildKeyMatches =
+            proxy.findDirectChildrenForQueryPrefix(module, querySegmentPrefix);
+        if (!isEmpty(directChildKeyMatches)) {
+          return directChildKeyMatches.stream().map(helper -> helper
+              .buildSuggestionForKey(module, fileType,
+                  newListWithMembers(matchesRootTillMe, new MapKeySuggestionNode(helper)),
+                  numOfAncestors)).collect(toCollection(TreeSet::new));
+        }
+        return null;
+      });
     }
     return null;
   }
@@ -112,49 +116,33 @@ public class MapClassMetadata extends ClassMetadata {
   public SortedSet<Suggestion> findChildKeySuggestionForQueryPrefix(Module module,
       FileType fileType, List<SuggestionNode> matchesRootTillMe, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
-    if (valueMetadataProxy != null) {
-      return valueMetadataProxy
-          .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
-              querySegmentPrefixes, querySegmentPrefixStartIndex);
-    }
-    return null;
+    return doWithValueDelegateOrReturnNull(proxy -> proxy
+        .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
+            querySegmentPrefixes, querySegmentPrefixStartIndex));
   }
 
   @Override
   protected SortedSet<Suggestion> doFindValueSuggestionsForPrefix(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, String prefix) {
-    if (valueMetadataProxy != null) {
-      boolean valueIsLeaf = valueMetadataProxy.isLeaf(module);
+    return doWithValueDelegateOrReturnNull(proxy -> {
+      boolean valueIsLeaf = proxy.isLeaf(module);
       assert valueIsLeaf;
-      return valueMetadataProxy
-          .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix);
-    }
-    return null;
+      return proxy.findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix);
+    });
   }
 
   @Nullable
   @Override
   protected String doGetDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
       String value) {
-    if (valueMetadataProxy != null) {
-      return valueMetadataProxy
-          .getDocumentationForValue(module, nodeNavigationPathDotDelimited, value);
-    }
-    return null;
+    return doWithValueDelegateOrReturnNull(
+        proxy -> proxy.getDocumentationForValue(module, nodeNavigationPathDotDelimited, value));
   }
 
   @Override
-  public boolean isLeaf(Module module) {
+  public boolean doCheckIsLeaf(Module module) {
     return false;
   }
-
-  //  @Override
-  //  public void refreshMetadata(Module module) {
-  //    PsiClass psiClass = toValidPsiClass(type);
-  //    if (psiClass != null && keyMetadataProxy == null && valueMetadataProxy == null) {
-  //      init(module, psiClass);
-  //    }
-  //  }
 
   @NotNull
   @Override
@@ -164,30 +152,34 @@ public class MapClassMetadata extends ClassMetadata {
 
   @Nullable
   @Override
-  public PsiType getPsiType() {
+  public PsiType getPsiType(Module module) {
     return type;
   }
 
   private void init(Module module, PsiClassType type) {
     if (isValidType(type)) {
-      Collection<PsiType> typeParameters = getTypeParameters(type);
-      // If Map is raw, there are still two type parameters
-      if (typeParameters != null && typeParameters.size() == 2) {
-        Iterator<PsiType> iterator = typeParameters.iterator();
-        keyType = iterator.next();
-        if (keyType != null) {
-          keyMetadataProxy = newMetadataProxy(module, keyType);
-        }
-        valueType = iterator.next();
-        if (valueType != null) {
-          valueMetadataProxy = newMetadataProxy(module, valueType);
+      Map<PsiTypeParameter, PsiType> typeParameterToResolvedType = getTypeParameters(type);
+      assert typeParameterToResolvedType != null;
+      Set<PsiTypeParameter> typeParameterKetSet = typeParameterToResolvedType.keySet();
+      Optional<PsiTypeParameter> keyTypeParam =
+          typeParameterKetSet.stream().filter(v -> requireNonNull(v.getName()).equals("K"))
+              .findFirst();
+      Optional<PsiTypeParameter> valueTypeParam =
+          typeParameterKetSet.stream().filter(v -> requireNonNull(v.getName()).equals("V"))
+              .findFirst();
+      if (keyTypeParam.isPresent()) {
+        this.keyType = typeParameterToResolvedType.get(keyTypeParam.get());
+        if (this.keyType != null) {
+          keyMetadataProxy = newMetadataProxy(module, this.keyType);
         }
       }
-    } else {
-      keyType = null;
-      keyMetadataProxy = null;
-      valueType = null;
-      valueMetadataProxy = null;
+
+      if (valueTypeParam.isPresent()) {
+        this.valueType = typeParameterToResolvedType.get(valueTypeParam.get());
+        if (this.valueType != null) {
+          valueMetadataProxy = newMetadataProxy(module, this.valueType);
+        }
+      }
     }
   }
 
@@ -199,6 +191,27 @@ public class MapClassMetadata extends ClassMetadata {
   @Nullable
   public PsiType getValueType() {
     return valueType;
+  }
+
+  private <T> T doWithKeyDelegateOrReturnNull(
+      MetadataProxyInvokerWithReturnValue<T> targetInvokerWithReturnValue) {
+    if (keyMetadataProxy != null) {
+      return targetInvokerWithReturnValue.invoke(keyMetadataProxy);
+    }
+    return null;
+  }
+
+  private <T> T doWithValueDelegateOrReturnNull(
+      MetadataProxyInvokerWithReturnValue<T> targetInvokerWithReturnValue) {
+    return doWithValueDelegateAndReturn(targetInvokerWithReturnValue, null);
+  }
+
+  private <T> T doWithValueDelegateAndReturn(
+      MetadataProxyInvokerWithReturnValue<T> targetInvokerWithReturnValue, T defaultReturnValue) {
+    if (valueMetadataProxy != null) {
+      return targetInvokerWithReturnValue.invoke(valueMetadataProxy);
+    }
+    return defaultReturnValue;
   }
 
 
@@ -236,26 +249,20 @@ public class MapClassMetadata extends ClassMetadata {
     @Override
     public SortedSet<Suggestion> findValueSuggestionsForPrefix(Module module, FileType fileType,
         List<SuggestionNode> matchesRootTillMe, String prefix) {
-      if (valueMetadataProxy != null) {
-        return valueMetadataProxy
-            .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix);
-      }
-      return null;
+      return doWithValueDelegateOrReturnNull(proxy -> proxy
+          .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix));
     }
 
     @Override
     public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
         String value) {
-      if (valueMetadataProxy != null) {
-        return valueMetadataProxy
-            .getDocumentationForValue(module, nodeNavigationPathDotDelimited, value);
-      }
-      return null;
+      return doWithValueDelegateOrReturnNull(
+          proxy -> proxy.getDocumentationForValue(module, nodeNavigationPathDotDelimited, value));
     }
 
     @Override
     public boolean isLeaf(Module module) {
-      return valueMetadataProxy == null || valueMetadataProxy.isLeaf(module);
+      return doWithValueDelegateAndReturn(proxy -> proxy.isLeaf(module), true);
     }
 
     @Override
@@ -283,10 +290,8 @@ public class MapClassMetadata extends ClassMetadata {
     @NotNull
     @Override
     public SuggestionNodeType getSuggestionNodeType(Module module) {
-      if (valueMetadataProxy != null) {
-        return valueMetadataProxy.getSuggestionNodeType(module);
-      }
-      return UNKNOWN_CLASS;
+      return doWithValueDelegateAndReturn(proxy -> proxy.getSuggestionNodeType(module),
+          UNKNOWN_CLASS);
     }
 
   }

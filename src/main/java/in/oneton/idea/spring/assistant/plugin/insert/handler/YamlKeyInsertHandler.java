@@ -7,8 +7,8 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.util.PsiTreeUtil;
+import in.oneton.idea.spring.assistant.plugin.model.suggestion.OriginalNameProvider;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
-import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.YAMLElementGenerator;
@@ -82,16 +82,16 @@ public class YamlKeyInsertHandler implements InsertHandler<LookupElement> {
     return false;
   }
 
-  private String getExistingIndentationInRowStartingFromEnd(final String string) {
+  private String getExistingIndentationInRowStartingFromEnd(final String val) {
     int count = 0;
-    for (int i = string.length() - 1; i >= 0; i--) {
-      final char c = string.charAt(i);
-      if (c != '\t' && c != ' ') {
+    for (int i = val.length() - 1; i >= 0; i--) {
+      final char c = val.charAt(i);
+      if (c != '\t' && c != ' ' && c != '-') {
         break;
       }
       count++;
     }
-    return string.substring(string.length() - count, string.length());
+    return val.substring(val.length() - count, val.length()).replaceAll("-", " ");
   }
 
   private void deleteLookupTextAndRetrieveOldValue(InsertionContext context,
@@ -127,11 +127,11 @@ public class YamlKeyInsertHandler implements InsertHandler<LookupElement> {
       String existingIndentation, String indentPerLevel) {
     StringBuilder builder = new StringBuilder();
     int i = 0;
-    List<? extends SuggestionNode> matchesTopFirst = suggestion.getMatchesForReplacement();
+    List<? extends OriginalNameProvider> matchesTopFirst = suggestion.getMatchesForReplacement();
     do {
-      SuggestionNode currentNode = matchesTopFirst.get(i);
+      OriginalNameProvider nameProvider = matchesTopFirst.get(i);
       builder.append("\n").append(existingIndentation).append(getIndent(indentPerLevel, i))
-          .append(currentNode.getOriginalName()).append(":");
+          .append(nameProvider.getOriginalName()).append(":");
       i++;
     } while (i < matchesTopFirst.size());
     builder.delete(0, existingIndentation.length() + 1);

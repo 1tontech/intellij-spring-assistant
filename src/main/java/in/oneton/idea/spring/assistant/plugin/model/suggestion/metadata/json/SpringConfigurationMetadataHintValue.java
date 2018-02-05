@@ -18,6 +18,7 @@ import java.util.List;
 import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
 import static in.oneton.idea.spring.assistant.plugin.insert.handler.YamlValueInsertHandler.unescapeValue;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.newListWithMembers;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.shortenedType;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.toClassFqn;
@@ -75,12 +76,13 @@ public class SpringConfigurationMetadataHintValue {
   }
 
   @NotNull
-  public Suggestion buildSuggestionForKey(Module module, FileType fileType,
+  public Suggestion buildSuggestionForKey(FileType fileType,
       List<SuggestionNode> matchesRootTillParentNode, int numOfAncestors, SuggestionNode match,
       @Nullable PsiType keyType) {
-    Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().description(description).numOfAncestors(numOfAncestors)
-            .matchesTopFirst(newListWithMembers(matchesRootTillParentNode, match));
+    List<SuggestionNode> matchesRootTillMe = newListWithMembers(matchesRootTillParentNode, match);
+    Suggestion.SuggestionBuilder builder = Suggestion.builder()
+        .suggestionToDisplay(dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors))
+        .description(description).numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe);
 
     if (keyType != null) {
       builder.shortType(toClassNonQualifiedName(keyType));
@@ -136,7 +138,7 @@ public class SpringConfigurationMetadataHintValue {
       List<? extends SuggestionNode> matchesRootTillLeaf, @Nullable String defaultValue,
       @Nullable PsiType valueType) {
     Suggestion.SuggestionBuilder builder =
-        Suggestion.builder().value(toString()).description(description).forValue(true)
+        Suggestion.builder().suggestionToDisplay(toString()).description(description).forValue(true)
             .matchesTopFirst(matchesRootTillLeaf).numOfAncestors(matchesRootTillLeaf.size());
 
     if (valueType != null) {

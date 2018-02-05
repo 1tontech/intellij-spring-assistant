@@ -10,8 +10,8 @@ import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.MAP;
+import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getBoxedTypeFromPrimitiveType;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.getSuggestionNodeType;
-import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.safeGetValidType;
 
 @UtilityClass
 public final class ClassSuggestionNodeFactory {
@@ -51,10 +51,8 @@ public final class ClassSuggestionNodeFactory {
     if (type instanceof PsiArrayType) {
       return new ArrayMetadataProxy(module, (PsiArrayType) type);
     } else if (type instanceof PsiPrimitiveType) {
-      PsiType boxedPrimitiveType =
-          safeGetValidType(module, ((PsiPrimitiveType) type).getBoxedTypeName());
-      assert boxedPrimitiveType instanceof PsiClassType;
-      type = boxedPrimitiveType;
+      PsiPrimitiveType primitiveType = (PsiPrimitiveType) type;
+      type = getBoxedTypeFromPrimitiveType(module, primitiveType);
     }
 
     if (type instanceof PsiClassType) {
@@ -69,4 +67,5 @@ public final class ClassSuggestionNodeFactory {
     throw new IllegalAccessError(
         "Supports only PsiArrayType, PsiPrimitiveType & PsiClassType types");
   }
+
 }

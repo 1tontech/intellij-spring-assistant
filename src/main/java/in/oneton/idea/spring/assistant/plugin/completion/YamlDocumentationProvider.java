@@ -28,7 +28,6 @@ import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.getKeyName
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.isYamlValue;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.truncateIdeaDummyIdentifier;
 import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findModule;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class YamlDocumentationProvider extends AbstractDocumentationProvider {
@@ -62,10 +61,9 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
     if (object instanceof Suggestion) {
       //noinspection unchecked
       Suggestion suggestion = Suggestion.class.cast(object);
-      return new DocumentationProxyElement(psiManager, INSTANCE,
-          suggestion.getFullPath(findModule(requireNonNull(element))),
+      return new DocumentationProxyElement(psiManager, INSTANCE, suggestion.getFullPath(),
           suggestion.getMatchesTopFirst().get(suggestion.getMatchesTopFirst().size() - 1),
-          suggestion.isForValue(), suggestion.getLeafOriginalNameOrValue());
+          suggestion.isForValue(), suggestion.getSuggestionToDisplay());
     }
     return super.getDocumentationElementForLookupItem(psiManager, object, element);
   }
@@ -92,7 +90,7 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
 
       while (keyValue != null) {
         assert keyValue.getKey() != null;
-        containerElements.add(0, truncateIdeaDummyIdentifier(keyValue.getKey()));
+        containerElements.add(0, truncateIdeaDummyIdentifier(keyValue.getKeyText()));
         keyValue = getParentOfType(keyValue, YAMLKeyValue.class);
       }
 

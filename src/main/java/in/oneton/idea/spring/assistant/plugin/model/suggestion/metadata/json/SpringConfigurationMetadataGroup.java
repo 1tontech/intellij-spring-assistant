@@ -13,6 +13,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.UNDEFINED;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.methodForDocumentationNavigation;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.removeGenerics;
 import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.shortenedType;
@@ -81,11 +82,12 @@ public class SpringConfigurationMetadataGroup {
     return builder.toString();
   }
 
-  public Suggestion newSuggestion(FileType fileType, List<SuggestionNode> matchesRootTillParentNode,
+  public Suggestion newSuggestion(FileType fileType, List<SuggestionNode> matchesRootTillMe,
       int numOfAncestors) {
-    return Suggestion.builder().description(description).shortType(shortenedType(type))
-        .numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillParentNode)
-        .icon(nodeType.getIcon()).fileType(fileType).build();
+    return Suggestion.builder()
+        .suggestionToDisplay(dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors))
+        .description(description).shortType(shortenedType(type)).numOfAncestors(numOfAncestors)
+        .matchesTopFirst(matchesRootTillMe).icon(nodeType.getIcon()).fileType(fileType).build();
   }
 
 }

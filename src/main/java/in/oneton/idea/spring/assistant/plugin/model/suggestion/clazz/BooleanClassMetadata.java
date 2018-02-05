@@ -21,6 +21,8 @@ import java.util.TreeSet;
 import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.BOOLEAN;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ENUM;
+import static in.oneton.idea.spring.assistant.plugin.util.GenericUtil.dotDelimitedOriginalNames;
+import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.valueOf;
 import static java.util.stream.Collectors.toCollection;
@@ -35,7 +37,7 @@ public class BooleanClassMetadata extends ClassMetadata {
   protected void init(Module module) {
     childrenTrie = new PatriciaTrie<>();
     childrenTrie.put("true", TRUE);
-    childrenTrie.put("false", TRUE);
+    childrenTrie.put("false", FALSE);
   }
 
   @Nullable
@@ -118,13 +120,9 @@ public class BooleanClassMetadata extends ClassMetadata {
   }
 
   @Override
-  public boolean isLeaf(Module module) {
+  public boolean doCheckIsLeaf(Module module) {
     return true;
   }
-
-  //  @Override
-  //  public void refreshMetadata(Module module) {
-  //  }
 
   @NotNull
   @Override
@@ -134,7 +132,7 @@ public class BooleanClassMetadata extends ClassMetadata {
 
   @NotNull
   @Override
-  public PsiType getPsiType() {
+  public PsiType getPsiType(Module module) {
     return PsiType.BOOLEAN;
   }
 
@@ -144,7 +142,10 @@ public class BooleanClassMetadata extends ClassMetadata {
         Suggestion.builder().numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
             .shortType("Boolean").icon(ENUM.getIcon()).fileType(fileType);
     if (forValue) {
-      builder.value(valueOf(value));
+      String valueToDisplay = valueOf(value);
+      builder.suggestionToDisplay(valueToDisplay);
+    } else {
+      builder.suggestionToDisplay(dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors));
     }
     builder.forValue(forValue);
     return builder.build();
@@ -165,7 +166,7 @@ public class BooleanClassMetadata extends ClassMetadata {
 
     @NotNull
     @Override
-    public Suggestion buildSuggestion(Module module, FileType fileType,
+    public Suggestion buildSuggestionForKey(Module module, FileType fileType,
         List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
       return newSuggestion(fileType, matchesRootTillMe, numOfAncestors, false, value);
     }
@@ -191,6 +192,12 @@ public class BooleanClassMetadata extends ClassMetadata {
       builder.append(" (").append(linkBuilder.toString()).append(")");
 
       return builder.toString();
+    }
+
+    @NotNull
+    @Override
+    public SuggestionNodeType getSuggestionNodeType(Module module) {
+      return BOOLEAN;
     }
   }
 

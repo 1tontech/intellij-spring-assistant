@@ -4,6 +4,7 @@ import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.impl.analysis.JavaGenericsUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
+import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiArrayType;
@@ -16,11 +17,15 @@ import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiParameter;
 import com.intellij.psi.PsiPrimitiveType;
 import com.intellij.psi.PsiType;
+import com.intellij.psi.PsiTypeParameter;
 import com.intellij.psi.javadoc.PsiDocComment;
+import com.intellij.psi.util.CachedValue;
 import com.intellij.psi.util.PropertyUtil;
 import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.TimeoutUtil;
 import gnu.trove.THashMap;
+import gnu.trove.THashSet;
+import gnu.trove.TObjectHashingStrategy;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.clazz.GenericClassMemberWrapper;
 import lombok.experimental.UtilityClass;
@@ -31,6 +36,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.intellij.openapi.module.ModuleUtilCore.findModuleForFile;
 import static com.intellij.openapi.module.ModuleUtilCore.findModuleForPsiElement;
@@ -78,6 +84,17 @@ import static java.util.Objects.requireNonNull;
 @UtilityClass
 public class PsiCustomUtil {
   private static final Logger log = Logger.getInstance(PsiCustomUtil.class);
+
+  private static final Key<CachedValue<Map<String, GenericClassMemberWrapper>>>
+      SPRING_ASSISTANT_PLUGIN_PROPERTY_TO_CLASS_MEMBER_WRAPPER_KEY =
+      create("spring_assistant_plugin_property_to_class_member_wrapper");
+  private static final Key<CachedValue<PsiType>>
+      SPRING_ASSISTANT_PLUGIN_ERASE_FREE_TYPE_PARAMETER_TYPE_KEY =
+      create("spring_assistant_plugin_eraseFreeTypeParameterType");
+  private static final Key<CachedValue<PsiType>> SPRING_ASSISTANT_PLUGIN_FIRST_PARAMETER_TYPE_KEY =
+      create("spring_assistant_plugin_firstParameterType");
+  private static final Key<CachedValue<PsiType>> SPRING_ASSISTANT_PLUGIN_RETURN_TYPE_KEY =
+      create("spring_assistant_plugin_returnType");
 
   @Nullable
   public static PsiType safeGetValidType(@NotNull Module module, @NotNull String fqn) {
@@ -135,13 +152,13 @@ public class PsiCustomUtil {
   }
 
   @Nullable
-  public static Collection<PsiType> getTypeParameters(@NotNull PsiElement psiElement) {
+  public static Map<PsiTypeParameter, PsiType> getTypeParameters(@NotNull PsiElement psiElement) {
     PsiType psiType = getReferredPsiType(psiElement);
     return getTypeParameters(psiType);
   }
 
   @Nullable
-  public static Collection<PsiType> getTypeParameters(PsiType type) {
+  public static Map<PsiTypeParameter, PsiType> getTypeParameters(PsiType type) {
     if (type instanceof PsiArrayType) {
       return getTypeParameters(((PsiArrayType) type).getComponentType());
     } else if (type instanceof PsiPrimitiveType) {
@@ -151,7 +168,7 @@ public class PsiCustomUtil {
       PsiClassType.ClassResolveResult resolveResult =
           PsiClassType.class.cast(type).resolveGenerics();
       if (resolveResult.isValidResult()) {
-        return resolveResult.getSubstitutor().getSubstitutionMap().values();
+        return resolveResult.getSubstitutor().getSubstitutionMap();
       }
     }
     return null;
@@ -190,6 +207,11 @@ public class PsiCustomUtil {
         PsiClass psiClass = requireNonNull(classResolveResult.getElement());
         if (psiClass.isEnum()) {
           return ENUM;
+        } else if ("java.math.BigDecimal"
+            .equals(psiClass.getQualifiedName())) { // TODO: Add BigDecimal & Charset node types
+          return DOUBLE;
+        } else if ("java.nio.charset.Charset".equals(psiClass.getQualifiedName())) {
+          return STRING;
         } else if (isMap(psiClass)) {
           return MAP;
         } else if (isIterable(psiClass)) {
@@ -279,9 +301,79 @@ public class PsiCustomUtil {
     return psiClass.getQualifiedName() != null && isInheritor(psiClass, expectedClassFqn);
   }
 
+  @NotNull
+  public static PsiType getBoxedTypeFromPrimitiveType(Module module,
+      PsiPrimitiveType primitiveType) {
+    PsiType boxedPrimitiveType = safeGetValidType(module, primitiveType.getBoxedTypeName());
+    assert boxedPrimitiveType instanceof PsiClassType;
+    return boxedPrimitiveType;
+  }
+
   @Contract("null->false")
   public static boolean isPrimitiveOrBoxed(@Nullable PsiType psiType) {
     return psiType instanceof PsiPrimitiveType || getUnboxedType(psiType) != null;
+  }
+
+  @Nullable
+  public static String typeToFqn(Module module, @NotNull PsiType type) {
+    if (isValidType(type)) {
+      if (type instanceof PsiArrayType) {
+        type = PsiArrayType.class.cast(type).getComponentType();
+        return type.getCanonicalText();
+      } else if (type instanceof PsiPrimitiveType) {
+        return getBoxedTypeFromPrimitiveType(module, (PsiPrimitiveType) type).getCanonicalText();
+      } else if (type instanceof PsiClassType) {
+        return type.getCanonicalText();
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  public static Set<PsiClass> computeDependencies(Module module, @NotNull PsiType type) {
+    if (isValidType(type)) {
+      if (type instanceof PsiArrayType) {
+        return computeDependencies(module, PsiArrayType.class.cast(type).getComponentType());
+      } else if (type instanceof PsiPrimitiveType) {
+        type = getBoxedTypeFromPrimitiveType(module, (PsiPrimitiveType) type);
+      }
+
+      if (type instanceof PsiClassType) {
+        PsiClassType classType = (PsiClassType) type;
+        Collection<PsiType> typeParams =
+            classType.resolveGenerics().getSubstitutor().getSubstitutionMap().values();
+        TObjectHashingStrategy<PsiClass> nameComparingHashingStrategy =
+            new TObjectHashingStrategy<PsiClass>() {
+              @Override
+              public int computeHashCode(PsiClass psiClass) {
+                return requireNonNull(psiClass.getQualifiedName()).hashCode();
+              }
+
+              @Override
+              public boolean equals(PsiClass psiClass, PsiClass other) {
+                return psiClass.hashCode() == other.hashCode();
+              }
+            };
+        Set<PsiClass> dependencies = new THashSet<>(nameComparingHashingStrategy);
+        dependencies.add(toValidPsiClass(classType));
+        for (PsiType typeParam : typeParams) {
+          if (typeParam
+              != null) { // if the user specified raw class such as Map instead of Map<String, String>
+            Set<PsiClass> childDependencies = computeDependencies(module, typeParam);
+            if (childDependencies == null) {
+              return null;
+            }
+            dependencies.addAll(childDependencies);
+          }
+        }
+        return dependencies;
+      }
+
+      throw new IllegalAccessError(
+          "Only supports PsiArrayType, PsiPrimitiveType & PsiClassType. Does not support type: "
+              + type.getClass().getName());
+    }
+    return null;
   }
 
   @Nullable
@@ -294,22 +386,20 @@ public class PsiCustomUtil {
 
   // Copied & modified from PsiUtil.ensureValidType
   public static boolean isValidType(@NotNull PsiType type) {
-    if (type instanceof PsiArrayType) {
-      type = PsiArrayType.class.cast(type).getComponentType();
-    }
     if (!type.isValid()) {
       TimeoutUtil.sleep(
           1); // to see if processing in another thread suddenly makes the type valid again (which is a bug)
-      if (type.isValid()) {
-        return true;
+      if (!type.isValid()) {
+        return false;
       }
-      if (type instanceof PsiClassType) {
-        PsiClassType.ClassResolveResult classResolveResult =
-            ((PsiClassType) type).resolveGenerics();
-        return classResolveResult.isValidResult() && isValidElement(
-            requireNonNull(classResolveResult.getElement())) && !hasUnresolvedComponents(type);
-      }
-      return false;
+    }
+    if (type instanceof PsiArrayType) {
+      type = PsiArrayType.class.cast(type).getComponentType();
+    }
+    if (type instanceof PsiClassType) {
+      PsiClassType.ClassResolveResult classResolveResult = ((PsiClassType) type).resolveGenerics();
+      return classResolveResult.isValidResult() && isValidElement(
+          requireNonNull(classResolveResult.getElement())) && !hasUnresolvedComponents(type);
     }
     return true;
   }
@@ -351,8 +441,7 @@ public class PsiCustomUtil {
   public static Map<String, GenericClassMemberWrapper> getSanitisedPropertyToPsiMemberWrapper(
       @Nullable PsiClass psiClass) {
     if (psiClass != null) {
-      return getCachedValue(psiClass,
-          create("spring_assistant_plugin_property_to_class_member_wrapper"),
+      return getCachedValue(psiClass, SPRING_ASSISTANT_PLUGIN_PROPERTY_TO_CLASS_MEMBER_WRAPPER_KEY,
           () -> create(prepareWritableProperties(psiClass), JAVA_STRUCTURE_MODIFICATION_COUNT));
     }
     return null;
@@ -404,7 +493,7 @@ public class PsiCustomUtil {
   }
 
   @Nullable
-  public static PsiType getWritablePropertyType(@Nullable PsiClass containingClass,
+  private static PsiType getWritablePropertyType(@Nullable PsiClass containingClass,
       @Nullable PsiElement declaration) {
     if (declaration instanceof PsiField) {
       return getFieldType((PsiField) declaration);
@@ -431,24 +520,22 @@ public class PsiCustomUtil {
   }
 
   @Nullable
-  public static PsiType getFieldType(final PsiField field) {
-    return getCachedValue(field, create("spring_assistant_plugin_eraseFreeTypeParameterType"),
-        () -> {
-          final PsiType fieldType = field.getType();
-          final PsiClassType.ClassResolveResult resolveResult =
-              resolveGenericsClassInType(fieldType);
-          final PsiClass fieldClass = resolveResult.getElement();
-          if (fieldClass == null) {
-            final PsiType propertyType = eraseFreeTypeParameters(fieldType, field);
-            return create(propertyType, JAVA_STRUCTURE_MODIFICATION_COUNT);
-          }
-          return null;
-        });
+  private static PsiType getFieldType(final PsiField field) {
+    return getCachedValue(field, SPRING_ASSISTANT_PLUGIN_ERASE_FREE_TYPE_PARAMETER_TYPE_KEY, () -> {
+      final PsiType fieldType = field.getType();
+      final PsiClassType.ClassResolveResult resolveResult = resolveGenericsClassInType(fieldType);
+      final PsiClass fieldClass = resolveResult.getElement();
+      if (fieldClass == null) {
+        final PsiType propertyType = eraseFreeTypeParameters(fieldType, field);
+        return create(propertyType, JAVA_STRUCTURE_MODIFICATION_COUNT);
+      }
+      return null;
+    });
   }
 
   @Nullable
   private static PsiType getSetterArgumentType(@NotNull PsiMethod method) {
-    return getCachedValue(method, create("spring_assistant_plugin_firstParameterType"), () -> {
+    return getCachedValue(method, SPRING_ASSISTANT_PLUGIN_FIRST_PARAMETER_TYPE_KEY, () -> {
       final PsiParameter[] parameters = method.getParameterList().getParameters();
       if (!method.hasModifierProperty(STATIC) && parameters.length == 1) {
         final PsiType argumentType = eraseFreeTypeParameters(parameters[0].getType(), method);
@@ -476,14 +563,14 @@ public class PsiCustomUtil {
   }
 
   private static PsiType getGetterReturnType(@NotNull PsiMethod method) {
-    return getCachedValue(method, create("spring_assistant_plugin_returnType"), () -> {
+    return getCachedValue(method, SPRING_ASSISTANT_PLUGIN_RETURN_TYPE_KEY, () -> {
       final PsiType returnType = eraseFreeTypeParameters(method.getReturnType(), method);
       return create(returnType, JAVA_STRUCTURE_MODIFICATION_COUNT);
     });
   }
 
   @Nullable
-  public static PsiMethod findInstancePropertySetter(@NotNull PsiClass psiClass,
+  private static PsiMethod findInstancePropertySetter(@NotNull PsiClass psiClass,
       @Nullable String propertyName) {
     if (StringUtil.isEmpty(propertyName))
       return null;
@@ -510,16 +597,18 @@ public class PsiCustomUtil {
 
   @Nullable
   public static String computeDocumentation(PsiMember member) {
-    PsiDocComment docComment = null;
+    PsiDocComment docComment;
     if (member instanceof PsiField) {
       docComment = PsiField.class.cast(member).getDocComment();
     } else if (member instanceof PsiMethod) {
       docComment = PsiMethod.class.cast(member).getDocComment();
+    } else {
+      throw new RuntimeException("Method supports targets of type PsiField & PsiMethod only");
     }
     if (docComment != null) {
       return docComment.getText();
     }
-    throw new RuntimeException("Method supports targets of type PsiField & PsiMethod only");
+    return null;
   }
 
   /**
@@ -528,7 +617,7 @@ public class PsiCustomUtil {
    *
    * @param doWhenDebug code to execute when debug is enabled
    */
-  private void debug(Runnable doWhenDebug) {
+  private static void debug(Runnable doWhenDebug) {
     if (log.isDebugEnabled()) {
       doWhenDebug.run();
     }

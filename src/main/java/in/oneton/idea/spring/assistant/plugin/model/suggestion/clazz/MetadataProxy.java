@@ -60,12 +60,4 @@ public interface MetadataProxy {
 
   boolean targetClassRepresentsIterable(Module module);
 
-  // TODO: Since Object graphs can have infinite loops, need to find a mechanism (adding state like refreshAttempt that is a monotonically increasing number) to mark a each object in the graph in the current run, so that we dont enter infinite loop. Fix this later
-  //  /**
-  //   * Will be called after every build completion event, to refresh metadata so that it is upto date wrt underlying classpath
-  //   *
-  //   * @param module module
-  //   */
-  //  void refreshMetadata(Module module);
-
 }

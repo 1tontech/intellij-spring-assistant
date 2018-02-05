@@ -22,11 +22,6 @@ public abstract class ClassMetadata {
 
   private boolean initComplete;
 
-  //// todo: Init target properties
-  //    // 1. For search, such as, name, originalName child trie, e.t.c
-  //    // 2. Properties that are require for suggestions & documentation, such as, short & long documentation, type information in short form, e.t.c
-  //    //    Map<String, PsiMember> writableProperties = PsiCustomUtil.findWritableProperties(clazz);
-  //    //    writableProperties.forEach();
   private void initIfNotAlready(Module module) {
     if (!initComplete) {
       init(module);
@@ -34,6 +29,13 @@ public abstract class ClassMetadata {
     }
   }
 
+  /**
+   * Init properties such as. This will be called only once
+   * 1. For search, such as, name, originalName child trie, e.t.c
+   * 2. Properties that are require for suggestions & documentation, such as, short & long documentation, type information in short form, e.t.c
+   *
+   * @param module module
+   */
   protected abstract void init(Module module);
 
   @Nullable
@@ -104,15 +106,12 @@ public abstract class ClassMetadata {
   protected abstract String doGetDocumentationForValue(Module module,
       String nodeNavigationPathDotDelimited, String value);
 
-  public abstract boolean isLeaf(Module module);
+  public boolean isLeaf(Module module) {
+    initIfNotAlready(module);
+    return doCheckIsLeaf(module);
+  }
 
-  // TODO: Since Object graphs can have infinite loops, need to find a mechanism (adding state like refreshAttempt that is a monotonically increasing number) to mark a each object in the graph in the current run, so that we dont enter infinite loop. Fix this later
-  //  /**
-  //   * Will be called after every build completion event, to refresh metadata so that it is upto date wrt underlying classpath
-  //   *
-  //   * @param module module
-  //   */
-  //  public abstract void refreshMetadata(Module module);
+  protected abstract boolean doCheckIsLeaf(Module module);
 
   /**
    * @return type of node
@@ -121,6 +120,6 @@ public abstract class ClassMetadata {
   public abstract SuggestionNodeType getSuggestionNodeType();
 
   @Nullable
-  public abstract PsiType getPsiType();
+  public abstract PsiType getPsiType(Module module);
 
 }

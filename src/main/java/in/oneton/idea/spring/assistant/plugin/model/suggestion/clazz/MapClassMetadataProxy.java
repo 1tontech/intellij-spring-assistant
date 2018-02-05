@@ -22,7 +22,7 @@ public class MapClassMetadataProxy extends ClassMetadataProxy {
   public SortedSet<Suggestion> findChildKeySuggestionForQueryPrefix(Module module,
       FileType fileType, List<SuggestionNode> matchesRootTillMe, int numOfAncestors,
       String[] querySegmentPrefixes, int querySegmentPrefixStartIndex) {
-    return doWithTargetAndReturn(target -> {
+    return doWithTargetAndReturn(module, target -> {
       assert target instanceof MapClassMetadata;
       return MapClassMetadata.class.cast(target)
           .findChildKeySuggestionForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
@@ -31,16 +31,16 @@ public class MapClassMetadataProxy extends ClassMetadataProxy {
   }
 
   @Nullable
-  public PsiType getMapKeyType() {
-    return doWithTargetAndReturn(target -> {
+  public PsiType getMapKeyType(Module module) {
+    return doWithTargetAndReturn(module, target -> {
       assert target instanceof MapClassMetadata;
       return MapClassMetadata.class.cast(target).getKeyType();
     }, null);
   }
 
   @Nullable
-  public PsiType getMapValueType() {
-    return doWithTargetAndReturn(target -> {
+  public PsiType getMapValueType(Module module) {
+    return doWithTargetAndReturn(module, target -> {
       assert target instanceof MapClassMetadata;
       return MapClassMetadata.class.cast(target).getValueType();
     }, null);
