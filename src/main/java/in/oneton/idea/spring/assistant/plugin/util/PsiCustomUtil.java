@@ -8,6 +8,7 @@ import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiArrayType;
+import com.intellij.psi.PsiCapturedWildcardType;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiElement;
@@ -18,6 +19,7 @@ import com.intellij.psi.PsiParameter;
 import com.intellij.psi.PsiPrimitiveType;
 import com.intellij.psi.PsiType;
 import com.intellij.psi.PsiTypeParameter;
+import com.intellij.psi.PsiWildcardType;
 import com.intellij.psi.javadoc.PsiDocComment;
 import com.intellij.psi.util.CachedValue;
 import com.intellij.psi.util.PropertyUtil;
@@ -35,7 +37,6 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.intellij.openapi.module.ModuleUtilCore.findModuleForFile;
@@ -47,12 +48,10 @@ import static com.intellij.psi.CommonClassNames.JAVA_UTIL_MAP;
 import static com.intellij.psi.JavaPsiFacade.getElementFactory;
 import static com.intellij.psi.PsiModifier.PUBLIC;
 import static com.intellij.psi.PsiModifier.STATIC;
-import static com.intellij.psi.PsiPrimitiveType.getUnboxedType;
+import static com.intellij.psi.PsiType.NULL;
 import static com.intellij.psi.util.CachedValueProvider.Result.create;
 import static com.intellij.psi.util.CachedValuesManager.getCachedValue;
 import static com.intellij.psi.util.InheritanceUtil.isInheritor;
-import static com.intellij.psi.util.PropertyUtil.findPropertyFieldByMember;
-import static com.intellij.psi.util.PropertyUtil.findPropertySetter;
 import static com.intellij.psi.util.PropertyUtil.getPropertyName;
 import static com.intellij.psi.util.PropertyUtil.isSimplePropertyGetter;
 import static com.intellij.psi.util.PropertyUtil.isSimplePropertySetter;
@@ -61,7 +60,6 @@ import static com.intellij.psi.util.PsiTypesUtil.getClassType;
 import static com.intellij.psi.util.PsiTypesUtil.hasUnresolvedComponents;
 import static com.intellij.psi.util.PsiUtil.extractIterableTypeParameter;
 import static com.intellij.psi.util.PsiUtil.resolveGenericsClassInType;
-import static com.intellij.util.containers.ContainerUtil.isEmpty;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode.sanitise;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.ARRAY;
 import static in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNodeType.BOOLEAN;
@@ -140,17 +138,6 @@ public class PsiCustomUtil {
         "Method supports psiElement of type PsiField, PsiMethod & PsiClass only");
   }
 
-  public static PsiType getFirstTypeParameter(PsiClassType psiClassType) {
-    PsiClassType.ClassResolveResult resolveResult = psiClassType.resolveGenerics();
-    if (resolveResult.isValidResult()) {
-      Collection<PsiType> values = resolveResult.getSubstitutor().getSubstitutionMap().values();
-      if (!isEmpty(values)) {
-        return values.iterator().next();
-      }
-    }
-    return null;
-  }
-
   @Nullable
   public static Map<PsiTypeParameter, PsiType> getTypeParameters(@NotNull PsiElement psiElement) {
     PsiType psiType = getReferredPsiType(psiElement);
@@ -172,15 +159,6 @@ public class PsiCustomUtil {
       }
     }
     return null;
-  }
-
-  @NotNull
-  public static Optional<PsiField> findSettablePsiField(@NotNull PsiClass clazz,
-      @Nullable String propertyName) {
-    PsiMethod propertySetter = findPropertySetter(clazz, propertyName, false, true);
-    return null == propertySetter ?
-        Optional.empty() :
-        Optional.ofNullable(findPropertyFieldByMember(propertySetter));
   }
 
   @NotNull
@@ -309,11 +287,6 @@ public class PsiCustomUtil {
     return boxedPrimitiveType;
   }
 
-  @Contract("null->false")
-  public static boolean isPrimitiveOrBoxed(@Nullable PsiType psiType) {
-    return psiType instanceof PsiPrimitiveType || getUnboxedType(psiType) != null;
-  }
-
   @Nullable
   public static String typeToFqn(Module module, @NotNull PsiType type) {
     if (isValidType(type)) {
@@ -331,11 +304,17 @@ public class PsiCustomUtil {
 
   @Nullable
   public static Set<PsiClass> computeDependencies(Module module, @NotNull PsiType type) {
+    PsiType originalType = type;
     if (isValidType(type)) {
       if (type instanceof PsiArrayType) {
         return computeDependencies(module, PsiArrayType.class.cast(type).getComponentType());
       } else if (type instanceof PsiPrimitiveType) {
         type = getBoxedTypeFromPrimitiveType(module, (PsiPrimitiveType) type);
+      } else if (type instanceof PsiWildcardType) {
+        type = ((PsiWildcardType) type).getBound();
+      } else if (type instanceof PsiCapturedWildcardType) {
+        PsiType lowerBound = ((PsiCapturedWildcardType) type).getLowerBound();
+        type = (lowerBound != NULL ? lowerBound : ((PsiCapturedWildcardType) type).getUpperBound());
       }
 
       if (type instanceof PsiClassType) {
@@ -370,8 +349,8 @@ public class PsiCustomUtil {
       }
 
       throw new IllegalAccessError(
-          "Only supports PsiArrayType, PsiPrimitiveType & PsiClassType. Does not support type: "
-              + type.getClass().getName());
+          "Only supports PsiArrayType, PsiPrimitiveType, PsiWildcardType, PsiCapturedWildcardType & PsiClassType. Does not support type: "
+              + originalType.getCanonicalText());
     }
     return null;
   }
@@ -394,9 +373,15 @@ public class PsiCustomUtil {
       }
     }
     if (type instanceof PsiArrayType) {
-      type = PsiArrayType.class.cast(type).getComponentType();
-    }
-    if (type instanceof PsiClassType) {
+      return isValidType(PsiArrayType.class.cast(type).getComponentType());
+    } else if (type instanceof PsiWildcardType) {
+      PsiType bound = ((PsiWildcardType) type).getBound();
+      return bound != null && isValidType(bound);
+    } else if (type instanceof PsiCapturedWildcardType) {
+      PsiType lowerBound = ((PsiCapturedWildcardType) type).getLowerBound();
+      type = (lowerBound != NULL ? lowerBound : ((PsiCapturedWildcardType) type).getUpperBound());
+      return type != NULL && isValidType(type);
+    } else if (type instanceof PsiClassType) {
       PsiClassType.ClassResolveResult classResolveResult = ((PsiClassType) type).resolveGenerics();
       return classResolveResult.isValidResult() && isValidElement(
           requireNonNull(classResolveResult.getElement())) && !hasUnresolvedComponents(type);
