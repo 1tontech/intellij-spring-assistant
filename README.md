@@ -14,8 +14,7 @@ This plugins provides the following features as of now.
 
 ## Future plans
 
-1. Support for `properties` files
-2. Support for creating spring applications using `Spring initializr`
+1. Support for creating spring applications using `Spring initializr`
 
 ## Usage
 

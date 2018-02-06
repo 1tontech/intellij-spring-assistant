@@ -10,6 +10,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.ProcessingContext;
+import gnu.trove.THashSet;
 import in.oneton.idea.spring.assistant.plugin.service.SuggestionService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,7 +21,6 @@ import org.jetbrains.yaml.psi.YAMLSequenceItem;
 import org.jetbrains.yaml.psi.YAMLValue;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -111,7 +111,7 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
   @NotNull
   private Set<String> getNewIfNotPresent(@Nullable Set<String> siblingsToExclude) {
     if (siblingsToExclude == null) {
-      return new HashSet<>();
+      return new THashSet<>();
     }
     return siblingsToExclude;
   }

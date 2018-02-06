@@ -18,7 +18,7 @@ public class DuplicateKeyAnnotator implements Annotator {
       // TODO: Fix
       //      final YAMLMapping mapping = (YAMLMapping) element;
       //      final Collection<YAMLKeyValue> keyValues = mapping.getKeyValues();
-      //      final Set<String> existingKeys = new HashSet<>(keyValues.size());
+      //      final Set<String> existingKeys = new THashSet<>(keyValues.size());
       //      for (final YAMLKeyValue keyValue : keyValues) {
       //        if (keyValue.getKey() != null && !existingKeys.add(keyValue.getKeyText().trim())) {
       //          annotationHolder.createErrorAnnotation(keyValue.getKey(),

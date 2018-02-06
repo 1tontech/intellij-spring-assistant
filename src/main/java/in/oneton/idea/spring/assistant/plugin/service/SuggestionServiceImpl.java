@@ -10,6 +10,7 @@ import com.intellij.openapi.roots.OrderEnumerator;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import gnu.trove.THashMap;
+import gnu.trove.THashSet;
 import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -35,7 +36,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -349,7 +349,7 @@ public class SuggestionServiceImpl implements SuggestionService {
               querySegmentPrefixes, querySegmentPrefixStartIndex);
       if (matchedSuggestions != null) {
         if (suggestions == null) {
-          suggestions = new HashSet<>();
+          suggestions = new THashSet<>();
         }
         suggestions.addAll(matchedSuggestions);
       }
@@ -377,7 +377,7 @@ public class SuggestionServiceImpl implements SuggestionService {
       Map<String, MetadataContainerInfo> seenContainerPathToContainerInfo) {
     Set<String> newContainerPaths = stream(orderEnumerator.recursively().classes().getRoots())
         .flatMap(MetadataContainerInfo::getContainerArchiveOrFileRefs).collect(toSet());
-    Set<String> knownContainerPathSet = new HashSet<>(seenContainerPathToContainerInfo.keySet());
+    Set<String> knownContainerPathSet = new THashSet<>(seenContainerPathToContainerInfo.keySet());
     knownContainerPathSet.removeAll(newContainerPaths);
     return knownContainerPathSet.stream().map(seenContainerPathToContainerInfo::get)
         .collect(toList());

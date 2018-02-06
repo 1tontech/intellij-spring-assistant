@@ -4,6 +4,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.psi.PsiType;
 import gnu.trove.THashMap;
+import gnu.trove.THashSet;
 import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -24,7 +25,6 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -159,7 +159,7 @@ public class MetadataNonPropertySuggestionNode extends MetadataSuggestionNode {
     MetadataNonPropertySuggestionNodeBuilder builder =
         MetadataNonPropertySuggestionNode.builder().name(SuggestionNode.sanitise(originalName))
             .originalName(originalName).parent(parent);
-    HashSet<String> belongsToSet = new HashSet<>();
+    Set<String> belongsToSet = new THashSet<>();
     belongsToSet.add(belongsTo);
     builder.belongsTo(belongsToSet);
     return builder.build();

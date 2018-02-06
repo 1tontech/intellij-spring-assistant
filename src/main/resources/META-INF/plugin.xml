@@ -45,6 +45,10 @@
         <projectService
                 serviceInterface="in.oneton.idea.spring.assistant.plugin.service.SuggestionService"
                 serviceImplementation="in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl"/>
+
+        <moduleBuilder
+                builderClass="in.oneton.idea.spring.assistant.plugin.initializr.InitializrModuleBuilder"
+                order="last"/>
     </extensions>
 
     <project-components>

@@ -142,7 +142,6 @@ public class PsiCustomUtil {
     } else if (type instanceof PsiPrimitiveType) {
       return null;
     } else if (type instanceof PsiClassType) {
-      // TODO: Not sure how this behaves when some classes can be resolved while others cannot
       PsiClassType.ClassResolveResult resolveResult =
           PsiClassType.class.cast(type).resolveGenerics();
       if (resolveResult.isValidResult()) {
@@ -180,6 +179,7 @@ public class PsiCustomUtil {
           return DOUBLE;
         } else if ("java.nio.charset.Charset".equals(psiClass.getQualifiedName())
             // charset is a string
+            || "org.springframework.http.MediaType".equals(psiClass.getQualifiedName())
             || "java.net.InetAddress".equals(psiClass.getQualifiedName()) // ip address or hostname
             || "java.net.URI".equals(psiClass.getQualifiedName()) // url
             || requireNonNull(psiClass.getQualifiedName()).startsWith("java.lang.Class")

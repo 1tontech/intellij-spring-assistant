@@ -1,6 +1,7 @@
 package in.oneton.idea.spring.assistant.plugin.model.suggestion.metadata;
 
 import com.intellij.openapi.module.Module;
+import gnu.trove.THashSet;
 import in.oneton.idea.spring.assistant.plugin.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.Suggestion;
 import in.oneton.idea.spring.assistant.plugin.model.suggestion.SuggestionNode;
@@ -16,7 +17,6 @@ import lombok.ToString;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
@@ -69,7 +69,7 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
     MetadataPropertySuggestionNode.MetadataPropertySuggestionNodeBuilder builder =
         MetadataPropertySuggestionNode.builder().name(sanitise(originalName))
             .originalName(originalName).property(property).parent(parent);
-    HashSet<String> belongsToSet = new HashSet<>();
+    Set<String> belongsToSet = new THashSet<>();
     belongsToSet.add(belongsTo);
     builder.belongsTo(belongsToSet);
     return builder.build();
