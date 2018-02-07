@@ -1,6 +1,8 @@
 package in.oneton.idea.spring.assistant.plugin.initializr.metadata;
 
 import com.google.gson.annotations.SerializedName;
+import gnu.trove.THashSet;
+import in.oneton.idea.spring.assistant.plugin.initializr.metadata.io.spring.initializr.util.Version;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.io.spring.initializr.util.VersionRange;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,6 +14,7 @@ import lombok.Setter;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Set;
 
 @Data
 public class InitializerMetadata {
@@ -65,13 +68,31 @@ public class InitializerMetadata {
 
 
     @Data
+    @EqualsAndHashCode(of = "name")
     public static class DependencyGroup {
       private String name;
       @SerializedName("values")
       private List<Dependency> dependencies;
 
+      @Override
+      public String toString() {
+        return name;
+      }
+
+      public Set<Integer> getIncompatibleDependencyIndexes(Version bootVersion) {
+        Set<Integer> incompatibleDependencyIndexes = new THashSet<>();
+        for (int i = 0; i < dependencies.size(); i++) {
+          Dependency dependency = dependencies.get(i);
+          VersionRange versionRange = dependency.getVersionRange();
+          if (versionRange != null && !versionRange.match(bootVersion)) {
+            incompatibleDependencyIndexes.add(i);
+          }
+        }
+        return incompatibleDependencyIndexes;
+      }
 
       @Data
+      @EqualsAndHashCode(of = "id")
       public static class Dependency {
         private String id;
         private String name;
@@ -116,6 +137,7 @@ public class InitializerMetadata {
 
 
     @Data
+    @EqualsAndHashCode(of = "id")
     public static class ProjectType implements IdContainer {
       private String id;
       private String name;
@@ -147,6 +169,10 @@ public class InitializerMetadata {
     @Override
     public String toString() {
       return name;
+    }
+
+    public Version getVersion() {
+      return Version.parse(id);
     }
   }
 

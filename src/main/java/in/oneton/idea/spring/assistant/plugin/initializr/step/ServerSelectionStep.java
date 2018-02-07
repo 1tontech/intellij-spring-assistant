@@ -33,13 +33,13 @@ public class ServerSelectionStep extends ModuleWizardStep {
 
   public ServerSelectionStep(InitializrModuleBuilder moduleBuilder) {
     request = moduleBuilder.safeGetProjectCreationRequest();
-    init();
   }
 
   /**
    * Should handle both forward & backward navigation
    */
-  private void init() {
+  @Override
+  public void _init() {
     if (isEmpty(request.getServerUrl()) || SPRING_IO_INITIALIZR_SERVER_URL
         .equals(request.getServerUrl())) {
       defaultRadioButton.setSelected(true);

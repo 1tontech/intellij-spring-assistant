@@ -69,8 +69,9 @@ public class InitializrModuleBuilder extends ModuleBuilder {
 
   public ModuleWizardStep[] createWizardSteps(@NotNull WizardContext wizardContext,
       @NotNull ModulesProvider modulesProvider) {
-    return new ModuleWizardStep[] {new ProjectDetailsStep(this, wizardContext)};
-    //      , new InitializrDependencySelectionStep(this)
+    return new ModuleWizardStep[] {new ProjectDetailsStep(this, wizardContext),
+        new DependencySelectionStep(this)};
+
   }
 
   @Nullable

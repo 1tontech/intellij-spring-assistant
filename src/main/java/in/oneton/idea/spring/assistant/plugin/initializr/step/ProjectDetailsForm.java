@@ -4,16 +4,12 @@ import com.intellij.ui.CollectionComboBoxModel;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.IdAndName;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.IdAndNameComposite;
-import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.IdContainer;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.ProjectTypeComposite;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.ProjectTypeComposite.ProjectType;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
-import java.util.List;
 
-import static org.apache.commons.lang3.StringUtils.isEmpty;
+import static in.oneton.idea.spring.assistant.plugin.initializr.misc.FormUtil.newCollectionComboBoxModel;
 
 public class ProjectDetailsForm {
 
@@ -75,21 +71,6 @@ public class ProjectDetailsForm {
 
   public JPanel getRoot() {
     return rootPanel;
-  }
-
-  @NotNull
-  private <T extends IdContainer> CollectionComboBoxModel<T> newCollectionComboBoxModel(
-      @NotNull List<T> values, @Nullable String defaultValue) {
-    T defaultIdAndName = null;
-    if (!isEmpty(defaultValue)) {
-      for (T idAndName : values) {
-        if (idAndName.getId().equals(defaultValue)) {
-          defaultIdAndName = idAndName;
-          break;
-        }
-      }
-    }
-    return new CollectionComboBoxModel<>(values, defaultIdAndName);
   }
 
 }

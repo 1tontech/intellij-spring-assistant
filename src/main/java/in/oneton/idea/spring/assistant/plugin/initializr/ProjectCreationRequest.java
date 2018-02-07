@@ -1,10 +1,12 @@
 package in.oneton.idea.spring.assistant.plugin.initializr;
 
+import gnu.trove.THashSet;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.DependencyComposite.DependencyGroup.Dependency;
+import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.IdAndName;
 import lombok.Data;
 
-import java.util.List;
+import java.util.Set;
 
 @Data
 public class ProjectCreationRequest {
@@ -18,11 +20,11 @@ public class ProjectCreationRequest {
   private String name;
   private String description;
   private String packageName;
-  private InitializerMetadata.IdAndName language;
-  private InitializerMetadata.IdAndName javaVersion;
-  private InitializerMetadata.IdAndName packaging;
-  private InitializerMetadata.IdAndName bootVersion;
-  private List<Dependency> dependencies;
+  private IdAndName language;
+  private IdAndName javaVersion;
+  private IdAndName packaging;
+  private IdAndName bootVersion;
+  private Set<Dependency> dependencies = new THashSet<>();
 
   public void setServerUrl(String serverUrl) {
     if (!serverUrl.equals(this.serverUrl)) {
