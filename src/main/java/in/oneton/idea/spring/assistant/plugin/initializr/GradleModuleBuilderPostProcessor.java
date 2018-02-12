@@ -9,7 +9,7 @@ import org.jetbrains.plugins.gradle.service.project.wizard.GradleProjectImportBu
 import org.jetbrains.plugins.gradle.service.project.wizard.GradleProjectImportProvider;
 
 import static com.intellij.openapi.components.ServiceManager.getService;
-import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findFileUnderRootInModule;
+import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.findFileUnderRootInModule;
 
 public class GradleModuleBuilderPostProcessor implements ModuleBuilderPostProcessor {
   @Override

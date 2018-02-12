@@ -76,7 +76,14 @@ public class SelectedDependenciesTableModel extends AbstractTableModel
     TableUtil.setupCheckboxColumn(deleteIconColumn);
     deleteIconColumn.setCellRenderer(new InplaceButtonTableCellRenderer());
 
-    // Since clicking on the same row multiple times does not trigger an event in ListSelectionListener, we should rely on mouse click events
+    selectedDependencies.getSelectionModel().addListSelectionListener(e -> {
+      if (!e.getValueIsAdjusting()) {
+        int rowIndex = selectedDependencies.getSelectedRow();
+        Dependency dependency = (Dependency) getValueAt(rowIndex, DEPENDENCY_COL_INDEX);
+        selectionListeners.forEach(listener -> listener.onDependencySelected(dependency));
+      }
+    });
+    // Since clicking on the same row to delete dependency thats already selected does not trigger a new ListSelection event, we should rely on mouse click events for deletes
     selectedDependencies.addMouseListener(new MouseAdapter() {
       @Override
       public void mouseClicked(MouseEvent event) {
@@ -86,8 +93,6 @@ public class SelectedDependenciesTableModel extends AbstractTableModel
           Dependency dependency = (Dependency) getValueAt(rowIndex, DEPENDENCY_COL_INDEX);
           if (columnIndex == DELETE_ICON_INDEX) {
             removeDependency(dependency, request);
-          } else {
-            selectionListeners.forEach(listener -> listener.onDependencySelected(dependency));
           }
         }
       }

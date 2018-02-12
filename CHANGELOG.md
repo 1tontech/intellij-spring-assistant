@@ -1,4 +1,9 @@
-### Since 0.4.0 (6 Feb 2017):
+### Since 0.5.0 (13 Feb 2017):
+
+  - Keyboard navigation within selected dependencies table now works properly
+  - Reorganized code
+
+### Since 0.4.0 (13 Feb 2017):
 
   - Added support for dynamic classes & their properties
   - Added support for bootstrapping new Projects & Module via `File -> New -> Project -> Spring Assistant` & `File -> New -> Module -> Spring Assistant`

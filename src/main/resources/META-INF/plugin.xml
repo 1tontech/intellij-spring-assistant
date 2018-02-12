@@ -26,16 +26,16 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <completion.contributor language="yaml"
-                                implementationClass="in.oneton.idea.spring.assistant.plugin.completion.YamlCompletionContributor"/>
+                                implementationClass="in.oneton.idea.spring.assistant.plugin.suggestion.completion.YamlCompletionContributor"/>
 
         <!--<completion.contributor language="Properties"-->
-        <!--implementationClass="in.oneton.idea.spring.assistant.plugin.completion.PropertiesCompletionContributor"/>-->
+        <!--implementationClass="in.oneton.idea.spring.assistant.plugin.suggestion.completion.PropertiesCompletionContributor"/>-->
 
         <documentationProvider
-                implementation="in.oneton.idea.spring.assistant.plugin.completion.YamlDocumentationProvider"/>
+                implementation="in.oneton.idea.spring.assistant.plugin.suggestion.completion.YamlDocumentationProvider"/>
 
         <!--<documentationProvider-->
-        <!--implementation="in.oneton.idea.spring.assistant.plugin.completion.PropertiesDocumentationProvider"/>-->
+        <!--implementation="in.oneton.idea.spring.assistant.plugin.suggestion.completion.PropertiesDocumentationProvider"/>-->
 
         <!--<annotator-->
         <!--implementationClass="DuplicateKeyAnnotator"-->
@@ -48,8 +48,8 @@
         <!--language="yaml"/>-->
 
         <projectService
-                serviceInterface="in.oneton.idea.spring.assistant.plugin.service.SuggestionService"
-                serviceImplementation="in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl"/>
+                serviceInterface="in.oneton.idea.spring.assistant.plugin.suggestion.service.SuggestionService"
+                serviceImplementation="in.oneton.idea.spring.assistant.plugin.suggestion.service.SuggestionServiceImpl"/>
 
         <moduleBuilder
                 builderClass="in.oneton.idea.spring.assistant.plugin.initializr.InitializrModuleBuilder"
@@ -59,10 +59,10 @@
     <project-components>
         <component>
             <interface-class>
-                in.oneton.idea.spring.assistant.plugin.component.Bootstrap
+                in.oneton.idea.spring.assistant.plugin.suggestion.component.Bootstrap
             </interface-class>
             <implementation-class>
-                in.oneton.idea.spring.assistant.plugin.component.BootstrapImpl
+                in.oneton.idea.spring.assistant.plugin.suggestion.component.BootstrapImpl
             </implementation-class>
         </component>
     </project-components>

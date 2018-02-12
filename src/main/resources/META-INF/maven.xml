@@ -9,10 +9,10 @@
     <project-components>
         <component>
             <interface-class>
-                in.oneton.idea.spring.assistant.plugin.component.MavenReIndexingDependencyChangeSubscriber
+                in.oneton.idea.spring.assistant.plugin.suggestion.component.MavenReIndexingDependencyChangeSubscriber
             </interface-class>
             <implementation-class>
-                in.oneton.idea.spring.assistant.plugin.component.MavenReIndexingDependencyChangeSubscriberImpl
+                in.oneton.idea.spring.assistant.plugin.suggestion.component.MavenReIndexingDependencyChangeSubscriberImpl
             </implementation-class>
         </component>
     </project-components>

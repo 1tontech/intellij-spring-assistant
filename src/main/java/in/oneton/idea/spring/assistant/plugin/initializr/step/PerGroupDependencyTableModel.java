@@ -258,7 +258,7 @@ public class PerGroupDependencyTableModel extends AbstractTableModel
 
   /**
    * Debug logging can be enabled by adding fully classified class name/package name with # prefix
-   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl`
+   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.suggestion.service.SuggestionServiceImpl`
    *
    * @param doWhenDebug code to execute when debug is enabled
    */

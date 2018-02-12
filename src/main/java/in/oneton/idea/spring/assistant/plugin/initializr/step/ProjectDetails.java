@@ -19,7 +19,7 @@ import java.util.List;
 
 import static in.oneton.idea.spring.assistant.plugin.initializr.misc.InitializrUtil.from;
 import static in.oneton.idea.spring.assistant.plugin.initializr.misc.InitializrUtil.newCollectionComboBoxModel;
-import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findFileUnderRootInModule;
+import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.findFileUnderRootInModule;
 import static java.util.Objects.requireNonNull;
 
 public class ProjectDetails {

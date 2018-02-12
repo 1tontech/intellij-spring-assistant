@@ -5,7 +5,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.idea.maven.project.MavenProjectsManager;
 
-import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findFileUnderRootInModule;
+import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.findFileUnderRootInModule;
 import static java.util.Collections.singletonList;
 import static org.jetbrains.idea.maven.project.MavenProjectsManager.getInstance;
 

@@ -38,7 +38,7 @@ public class ProjectDetailsStep extends ModuleWizardStep implements Disposable {
   private static final Type DEPENDENCY_LINKS_LIST_TYPE = new TypeToken<List<DependencyLink>>() {
   }.getType();
 
-  private final JBLoadingPanel loadingPanel = new JBLoadingPanel(new BorderLayout(), this, 300);
+  private final JBLoadingPanel loadingPanel = new JBLoadingPanel(new BorderLayout(), this, 100);
   private final InitializrModuleBuilder moduleBuilder;
   private final WizardContext wizardContext;
   private final ProjectCreationRequest request;

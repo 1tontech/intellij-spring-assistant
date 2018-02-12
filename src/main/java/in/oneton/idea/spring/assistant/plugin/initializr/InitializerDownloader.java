@@ -2,7 +2,6 @@ package in.oneton.idea.spring.assistant.plugin.initializr;
 
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.ProgressIndicator;
-import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import lombok.Builder;
@@ -13,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 
 import static com.intellij.openapi.util.io.FileUtil.copy;
+import static com.intellij.openapi.util.io.FileUtil.createTempFile;
 import static com.intellij.openapi.util.text.StringUtil.isEmpty;
 import static com.intellij.openapi.util.text.StringUtil.isNotEmpty;
 import static com.intellij.openapi.vfs.newvfs.RefreshQueue.getInstance;
@@ -32,24 +32,24 @@ class InitializerDownloader {
   }
 
   @NotNull
-  private String computeFilename(@Nullable String contentDispositionHeader) {
-    if (isEmpty(contentDispositionHeader)) {
-      return "unknown";
-    } else {
-      return contentDispositionHeader
+  private String extractFilenameFromContentDisposition(@Nullable String contentDispositionHeader) {
+    String fileName = null;
+    if (contentDispositionHeader != null) {
+      fileName = contentDispositionHeader
           .replaceFirst(".*filename=\"?(?<fileName>[^;\"]+);?\"?.*", "${fileName}");
     }
+    return !isEmpty(fileName) ? fileName : "unknown";
   }
 
   void execute(ProgressIndicator indicator) throws IOException {
-    final File tempFile = FileUtil.createTempFile("spring-assistant-template", ".tmp", true);
+    File tempFile = createTempFile("spring-assistant-template", ".tmp", true);
     String downloadUrl = builder.safeGetProjectCreationRequest().buildDownloadUrl();
     debug(() -> log.debug("Downloading project from: " + downloadUrl));
     Download download = request(downloadUrl).userAgent(userAgent()).connect(request -> {
       String contentType = request.getConnection().getContentType();
       boolean zip = isNotEmpty(contentType) && contentType.startsWith("application/zip");
       String contentDisposition = request.getConnection().getHeaderField("Content-Disposition");
-      String fileName = computeFilename(contentDisposition);
+      String fileName = extractFilenameFromContentDisposition(contentDisposition);
       indicator.setText(fileName);
       request.saveToFile(tempFile, indicator);
       return Download.builder().zip(zip).fileName(fileName).build();
@@ -61,8 +61,7 @@ class InitializerDownloader {
       markAsExecutable(targetExtractionDir, "gradlew");
       markAsExecutable(targetExtractionDir, "mvnw");
     } else {
-      File targetFile = new File(targetExtractionDir, download.fileName);
-      copy(tempFile, targetFile);
+      copy(tempFile, new File(targetExtractionDir, download.fileName));
     }
 
     VirtualFile targetFile =
