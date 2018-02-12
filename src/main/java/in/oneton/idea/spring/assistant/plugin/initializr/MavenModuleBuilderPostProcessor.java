@@ -12,6 +12,7 @@ import static org.jetbrains.idea.maven.project.MavenProjectsManager.getInstance;
 public class MavenModuleBuilderPostProcessor implements ModuleBuilderPostProcessor {
   @Override
   public boolean postProcess(Module module) {
+    // TODO: Find a way to use GradleModuleBuilder instead of GradleProjectImportBuilder when adding a child module to the parent
     Project project = module.getProject();
     VirtualFile pomFile = findFileUnderRootInModule(module, "pom.xml");
     if (pomFile == null) { // not a maven project

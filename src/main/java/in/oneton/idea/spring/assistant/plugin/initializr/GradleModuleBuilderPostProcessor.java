@@ -14,6 +14,7 @@ import static in.oneton.idea.spring.assistant.plugin.util.PsiCustomUtil.findFile
 public class GradleModuleBuilderPostProcessor implements ModuleBuilderPostProcessor {
   @Override
   public boolean postProcess(Module module) {
+    // TODO: Find a way to use GradleModuleBuilder instead of GradleProjectImportBuilder when adding a child module to the parent
     Project project = module.getProject();
     VirtualFile gradleFile = findFileUnderRootInModule(module, "build.gradle");
     if (gradleFile == null) { // not a gradle project

@@ -1,6 +1,7 @@
 ### Since 0.4.0 (6 Feb 2017):
 
   - Added support for dynamic classes & their properties
+  - Added support for bootstrapping new Projects & Module via `File -> New -> Project -> Spring Assistant` & `File -> New -> Module -> Spring Assistant`
   - Revamped the whole codebase
 
 ### Since 0.3.0 (1 Dec 2017):

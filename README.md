@@ -11,10 +11,7 @@ This plugins provides the following features as of now.
 2. Auto completion of the configuration properties in your `yaml` files if you have classes annotated with `@ConfigurationProperties`, [if your build is properly configured](#setup-for-showing-configurationproperties-as-suggestions-within-current-module)
 3. Short form search & search for element deep within is also supported. i.e, `sp.d` will show you `spring.data`, `spring.datasource`, also, `port` would show `server.port` as a suggestion
 4. Quick documentation for groups & properties (not all groups & properties will have documentation, depends on whether the original author specified documentation or not for any given element)
-
-## Future plans
-
-1. Support for creating spring applications using `Spring initializr`
+5. Allows you to bootstrap new project & new module using `File -> New -> Project -> Spring Assistant` & `File -> New -> Module -> Spring Assistant` wizards. Looks & Feel resembles Intellij Ultimate, but with less bells & whistles
 
 ## Usage
 

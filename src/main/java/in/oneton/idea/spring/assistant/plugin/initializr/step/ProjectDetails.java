@@ -98,6 +98,7 @@ public class ProjectDetails {
     packagingType
         .addActionListener(e -> request.setPackaging((IdAndName) packagingType.getSelectedItem()));
 
+    // TODO: Auto detect project java version if user is adding a module instead of new project
     IdAndNameComposite javaVersionComposite = metadata.getJavaVersionComposite();
     List<IdAndName> javaVersions = javaVersionComposite.getValues();
     IdAndName defaultJavaVersion = request
