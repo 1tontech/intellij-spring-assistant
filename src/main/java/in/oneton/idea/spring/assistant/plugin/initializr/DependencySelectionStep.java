@@ -1,15 +1,18 @@
 package in.oneton.idea.spring.assistant.plugin.initializr;
 
 import com.intellij.ide.util.projectWizard.ModuleWizardStep;
+import com.intellij.openapi.Disposable;
+import com.intellij.openapi.options.ConfigurationException;
 import in.oneton.idea.spring.assistant.plugin.initializr.step.DependencySelection;
 
 import javax.swing.*;
 import java.awt.*;
 
-public class DependencySelectionStep extends ModuleWizardStep {
+public class DependencySelectionStep extends ModuleWizardStep implements Disposable {
 
   private final ProjectCreationRequest request;
   private JPanel rootPanel;
+  private DependencySelection dependencySelection;
 
   DependencySelectionStep(InitializrModuleBuilder moduleBuilder) {
     request = moduleBuilder.safeGetProjectCreationRequest();
@@ -20,10 +23,23 @@ public class DependencySelectionStep extends ModuleWizardStep {
   @Override
   public void _init() {
     rootPanel.removeAll();
-    DependencySelection dependencySelection = new DependencySelection();
+    dependencySelection = new DependencySelection();
     dependencySelection.init(request);
     rootPanel.add(dependencySelection.getRootPanel());
-    rootPanel.revalidate();
+  }
+
+  @Override
+  public boolean validate() throws ConfigurationException {
+    if (request.getDependencyCount() == 0) {
+      throw new ConfigurationException("Please select atleast one dependency",
+          "Selection required");
+    }
+    return super.validate();
+  }
+
+  @Override
+  public JComponent getPreferredFocusedComponent() {
+    return dependencySelection.getPreferredFocusedComponent();
   }
 
   @Override
@@ -34,6 +50,11 @@ public class DependencySelectionStep extends ModuleWizardStep {
   @Override
   public void updateDataModel() {
 
+  }
+
+  @Override
+  public void dispose() {
+    dependencySelection.dispose();
   }
 
 }

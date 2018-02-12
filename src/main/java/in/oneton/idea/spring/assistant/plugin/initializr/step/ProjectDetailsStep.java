@@ -7,8 +7,7 @@ import com.google.gson.reflect.TypeToken;
 import com.intellij.ide.util.projectWizard.ModuleWizardStep;
 import com.intellij.ide.util.projectWizard.WizardContext;
 import com.intellij.openapi.Disposable;
-import com.intellij.openapi.application.ApplicationInfo;
-import com.intellij.openapi.application.ApplicationNamesInfo;
+import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.ui.components.JBLoadingPanel;
 import in.oneton.idea.spring.assistant.plugin.initializr.InitializrModuleBuilder;
 import in.oneton.idea.spring.assistant.plugin.initializr.ProjectCreationRequest;
@@ -31,6 +30,7 @@ import static com.intellij.ui.ScrollPaneFactory.createScrollPane;
 import static com.intellij.util.io.HttpRequests.createErrorMessage;
 import static com.intellij.util.io.HttpRequests.request;
 import static in.oneton.idea.spring.assistant.plugin.initializr.InitializrModuleBuilder.CONTENT_TYPE;
+import static in.oneton.idea.spring.assistant.plugin.initializr.misc.InitializrUtil.userAgent;
 import static javax.swing.SwingUtilities.invokeLater;
 
 public class ProjectDetailsStep extends ModuleWizardStep implements Disposable {
@@ -39,9 +39,15 @@ public class ProjectDetailsStep extends ModuleWizardStep implements Disposable {
   }.getType();
 
   private final JBLoadingPanel loadingPanel = new JBLoadingPanel(new BorderLayout(), this, 300);
+  private final InitializrModuleBuilder moduleBuilder;
+  private final WizardContext wizardContext;
   private final ProjectCreationRequest request;
+  private boolean fetchInProgress;
+  private ProjectDetails detailsForm;
 
   public ProjectDetailsStep(InitializrModuleBuilder moduleBuilder, WizardContext wizardContext) {
+    this.moduleBuilder = moduleBuilder;
+    this.wizardContext = wizardContext;
     request = moduleBuilder.safeGetProjectCreationRequest();
   }
 
@@ -50,6 +56,7 @@ public class ProjectDetailsStep extends ModuleWizardStep implements Disposable {
     if (request.getMetadata() == null) {
       loadingPanel.getContentPanel().removeAll();
       loadingPanel.startLoading();
+      fetchInProgress = true;
       // Lets fetch metadata on a background thread, so as not to block UI thread
       getApplication().executeOnPooledThread(() -> {
         try {
@@ -73,32 +80,29 @@ public class ProjectDetailsStep extends ModuleWizardStep implements Disposable {
                   });
           request.setMetadata(metadata);
           invokeLater(() -> {
-            ProjectDetailsForm detailsForm = new ProjectDetailsForm();
-            detailsForm.init(metadata);
+            detailsForm = new ProjectDetails();
+            detailsForm.init(moduleBuilder, wizardContext);
             loadingPanel.add(createScrollPane(detailsForm.getRoot(), true), "North");
           });
         } catch (IOException e) {
-          invokeLater(() -> showErrorDialog("Initialization failed for '" + request.getServerUrl()
-              + "'\nPlease check URL, network and proxy settings.\n\nError message:\n" + e
-              .getMessage(), "Spring Initializr Error"));
+          invokeLater(() -> showErrorDialog(
+              "Error while fetching metadata from server '" + request.getServerUrl()
+                  + "'\nPlease check URL, network and proxy settings.\n\nError message:\n" + e
+                  .getMessage(), "Fetch Error"));
         } catch (JsonSyntaxException | JsonIOException e) {
           invokeLater(() -> showErrorDialog(
               "Error while parsing metadata from server '" + request.getServerUrl()
                   + "'\nMake sure you connected to the correct initializr server."
-                  + "\n\nError message:\n" + e.getMessage(), "Spring Initializr Error"));
+                  + "\n\nError message:\n" + e.getMessage(), "Metadata Error"));
         } finally {
           invokeLater(() -> {
             loadingPanel.stopLoading();
             loadingPanel.revalidate();
           });
+          fetchInProgress = false;
         }
       });
     }
-  }
-
-  private String userAgent() {
-    return ApplicationNamesInfo.getInstance().getFullProductName() + "/" + ApplicationInfo
-        .getInstance().getFullVersion();
   }
 
   @Override
@@ -107,19 +111,26 @@ public class ProjectDetailsStep extends ModuleWizardStep implements Disposable {
   }
 
   @Override
-  public boolean validate() {
-    // TODO: validate
-    return true;
+  public boolean validate() throws ConfigurationException {
+    if (request.getMetadata() == null) {
+      if (fetchInProgress) {
+        throw new ConfigurationException("Metadata is being fetch from server. Please wait",
+            "Please wait");
+      } else {
+        throw new ConfigurationException(
+            "Could not fetch metadata from server. Please go back & check server details",
+            "Fetch Error");
+      }
+    }
+    return detailsForm.validate(moduleBuilder, wizardContext);
   }
 
   @Override
   public void updateDataModel() {
-    // TODO: update request
   }
 
   @Override
   public void dispose() {
-
   }
 
 }

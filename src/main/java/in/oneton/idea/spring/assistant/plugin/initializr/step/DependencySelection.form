@@ -3,20 +3,18 @@
   <grid id="27dc6" binding="rootPanel" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
     <margin top="0" left="0" bottom="0" right="0"/>
     <constraints>
-      <xy x="20" y="20" width="619" height="330"/>
+      <xy x="20" y="20" width="883" height="619"/>
     </constraints>
     <properties/>
     <border type="none"/>
     <children>
       <splitpane id="239fd" binding="leftRightSeperator">
         <constraints>
-          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="1" use-parent-layout="false">
-            <preferred-size width="200" height="200"/>
-          </grid>
+          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
         </constraints>
         <properties>
           <dividerSize value="5"/>
-          <resizeWeight value="0.6"/>
+          <resizeWeight value="0.7"/>
         </properties>
         <border type="none"/>
         <children>
@@ -30,14 +28,14 @@
             <children>
               <component id="589e1" class="javax.swing.JLabel">
                 <constraints>
-                  <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                  <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="1" use-parent-layout="false"/>
                 </constraints>
                 <properties>
                   <font style="1"/>
                   <text value="Selected dependencies"/>
                 </properties>
               </component>
-              <grid id="eab1c" binding="selectedDependenciesPanel" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+              <grid id="eab1c" binding="selectedDependenciesSection" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
                 <margin top="0" left="0" bottom="0" right="0"/>
                 <constraints>
                   <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
@@ -47,7 +45,7 @@
                 </properties>
                 <border type="none"/>
                 <children>
-                  <scrollpane id="83cf6">
+                  <scrollpane id="83cf6" binding="selectedDependenciesSectionScrollPane">
                     <constraints>
                       <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
                     </constraints>
@@ -55,13 +53,18 @@
                       <background color="-1"/>
                     </properties>
                     <border type="none"/>
-                    <children/>
+                    <children>
+                      <component id="ee62b" class="com.intellij.ui.table.JBTable" binding="selectedDependencies">
+                        <constraints/>
+                        <properties/>
+                      </component>
+                    </children>
                   </scrollpane>
                 </children>
               </grid>
             </children>
           </grid>
-          <grid id="d9ffd" binding="leftpanel" layout-manager="GridLayoutManager" row-count="2" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+          <grid id="d9ffd" binding="leftPanel" layout-manager="GridLayoutManager" row-count="2" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
             <margin top="0" left="0" bottom="0" right="0"/>
             <constraints>
               <splitpane position="left"/>
@@ -85,7 +88,7 @@
                       <text value="Filter"/>
                     </properties>
                   </component>
-                  <component id="ab1bc" class="com.intellij.ui.components.JBTextField" binding="filter">
+                  <component id="ab1bc" class="com.intellij.ui.SearchTextField" binding="filter">
                     <constraints>
                       <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="6" anchor="8" fill="1" indent="0" use-parent-layout="false">
                         <preferred-size width="150" height="-1"/>
@@ -124,17 +127,16 @@
                 <children>
                   <splitpane id="baf3a" binding="groupChildSeperator">
                     <constraints>
-                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false">
-                        <preferred-size width="200" height="200"/>
-                      </grid>
+                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="1" use-parent-layout="false"/>
                     </constraints>
                     <properties>
+                      <continuousLayout value="true"/>
                       <dividerSize value="3"/>
-                      <resizeWeight value="0.35"/>
+                      <resizeWeight value="0.33"/>
                     </properties>
                     <border type="none"/>
                     <children>
-                      <grid id="bd17d" binding="groupPanel" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+                      <grid id="bd17d" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
                         <margin top="0" left="0" bottom="0" right="0"/>
                         <constraints>
                           <splitpane position="left"/>
@@ -144,7 +146,7 @@
                         </properties>
                         <border type="none"/>
                         <children>
-                          <scrollpane id="e6fea">
+                          <scrollpane id="e6fea" binding="groupScollPane">
                             <constraints>
                               <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
                             </constraints>
@@ -171,18 +173,17 @@
                         <children>
                           <splitpane id="a65b6" binding="perGroupDependenciesAndDetailSeperator">
                             <constraints>
-                              <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false">
-                                <preferred-size width="200" height="200"/>
-                              </grid>
+                              <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
                             </constraints>
                             <properties>
+                              <continuousLayout value="true"/>
                               <dividerSize value="3"/>
                               <orientation value="0"/>
                               <resizeWeight value="0.6"/>
                             </properties>
                             <border type="none"/>
                             <children>
-                              <grid id="4fa47" binding="perGroupDependenciesPanel" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+                              <grid id="4fa47" binding="perGroupDependenciesSection" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
                                 <margin top="0" left="0" bottom="0" right="0"/>
                                 <constraints>
                                   <splitpane position="left"/>
@@ -190,7 +191,7 @@
                                 <properties/>
                                 <border type="none"/>
                                 <children>
-                                  <scrollpane id="e0d75">
+                                  <scrollpane id="e0d75" binding="perGroupDependenciesSectionScrollPane">
                                     <constraints>
                                       <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
                                     </constraints>
@@ -205,23 +206,43 @@
                                   </scrollpane>
                                 </children>
                               </grid>
-                              <grid id="121de" binding="detailPanel" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+                              <grid id="121de" binding="detailSection" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
                                 <margin top="0" left="0" bottom="0" right="0"/>
                                 <constraints>
                                   <splitpane position="right"/>
                                 </constraints>
-                                <properties/>
+                                <properties>
+                                  <background color="-1513240"/>
+                                </properties>
                                 <border type="none"/>
                                 <children>
-                                  <scrollpane id="9f664">
+                                  <scrollpane id="9f664" binding="detailsScrollPane">
                                     <constraints>
-                                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false">
+                                        <preferred-size width="200" height="160"/>
+                                      </grid>
                                     </constraints>
                                     <properties>
-                                      <background color="-1"/>
+                                      <background color="-1513240"/>
                                     </properties>
                                     <border type="none"/>
-                                    <children/>
+                                    <children>
+                                      <grid id="60c63" binding="detailPanelContainer" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+                                        <margin top="0" left="0" bottom="0" right="0"/>
+                                        <constraints/>
+                                        <properties>
+                                          <background color="-1"/>
+                                        </properties>
+                                        <border type="none"/>
+                                        <children>
+                                          <nested-form id="9fe27" form-file="in/oneton/idea/spring/assistant/plugin/initializr/step/DependencyDetail.form" binding="dependencyDetail">
+                                            <constraints>
+                                              <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                                            </constraints>
+                                          </nested-form>
+                                        </children>
+                                      </grid>
+                                    </children>
                                   </scrollpane>
                                 </children>
                               </grid>

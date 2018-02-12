@@ -7,6 +7,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiArrayType;
 import com.intellij.psi.PsiCapturedWildcardType;
@@ -42,6 +43,7 @@ import java.util.Set;
 
 import static com.intellij.openapi.module.ModuleUtilCore.findModuleForFile;
 import static com.intellij.openapi.module.ModuleUtilCore.findModuleForPsiElement;
+import static com.intellij.openapi.roots.ModuleRootManager.getInstance;
 import static com.intellij.openapi.util.Key.create;
 import static com.intellij.psi.CommonClassNames.JAVA_LANG_ITERABLE;
 import static com.intellij.psi.CommonClassNames.JAVA_LANG_STRING;
@@ -600,6 +602,28 @@ public class PsiCustomUtil {
       new JavaDocInfoGenerator(member.getProject(), member)
           .generateCommonSection(builder, docComment);
       return builder.toString().trim();
+    }
+    return null;
+  }
+
+  @Nullable
+  public static VirtualFile findFileUnderRootInModule(Module module, String targetFileName) {
+    VirtualFile[] contentRoots = getInstance(module).getContentRoots();
+    for (VirtualFile contentRoot : contentRoots) {
+      VirtualFile childFile = findFileUnderRootInModule(contentRoot, targetFileName);
+      if (childFile != null) {
+        return childFile;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  public static VirtualFile findFileUnderRootInModule(@NotNull VirtualFile contentRoot,
+      String targetFileName) {
+    VirtualFile childFile = contentRoot.findChild(targetFileName);
+    if (childFile != null) {
+      return childFile;
     }
     return null;
   }

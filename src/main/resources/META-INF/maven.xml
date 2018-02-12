@@ -1,5 +1,11 @@
 <idea-plugin>
 
+    <extensions defaultExtensionNs="spring.assistant.initializr">
+        <moduleBuilderPostProcessor
+                implementation="in.oneton.idea.spring.assistant.plugin.initializr.MavenModuleBuilderPostProcessor"/>
+    </extensions>
+
+
     <project-components>
         <component>
             <interface-class>

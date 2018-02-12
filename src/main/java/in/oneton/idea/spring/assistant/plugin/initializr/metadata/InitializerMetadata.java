@@ -2,6 +2,7 @@ package in.oneton.idea.spring.assistant.plugin.initializr.metadata;
 
 import com.google.gson.annotations.SerializedName;
 import gnu.trove.THashSet;
+import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.DependencyComposite.DependencyGroup.Dependency;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.io.spring.initializr.util.Version;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.io.spring.initializr.util.VersionRange;
 import lombok.AllArgsConstructor;
@@ -11,12 +12,16 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Data
+@ToString
 public class InitializerMetadata {
 
   @SerializedName("dependencies")
@@ -61,24 +66,51 @@ public class InitializerMetadata {
   }
 
 
-  @Data
+  // TODO: Not sure why uncommenting the line below is making the compilation fail
+  //  @Data
+  //  @ToString
   public static class DependencyComposite {
+    @Getter
+    @Setter
     @SerializedName("values")
     private List<DependencyGroup> groups;
 
+    @NotNull
+    public Optional<DependencyGroup> findGroupForDependency(Dependency dependency) {
+      return groups.stream()
+          .filter(group -> group.getDependencies().stream().anyMatch(dep -> dep.equals(dependency)))
+          .findFirst();
+    }
 
-    @Data
-    @EqualsAndHashCode(of = "name")
+    // TODO: Not sure why uncommenting the line below is making the compilation fail
+    //    @Data
+    //    @EqualsAndHashCode(of = "name")
     public static class DependencyGroup {
+      @Getter
+      @Setter
       private String name;
+      @Getter
+      @Setter
       @SerializedName("values")
       private List<Dependency> dependencies;
+
+      @Override
+      public int hashCode() {
+        return name.hashCode();
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        return obj != null && obj instanceof DependencyGroup && ((DependencyGroup) obj).name != null
+            && name.equals(((DependencyGroup) obj).name);
+      }
 
       @Override
       public String toString() {
         return name;
       }
 
+      @NotNull
       public Set<Integer> getIncompatibleDependencyIndexes(Version bootVersion) {
         Set<Integer> incompatibleDependencyIndexes = new THashSet<>();
         for (int i = 0; i < dependencies.size(); i++) {
@@ -90,6 +122,7 @@ public class InitializerMetadata {
         }
         return incompatibleDependencyIndexes;
       }
+
 
       @Data
       @EqualsAndHashCode(of = "id")
@@ -103,13 +136,19 @@ public class InitializerMetadata {
         @SerializedName("_links")
         private DependencyLinksContainer linksContainer;
 
+        @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+        public boolean isVersionCompatible(Version bootVersion) {
+          return versionRange == null || versionRange.match(bootVersion);
+        }
+
 
         @Data
         public static class DependencyLinksContainer {
           @Nullable
           private DependencyLink reference;
           @Nullable
-          private List<DependencyLink> guide;
+          @SerializedName("guide")
+          private List<DependencyLink> guides;
 
 
           @Getter
@@ -117,10 +156,20 @@ public class InitializerMetadata {
           @Builder
           @NoArgsConstructor
           @AllArgsConstructor
+          @ToString
           public static class DependencyLink {
             private String href;
             @Nullable
             private String title;
+            private boolean templated;
+
+            @NotNull
+            public String getHrefAfterReplacement(String bootVersion) {
+              if (templated) {
+                return href.replaceAll("\\{bootVersion}", bootVersion);
+              }
+              return href;
+            }
           }
         }
       }
@@ -171,7 +220,7 @@ public class InitializerMetadata {
       return name;
     }
 
-    public Version getVersion() {
+    public Version parseIdAsVersion() {
       return Version.parse(id);
     }
   }

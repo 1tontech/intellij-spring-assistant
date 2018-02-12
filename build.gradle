@@ -35,14 +35,16 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'org.projectlombok:lombok:1.16.18'
+    compileOnly 'org.projectlombok:lombok:1.16.20'
     compile 'org.apache.commons:commons-collections4:4.1'
+    compile 'com.miguelfonseca.completely:completely-core:0.8.0'
 
     testCompile 'org.junit.jupiter:junit-jupiter-api:5.0.1'
     testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.0.1'
     testCompile group: 'org.mockito', name: 'mockito-core', version: '2.12.0'
 
     testCompileOnly fileTree(dir: '/home/thekalinga/dev/utils/idea/idea-IU-171.3780.107/plugins/SpringBoot/lib/', include: '*.jar')
+    testCompileOnly fileTree(dir: '/home/thekalinga/dev/utils/idea/idea-IU-171.3780.107/plugins/Spring/lib/', include: '*.jar')
 }
 
 String readmeXmlAsHtml() {

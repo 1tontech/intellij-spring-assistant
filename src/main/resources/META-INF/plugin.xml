@@ -19,6 +19,11 @@
     <depends config-file="maven.xml" optional="true">org.jetbrains.idea.maven</depends>
     <depends config-file="gradle.xml" optional="true">org.jetbrains.plugins.gradle</depends>
 
+    <extensionPoints>
+        <extensionPoint qualifiedName="spring.assistant.initializr.moduleBuilderPostProcessor"
+                        interface="in.oneton.idea.spring.assistant.plugin.initializr.ModuleBuilderPostProcessor"/>
+    </extensionPoints>
+
     <extensions defaultExtensionNs="com.intellij">
         <completion.contributor language="yaml"
                                 implementationClass="in.oneton.idea.spring.assistant.plugin.completion.YamlCompletionContributor"/>

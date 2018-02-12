@@ -1,5 +1,6 @@
 package in.oneton.idea.spring.assistant.plugin.initializr.step;
 
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.ui.BooleanTableCellRenderer;
 import com.intellij.ui.ColoredTableCellRenderer;
 import com.intellij.ui.TableSpeedSearch;
@@ -9,54 +10,70 @@ import in.oneton.idea.spring.assistant.plugin.initializr.ProjectCreationRequest;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.DependencyComposite.DependencyGroup;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.DependencyComposite.DependencyGroup.Dependency;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.io.spring.initializr.util.Version;
+import in.oneton.idea.spring.assistant.plugin.initializr.step.DependencySelection.VersionUpdateListener;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
-import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.intellij.ui.SimpleTextAttributes.GRAY_ATTRIBUTES;
 import static com.intellij.ui.speedSearch.SpeedSearchUtil.applySpeedSearchHighlighting;
-import static com.intellij.util.ui.UIUtil.isDescendingFrom;
-import static java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager;
+import static in.oneton.idea.spring.assistant.plugin.initializr.misc.InitializrUtil.resetTableLookAndFeelToSingleSelect;
 import static java.awt.event.KeyEvent.VK_SPACE;
+import static java.awt.event.MouseEvent.BUTTON1;
+import static java.util.Collections.emptyList;
 import static javax.swing.KeyStroke.getKeyStroke;
-import static javax.swing.ListSelectionModel.SINGLE_SELECTION;
 
-public class PerGroupDependencyTableModel extends AbstractTableModel {
+public class PerGroupDependencyTableModel extends AbstractTableModel
+    implements VersionUpdateListener, DependencySelectionChangeListener, DependencyRemovalListener {
+
+  private static final Logger log = Logger.getInstance(PerGroupDependencyTableModel.class);
 
   private static final int CHECKBOX_COL_INDEX = 0;
   private static final int DEPENDENCY_NAME_COL_INDEX = 1;
 
+  @NotNull
+  private final JBTable perGroupDependencyTable;
+  @NotNull
   private final ProjectCreationRequest request;
+  @NotNull
   private Version bootVersion;
+  @Nullable
   private DependencyGroup dependencyGroup;
+  @Nullable
   private Set<Integer> incompatibleDependencyIndexes;
+  @NotNull
+  private Map<DependencyGroup, List<Dependency>> filteredGroupAndDependencies;
+  private DependencyAdditionListener additionListener;
+  private List<DependencySelectionChangeListener> selectionListeners = new ArrayList<>();
+  private DependencyRemovalListener removalListener;
 
-  PerGroupDependencyTableModel(JBTable table, ProjectCreationRequest request,
-      DependencyGroup dependencyGroup, Version bootVersion) {
+  PerGroupDependencyTableModel(JBTable perGroupDependencyTable,
+      @NotNull ProjectCreationRequest request, @NotNull DependencyGroup dependencyGroup,
+      @NotNull Version bootVersion,
+      @NotNull Map<DependencyGroup, List<Dependency>> filteredGroupAndDependencies) {
+    this.perGroupDependencyTable = perGroupDependencyTable;
     this.request = request;
     this.dependencyGroup = dependencyGroup;
     this.bootVersion = bootVersion;
     this.incompatibleDependencyIndexes =
         dependencyGroup.getIncompatibleDependencyIndexes(bootVersion);
+    this.filteredGroupAndDependencies = filteredGroupAndDependencies;
 
-    table.setModel(this);
-    table.setRowMargin(0);
-    table.setShowColumns(false);
-    table.setShowGrid(false);
-    table.setShowVerticalLines(false);
-    table.setCellSelectionEnabled(false);
-    table.setRowSelectionAllowed(true);
-    table.setSelectionMode(SINGLE_SELECTION);
+    perGroupDependencyTable.setModel(this);
+    resetTableLookAndFeelToSingleSelect(perGroupDependencyTable);
 
-    TableColumnModel columnModel = table.getColumnModel();
+    TableColumnModel columnModel = perGroupDependencyTable.getColumnModel();
     columnModel.setColumnMargin(0);
     TableColumn checkBoxColumn = columnModel.getColumn(CHECKBOX_COL_INDEX);
     TableUtil.setupCheckboxColumn(checkBoxColumn);
@@ -66,9 +83,6 @@ public class PerGroupDependencyTableModel extends AbstractTableModel {
       @Override
       protected void customizeCellRenderer(JTable table, @Nullable Object value, boolean selected,
           boolean hasFocus, int row, int column) {
-        Component focusOwner = getCurrentKeyboardFocusManager().getFocusOwner();
-        boolean tableHasFocus = focusOwner != null && isDescendingFrom(focusOwner, table);
-        setPaintFocusBorder(tableHasFocus && table.isRowSelected(row));
         if (value != null) {
           Dependency dependency = Dependency.class.cast(value);
           boolean selectable = isCellEditable(row, CHECKBOX_COL_INDEX);
@@ -83,7 +97,7 @@ public class PerGroupDependencyTableModel extends AbstractTableModel {
       }
     });
 
-    new TableSpeedSearch(table, value -> {
+    new TableSpeedSearch(perGroupDependencyTable, value -> {
       if (value instanceof Dependency) {
         return Dependency.class.cast(value).getName();
       }
@@ -93,33 +107,57 @@ public class PerGroupDependencyTableModel extends AbstractTableModel {
     // Add listeners
 
     // Allow user to select via keyboard
-    table.getActionMap().put("select_deselect_dependency", new AbstractAction() {
+    perGroupDependencyTable.getActionMap().put("select_deselect_dependency", new AbstractAction() {
       public void actionPerformed(ActionEvent e) {
-        toggleSelectionIfApplicable(table.getSelectedRow());
+        toggleSelectionIfApplicable(perGroupDependencyTable.getSelectedRow());
       }
     });
-    table.getInputMap().put(getKeyStroke(VK_SPACE, 0), "select_deselect_dependency");
+    perGroupDependencyTable.getInputMap()
+        .put(getKeyStroke(VK_SPACE, 0), "select_deselect_dependency");
     // Allow user to toggle via double click
-    table.addMouseListener(new MouseAdapter() {
+    perGroupDependencyTable.addMouseListener(new MouseAdapter() {
       @Override
       public void mouseClicked(MouseEvent event) {
-        if (event.getClickCount() == 2 && event.getButton() == MouseEvent.BUTTON1) {
-          int columIndex = table.columnAtPoint(event.getPoint());
+        if (event.getButton() == BUTTON1) {
+          int columIndex = perGroupDependencyTable.columnAtPoint(event.getPoint());
           if (columIndex == DEPENDENCY_NAME_COL_INDEX) {
-            toggleSelectionIfApplicable(table.getSelectedRow());
+            int rowIndex = perGroupDependencyTable.rowAtPoint(event.getPoint());
+            if (event.getClickCount() == 2) {
+              toggleSelectionIfApplicable(rowIndex);
+            }
           }
         }
       }
     });
 
-    table.getSelectionModel().addListSelectionListener(e -> {
-      // TODO: Update the description panel
+    perGroupDependencyTable.getSelectionModel().addListSelectionListener(e -> {
+      if (!e.getValueIsAdjusting()) {
+        int selectedRow = perGroupDependencyTable.getSelectedRow();
+        if (selectedRow != -1) {
+          selectionListeners
+              .forEach(listener -> listener.onDependencySelected(getDependencyAt(selectedRow)));
+        } else {
+          selectionListeners.forEach(listener -> listener.onDependencySelected(null));
+        }
+      }
     });
+  }
+
+  public void setAdditionListener(@NotNull DependencyAdditionListener listener) {
+    this.additionListener = listener;
+  }
+
+  public void setRemovalListener(@NotNull DependencyRemovalListener listener) {
+    this.removalListener = listener;
+  }
+
+  public void addSelectionListener(@NotNull DependencySelectionChangeListener listener) {
+    this.selectionListeners.add(listener);
   }
 
   @Override
   public int getRowCount() {
-    return dependencyGroup.getDependencies().size();
+    return getFilteredDependencies().size();
   }
 
   @Override
@@ -139,48 +177,53 @@ public class PerGroupDependencyTableModel extends AbstractTableModel {
 
   @Override
   public boolean isCellEditable(int rowIndex, int columnIndex) {
-    return columnIndex == CHECKBOX_COL_INDEX && !incompatibleDependencyIndexes.contains(rowIndex);
+    return columnIndex == CHECKBOX_COL_INDEX && (incompatibleDependencyIndexes == null
+        || !incompatibleDependencyIndexes.contains(rowIndex));
   }
 
   @Override
   public Object getValueAt(int rowIndex, int columnIndex) {
-    Dependency dependency = dependencyGroup.getDependencies().get(rowIndex);
-    return columnIndex == CHECKBOX_COL_INDEX ?
-        request.getDependencies().contains(dependency) :
+    Dependency dependency = getFilteredDependencies().get(rowIndex);
+    return columnIndex == CHECKBOX_COL_INDEX ? request.containsDependency(dependency) :
         dependency;
+  }
+
+  private Dependency getDependencyAt(int selectedRow) {
+    return (Dependency) getValueAt(selectedRow, DEPENDENCY_NAME_COL_INDEX);
   }
 
   @Override
   public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
-    if (columnIndex == CHECKBOX_COL_INDEX) {
-      Dependency dependency = dependencyGroup.getDependencies().get(rowIndex);
-      Boolean selected = Boolean.class.cast(aValue);
-      if (selected) {
-        request.getDependencies().add(dependency);
-        // TODO: Update Selected dependencies panel
-      } else {
-        request.getDependencies().remove(dependency);
-      }
+    Dependency dependency = getFilteredDependencies().get(rowIndex);
+    Boolean selected = Boolean.class.cast(aValue);
+    if (selected) {
+      debug(() -> log.debug("Dependency selected: " + dependency));
+      additionListener.onDependencyAdded(dependency);
+    } else {
+      debug(() -> log.debug("Dependency unselected: " + dependency));
+      removalListener.onDependencyRemoved(dependency);
     }
     fireTableCellUpdated(rowIndex, columnIndex);
   }
 
-  public void update(DependencyGroup dependencyGroup) {
+  public void update(@Nullable DependencyGroup dependencyGroup) {
     this.dependencyGroup = dependencyGroup;
-    this.incompatibleDependencyIndexes =
-        dependencyGroup.getIncompatibleDependencyIndexes(bootVersion);
+    if (dependencyGroup != null) {
+      incompatibleDependencyIndexes = dependencyGroup.getIncompatibleDependencyIndexes(bootVersion);
+    } else {
+      incompatibleDependencyIndexes = null;
+    }
     fireTableDataChanged();
   }
 
-  public void update(Version bootVersion) {
-    this.bootVersion = bootVersion;
-    this.incompatibleDependencyIndexes =
-        dependencyGroup.getIncompatibleDependencyIndexes(bootVersion);
-
-    // if any of the existing selections are no longer compatible with newer boot version, lets just remove them from current selection
-    this.incompatibleDependencyIndexes.stream().map(this.dependencyGroup.getDependencies()::get)
-        .forEach(request.getDependencies()::remove);
-    fireTableDataChanged();
+  @NotNull
+  private List<Dependency> getFilteredDependencies() {
+    List<Dependency> dependencies = filteredGroupAndDependencies.get(dependencyGroup);
+    if (dependencies == null) {
+      return emptyList();
+    } else {
+      return dependencies;
+    }
   }
 
   private void toggleSelectionIfApplicable(int row) {
@@ -188,6 +231,45 @@ public class PerGroupDependencyTableModel extends AbstractTableModel {
       boolean selected = (Boolean) getValueAt(row, CHECKBOX_COL_INDEX);
       setValueAt(!selected, row, CHECKBOX_COL_INDEX);
     }
+  }
+
+  @Override
+  public void onVersionUpdated(Version newVersion) {
+    this.bootVersion = newVersion;
+    if (dependencyGroup != null) {
+      incompatibleDependencyIndexes = dependencyGroup.getIncompatibleDependencyIndexes(bootVersion);
+    }
+    fireTableDataChanged();
+  }
+
+  @Override
+  public void onDependencySelected(@Nullable Dependency dependency) {
+    if (dependency != null) {
+      int dependencyIndex = getFilteredDependencies().indexOf(dependency);
+      perGroupDependencyTable.getSelectionModel()
+          .setSelectionInterval(dependencyIndex, dependencyIndex);
+    }
+  }
+
+  @Override
+  public void onDependencyRemoved(@NotNull Dependency dependency) {
+    fireTableDataChanged();
+  }
+
+  /**
+   * Debug logging can be enabled by adding fully classified class name/package name with # prefix
+   * For eg., to enable debug logging, go `Help > Debug log settings` & type `#in.oneton.idea.spring.assistant.plugin.service.SuggestionServiceImpl`
+   *
+   * @param doWhenDebug code to execute when debug is enabled
+   */
+  private void debug(Runnable doWhenDebug) {
+    if (log.isDebugEnabled()) {
+      doWhenDebug.run();
+    }
+  }
+
+  public void setSelection(Dependency selection) {
+    onDependencySelected(selection);
   }
 
 }
