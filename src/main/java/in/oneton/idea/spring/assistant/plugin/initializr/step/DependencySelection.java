@@ -13,9 +13,10 @@ import com.intellij.ui.speedSearch.FilteringListModel;
 import com.intellij.ui.table.JBTable;
 import com.intellij.util.Function;
 import com.miguelfonseca.completely.AutocompleteEngine;
-import com.miguelfonseca.completely.text.analyze.tokenize.StopwordsAwareWordTokenizer;
+import com.miguelfonseca.completely.text.analyze.tokenize.WordTokenizer;
 import com.miguelfonseca.completely.text.analyze.transform.LowerCaseTransformer;
 import gnu.trove.THashMap;
+import gnu.trove.THashSet;
 import in.oneton.idea.spring.assistant.plugin.initializr.ProjectCreationRequest;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.DependencyComposite.DependencyGroup;
@@ -30,10 +31,14 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.event.DocumentEvent;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Scanner;
+import java.util.Set;
 
 import static com.intellij.openapi.actionSystem.CommonShortcuts.getFind;
 import static com.intellij.openapi.util.text.StringUtil.isEmpty;
@@ -284,4 +289,40 @@ public class DependencySelection implements Disposable, DependencySelectionChang
   interface VersionUpdateListener {
     void onVersionUpdated(Version newVersion);
   }
+
+
+  class StopwordsAwareWordTokenizer extends WordTokenizer {
+
+    private Set<String> stopwords = new THashSet<>();
+
+    StopwordsAwareWordTokenizer() {
+      InputStream resourceAsStream = getClass().getResourceAsStream("/stopwords-en.txt");
+      try (Scanner scanner = new Scanner(resourceAsStream)) {
+
+        while (scanner.hasNextLine()) {
+          String line = scanner.nextLine();
+          if (line == null) {
+            continue;
+          }
+          line = line.trim();
+          line = line.toLowerCase();
+          if (line.isEmpty()) {
+            continue;
+          }
+          stopwords.add(line);
+        }
+
+        scanner.close();
+      }
+    }
+
+    @Override
+    public Collection<String> apply(String... input) {
+      Collection<String> tokens = super.apply(input);
+      tokens.removeAll(stopwords);
+      return tokens;
+    }
+
+  }
+
 }
