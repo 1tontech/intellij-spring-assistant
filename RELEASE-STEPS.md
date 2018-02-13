@@ -1,6 +1,6 @@
 - Bump version in `build.gradle` file
 - Update `CHANGELOG.md` with release notes
-- `./gradlew buildPlugin`
+- `./gradlew clean buildPlugin`
 - `git add .` will stage all local changes for commit
 - `git commit -m <Changes>` will commit to local git repo
 - `git tag -a <version> -m "<Release notes>"` will create tag with the latest version

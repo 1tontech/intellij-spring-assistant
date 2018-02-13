@@ -1,3 +1,9 @@
+### Since 0.6.0 (13 Feb 2017):
+
+  - Fixed issue with property hint with just providers without any values
+  - Added pnemonic focus support in the server selection & project details screen
+  - Fixed issue in per group dependency section. Now search handles enable/disable dependencies correctly
+
 ### Since 0.5.0 (13 Feb 2017):
 
   - Keyboard navigation within selected dependencies table now works properly
