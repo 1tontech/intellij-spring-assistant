@@ -42,6 +42,7 @@ public class SelectedDependenciesTableModel extends AbstractTableModel
   private JBTable selectedDependencies;
   private List<DependencySelectionChangeListener> selectionListeners = new ArrayList<>();
   private DependencyRemovalListener removalListener;
+  private boolean ignoreNextSelection;
 
   SelectedDependenciesTableModel(JBTable selectedDependencies, ProjectCreationRequest request) {
     this.request = request;
@@ -78,9 +79,12 @@ public class SelectedDependenciesTableModel extends AbstractTableModel
 
     selectedDependencies.getSelectionModel().addListSelectionListener(e -> {
       if (!e.getValueIsAdjusting()) {
-        int rowIndex = selectedDependencies.getSelectedRow();
-        Dependency dependency = (Dependency) getValueAt(rowIndex, DEPENDENCY_COL_INDEX);
-        selectionListeners.forEach(listener -> listener.onDependencySelected(dependency));
+        if (!ignoreNextSelection) {
+          int rowIndex = selectedDependencies.getSelectedRow();
+          Dependency dependency = (Dependency) getValueAt(rowIndex, DEPENDENCY_COL_INDEX);
+          selectionListeners.forEach(listener -> listener.onDependencySelected(dependency));
+        }
+        ignoreNextSelection = false;
       }
     });
     // Since clicking on the same row to delete dependency thats already selected does not trigger a new ListSelection event, we should rely on mouse click events for deletes
@@ -92,6 +96,7 @@ public class SelectedDependenciesTableModel extends AbstractTableModel
           int rowIndex = selectedDependencies.rowAtPoint(event.getPoint());
           Dependency dependency = (Dependency) getValueAt(rowIndex, DEPENDENCY_COL_INDEX);
           if (columnIndex == DELETE_ICON_INDEX) {
+            ignoreNextSelection = true;
             removeDependency(dependency, request);
           }
         }
@@ -147,6 +152,7 @@ public class SelectedDependenciesTableModel extends AbstractTableModel
     boolean added = request.addDependency(dependency);
     if (added) {
       int indexOfDependency = request.getIndexOfDependency(dependency);
+      ignoreNextSelection = true;
       fireTableDataChanged();
       selectedDependencies.getSelectionModel()
           .setSelectionInterval(indexOfDependency, indexOfDependency);
@@ -157,12 +163,14 @@ public class SelectedDependenciesTableModel extends AbstractTableModel
   public void onDependencyRemoved(@NotNull Dependency dependency) {
     boolean removed = request.removeDependency(dependency);
     if (removed) {
+      ignoreNextSelection = true;
       fireTableDataChanged();
     }
   }
 
   @Override
   public void onDependencySelected(@Nullable Dependency dependency) {
+    ignoreNextSelection = true;
     if (dependency == null) {
       selectedDependencies.getSelectionModel().clearSelection();
     } else {
