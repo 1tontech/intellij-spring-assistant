@@ -1,3 +1,7 @@
+### Since 0.7.0 (13 Feb 2017):
+
+  - Fixed issue in per group dependency section. Deleting a selected now retains the previously selected group
+
 ### Since 0.6.0 (13 Feb 2017):
 
   - Fixed issue with property hint with just providers without any values
