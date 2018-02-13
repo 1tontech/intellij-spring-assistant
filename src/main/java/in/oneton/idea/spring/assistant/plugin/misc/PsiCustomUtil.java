@@ -100,7 +100,7 @@ public class PsiCustomUtil {
   @Nullable
   public static PsiType safeGetValidType(@NotNull Module module, @NotNull String fqn) {
     try {
-      // Intellij  expects inner classes to be referred via `.` instead of `$`
+      // Intellij expects inner classes to be referred via `.` instead of `$`
       PsiType type = JavaPsiFacade.getInstance(module.getProject()).getParserFacade()
           .createTypeFromText(fqn.replaceAll("\\$", "."), null);
       boolean typeValid = isValidType(type);
@@ -197,7 +197,8 @@ public class PsiCustomUtil {
             .equals(psiClass.getQualifiedName()) || "java.time.Instant"
             .equals(psiClass.getQualifiedName()) || "java.time.Duration"
             .equals(psiClass.getQualifiedName())// date & duation
-            || "java.time.Period".equals(psiClass.getQualifiedName())) {
+            || "java.time.Period".equals(psiClass.getQualifiedName()) || "java.util.Locale"
+            .equals(psiClass.getQualifiedName())) {
           return STRING;
         } else if (isMap(psiClass)) {
           return MAP;

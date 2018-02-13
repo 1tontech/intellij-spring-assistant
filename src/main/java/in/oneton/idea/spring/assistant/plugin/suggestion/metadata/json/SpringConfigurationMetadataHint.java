@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNode.sanitise;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Refer to https://docs.spring.io/spring-boot/docs/2.0.0.M6/reference/htmlsingle/#configuration-metadata-hints-attributes
@@ -57,10 +58,10 @@ public class SpringConfigurationMetadataHint implements GsonPostProcessable {
 
   @Override
   public void doOnGsonDeserialization() {
-    if (values != null && values.length != 0) {
+    if (hasPredefinedValues()) {
       valueLookup = new THashMap<>();
       valueTrie = new PatriciaTrie<>();
-      for (SpringConfigurationMetadataHintValue value : values) {
+      for (SpringConfigurationMetadataHintValue value : requireNonNull(values)) {
         // The default value can be array (if property is of type array) as per documentation, we dont support those usecases as of now
         if (value.representsSingleValue()) {
           String suggestion = value.toString();
@@ -69,6 +70,10 @@ public class SpringConfigurationMetadataHint implements GsonPostProcessable {
         }
       }
     }
+  }
+
+  public boolean hasPredefinedValues() {
+    return values != null && values.length != 0;
   }
 
   @Nullable

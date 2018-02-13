@@ -6,6 +6,8 @@ import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.projectRoots.JavaSdkVersion;
 import com.intellij.ui.CollectionComboBoxModel;
+import com.intellij.ui.components.JBLabel;
+import com.intellij.ui.components.JBTextField;
 import in.oneton.idea.spring.assistant.plugin.initializr.InitializrModuleBuilder;
 import in.oneton.idea.spring.assistant.plugin.initializr.ProjectCreationRequest;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata;
@@ -22,32 +24,33 @@ import static in.oneton.idea.spring.assistant.plugin.initializr.misc.InitializrU
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.findFileUnderRootInModule;
 import static java.util.Objects.requireNonNull;
 
+// TODO: Add support for keyboard navigation into field directly
 public class ProjectDetails {
 
   private ProjectCreationRequest request;
 
   private JPanel rootPanel;
-  private JTextField groupId;
-  private JTextField artifactId;
-  private JTextField projectName;
-  private JTextField projectDescription;
-  private JTextField packageName;
+  private JBTextField groupId;
+  private JBTextField artifactId;
+  private JBTextField projectName;
+  private JBTextField projectDescription;
+  private JBTextField packageName;
   private JComboBox<IdAndName> packagingType;
   private JComboBox<IdAndName> javaVersion;
   private JComboBox<ProjectType> projectType;
   private JComboBox<IdAndName> projectLanguage;
-  private JTextField projectVersion;
+  private JBTextField projectVersion;
 
-  private JLabel groupIdLabel;
-  private JLabel artifactIdLabel;
-  private JLabel projectNameLabel;
-  private JLabel projectDescriptionLabel;
-  private JLabel packageNameLabel;
-  private JLabel packagingTypeLabel;
-  private JLabel javaVersionLabel;
-  private JLabel projectTypeLabel;
-  private JLabel projectLanguageLabel;
-  private JLabel projectVersionLabel;
+  private JBLabel groupIdLabel;
+  private JBLabel artifactIdLabel;
+  private JBLabel projectNameLabel;
+  private JBLabel projectDescriptionLabel;
+  private JBLabel packageNameLabel;
+  private JBLabel packagingTypeLabel;
+  private JBLabel javaVersionLabel;
+  private JBLabel projectTypeLabel;
+  private JBLabel projectLanguageLabel;
+  private JBLabel projectVersionLabel;
 
   public void init(InitializrModuleBuilder moduleBuilder, WizardContext wizardContext) {
     this.request = moduleBuilder.safeGetProjectCreationRequest();
@@ -74,9 +77,8 @@ public class ProjectDetails {
     projectDescription.setText(prevProjectDescription);
     projectDescription.addCaretListener(e -> request.setDescription(projectDescription.getText()));
 
-    String prevPackageName = request
-        .getSetProperty(request::setPackageName, request::getPackageName,
-            metadata.getPackageNameHolder().getDefaultValue());
+    String prevPackageName = request.getSetProperty(request::setPackageName, request::getPackageName,
+        metadata.getPackageNameHolder().getDefaultValue());
     packageName.setText(prevPackageName);
     packageName.addCaretListener(e -> request.setPackageName(packageName.getText()));
 
@@ -92,11 +94,9 @@ public class ProjectDetails {
             packagingTypeComposite.getDefaultValue());
     String defaultPackagingTypeId =
         defaultPackagingType != null ? defaultPackagingType.getId() : null;
-    CollectionComboBoxModel<IdAndName> packagingTypeComboBoxModel =
-        newCollectionComboBoxModel(packagingTypes, defaultPackagingTypeId);
+    CollectionComboBoxModel<IdAndName> packagingTypeComboBoxModel = newCollectionComboBoxModel(packagingTypes, defaultPackagingTypeId);
     packagingType.setModel(packagingTypeComboBoxModel);
-    packagingType
-        .addActionListener(e -> request.setPackaging((IdAndName) packagingType.getSelectedItem()));
+    packagingType.addActionListener(e -> request.setPackaging((IdAndName) packagingType.getSelectedItem()));
 
     // TODO: Auto detect project java version if user is adding a module instead of new project
     IdAndNameComposite javaVersionComposite = metadata.getJavaVersionComposite();
@@ -105,24 +105,19 @@ public class ProjectDetails {
         .getSetIdContainer(request::setJavaVersion, request::getJavaVersion, javaVersions,
             javaVersionComposite.getDefaultValue());
     String defaultJavaVersionId = defaultJavaVersion != null ? defaultJavaVersion.getId() : null;
-    CollectionComboBoxModel<IdAndName> javaVersionComboBoxModel =
-        newCollectionComboBoxModel(javaVersions, defaultJavaVersionId);
+    CollectionComboBoxModel<IdAndName> javaVersionComboBoxModel = newCollectionComboBoxModel(javaVersions, defaultJavaVersionId);
     javaVersion.setModel(javaVersionComboBoxModel);
-    javaVersion
-        .addActionListener(e -> request.setJavaVersion((IdAndName) javaVersion.getSelectedItem()));
+    javaVersion.addActionListener(e -> request.setJavaVersion((IdAndName) javaVersion.getSelectedItem()));
 
     IdAndNameComposite languageComposite = metadata.getLanguageComposite();
     List<IdAndName> languages = languageComposite.getValues();
     IdAndName defaultLanguage = request
-        .getSetIdContainer(request::setLanguage, request::getLanguage, languages,
-            languageComposite.getDefaultValue());
+        .getSetIdContainer(request::setLanguage, request::getLanguage, languages, languageComposite.getDefaultValue());
     String defaultLanguageId = defaultLanguage != null ? defaultLanguage.getId() : null;
-    CollectionComboBoxModel<IdAndName> projectLanguageComboBoxModel =
-        newCollectionComboBoxModel(languages, defaultLanguageId);
+    CollectionComboBoxModel<IdAndName> projectLanguageComboBoxModel = newCollectionComboBoxModel(languages, defaultLanguageId);
 
     projectLanguage.setModel(projectLanguageComboBoxModel);
-    projectLanguage
-        .addActionListener(e -> request.setLanguage((IdAndName) projectLanguage.getSelectedItem()));
+    projectLanguage.addActionListener(e -> request.setLanguage((IdAndName) projectLanguage.getSelectedItem()));
 
     ProjectTypeComposite projectTypeComposite = metadata.getProjectTypeComposite();
     List<ProjectType> projectTypes = projectTypeComposite.getTypes();
@@ -132,8 +127,7 @@ public class ProjectDetails {
     // for the cases where the user is trying to add module into an existing project
     if (project != null && project.isInitialized()) {
       boolean rootProjectIsGradle =
-          findFileUnderRootInModule(wizardContext.getProject().getBaseDir(), "build.gradle")
-              != null;
+          findFileUnderRootInModule(wizardContext.getProject().getBaseDir(), "build.gradle") != null;
       if (rootProjectIsGradle) {
         defaultProjectTypeId = "gradle-project";
       } else {
@@ -147,22 +141,18 @@ public class ProjectDetails {
     if (defaultProjectTypeId == null) {
       defaultProjectTypeId = projectTypeComposite.getDefaultValue();
     }
-    ProjectType defaultProjectType = request
-        .getSetIdContainer(request::setType, request::getType, projectTypes, defaultProjectTypeId);
+    ProjectType defaultProjectType = request.getSetIdContainer(request::setType, request::getType, projectTypes, defaultProjectTypeId);
     defaultProjectTypeId = defaultProjectType != null ? defaultProjectType.getId() : null;
-    CollectionComboBoxModel<ProjectType> projectTypeComboBoxModel =
-        newCollectionComboBoxModel(projectTypes, defaultProjectTypeId);
+    CollectionComboBoxModel<ProjectType> projectTypeComboBoxModel = newCollectionComboBoxModel(projectTypes, defaultProjectTypeId);
     projectType.setModel(projectTypeComboBoxModel);
-    projectType
-        .addActionListener(e -> request.setType((ProjectType) projectType.getSelectedItem()));
+    projectType.addActionListener(e -> request.setType((ProjectType) projectType.getSelectedItem()));
   }
 
   public JPanel getRoot() {
     return rootPanel;
   }
 
-  public boolean validate(ModuleBuilder moduleBuilder, WizardContext wizardContext)
-      throws ConfigurationException {
+  public boolean validate(ModuleBuilder moduleBuilder, WizardContext wizardContext) throws ConfigurationException {
     if (!request.hasValidGroupId()) {
       throw new ConfigurationException("Invalid group id", "Invalid Data");
     } else if (!request.hasValidArtifactId()) {
@@ -175,10 +165,8 @@ public class ProjectDetails {
       throw new ConfigurationException("Invalid package", "Invalid Data");
     } else if (!request.hasCompatibleJavaVersion(moduleBuilder, wizardContext)) {
       JavaSdkVersion wizardSdkVersion = from(wizardContext, moduleBuilder);
-      throw new ConfigurationException("Selected Java version " + requireNonNull(
-          IdAndName.class.cast(javaVersion.getSelectedItem())).getName()
-          + " is not supported. Max supported version is (" + requireNonNull(wizardSdkVersion)
-          .getMaxLanguageLevel().getCompilerComplianceDefaultOption()
+      throw new ConfigurationException("Selected Java version " + requireNonNull(IdAndName.class.cast(javaVersion.getSelectedItem())).getName()
+          + " is not supported. Max supported version is (" + requireNonNull(wizardSdkVersion).getMaxLanguageLevel().getCompilerComplianceDefaultOption()
           + ").\n\n You can go back to first screen and change the Project/Module SDK version there if you need support for newer Java versions",
           "Java Compatibility");
     }

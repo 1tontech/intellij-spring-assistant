@@ -377,7 +377,8 @@ public class SpringConfigurationMetadataProperty
   }
 
   private boolean isLeafWithKnownValues() {
-    return !isMapWithPredefinedKeys() && !isMapWithPredefinedValues() && genericOrKeyHint != null;
+    return !isMapWithPredefinedKeys() && !isMapWithPredefinedValues() && genericOrKeyHint != null
+        && genericOrKeyHint.hasPredefinedValues();
   }
 
   @Contract("_, _, !null -> !null; _, _, null -> null")

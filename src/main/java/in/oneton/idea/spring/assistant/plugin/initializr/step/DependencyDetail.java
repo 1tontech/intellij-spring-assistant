@@ -2,6 +2,7 @@ package in.oneton.idea.spring.assistant.plugin.initializr.step;
 
 import com.intellij.ui.HyperlinkLabel;
 import com.intellij.ui.JBColor;
+import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.panels.VerticalLayout;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.DependencyComposite.DependencyGroup.Dependency;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.DependencyComposite.DependencyGroup.Dependency.DependencyLinksContainer;
@@ -23,13 +24,13 @@ public class DependencyDetail
   private Version version;
 
   private JPanel root;
-  private JLabel name;
-  private JLabel description;
-  private JLabel guidesTitle;
+  private JBLabel name;
+  private JBLabel description;
+  private JBLabel guidesTitle;
   private JPanel guidesContainer;
-  private JLabel referenceTitle;
+  private JBLabel referenceTitle;
   private JPanel referenceContainer;
-  private JLabel incompatibleLabel;
+  private JBLabel incompatibleLabel;
 
   public void init(Version version) {
     this.version = version;

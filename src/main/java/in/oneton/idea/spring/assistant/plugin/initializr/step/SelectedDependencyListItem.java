@@ -2,6 +2,7 @@ package in.oneton.idea.spring.assistant.plugin.initializr.step;
 
 import com.intellij.openapi.ui.popup.IconButton;
 import com.intellij.ui.InplaceButton;
+import com.intellij.ui.components.JBLabel;
 
 import javax.swing.*;
 
@@ -12,7 +13,7 @@ public class SelectedDependencyListItem {
   private SelectedDependencyListItemListener listener;
 
   private InplaceButton deleteButton;
-  private JLabel nameLabel;
+  private JBLabel nameLabel;
   private JPanel root;
 
   public void init(String name, SelectedDependencyListItemListener listener) {
