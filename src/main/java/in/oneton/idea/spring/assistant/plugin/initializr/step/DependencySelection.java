@@ -3,6 +3,7 @@ package in.oneton.idea.spring.assistant.plugin.initializr.step;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.ui.ComboBox;
 import com.intellij.ui.CollectionComboBoxModel;
 import com.intellij.ui.ColoredListCellRenderer;
 import com.intellij.ui.DocumentAdapter;
@@ -56,7 +57,7 @@ public class DependencySelection implements Disposable, DependencySelectionChang
       new THashMap<>();
   private InitializerMetadata metadata;
   private SearchTextField filter;
-  private JComboBox<IdAndName> bootVersion;
+  private ComboBox<IdAndName> bootVersion;
   private JPanel rootPanel;
   private JPanel rightPanel;
   private JPanel leftPanel;
@@ -185,8 +186,8 @@ public class DependencySelection implements Disposable, DependencySelectionChang
           } else {
             rebuildFilteredGroupsAndDependencies(metadata.getDependencyComposite().getGroups());
           }
-          perGroupDependencyTableModel.fireTableDataChanged();
           filteringGroupListModel.refilter();
+          perGroupDependencyTableModel.reindexAndFireUpdate();
           if (filteringGroupListModel.getSize() != 0) {
             // if there is a deferred dependency that needs to be selected, lets select this both in the groups & also in the per group dependency table
             if (deferreredDependecySelection != null) {

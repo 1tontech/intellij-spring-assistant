@@ -1,7 +1,6 @@
 package in.oneton.idea.spring.assistant.plugin.initializr.metadata;
 
 import com.google.gson.annotations.SerializedName;
-import gnu.trove.THashSet;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.DependencyComposite.DependencyGroup.Dependency;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.io.spring.initializr.util.Version;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.io.spring.initializr.util.VersionRange;
@@ -18,7 +17,6 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 @Data
 @ToString
@@ -108,19 +106,6 @@ public class InitializerMetadata {
       @Override
       public String toString() {
         return name;
-      }
-
-      @NotNull
-      public Set<Integer> getIncompatibleDependencyIndexes(Version bootVersion) {
-        Set<Integer> incompatibleDependencyIndexes = new THashSet<>();
-        for (int i = 0; i < dependencies.size(); i++) {
-          Dependency dependency = dependencies.get(i);
-          VersionRange versionRange = dependency.getVersionRange();
-          if (versionRange != null && !versionRange.match(bootVersion)) {
-            incompatibleDependencyIndexes.add(i);
-          }
-        }
-        return incompatibleDependencyIndexes;
       }
 
 

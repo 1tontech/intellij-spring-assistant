@@ -6,6 +6,7 @@ import com.intellij.ui.ColoredTableCellRenderer;
 import com.intellij.ui.TableSpeedSearch;
 import com.intellij.ui.TableUtil;
 import com.intellij.ui.table.JBTable;
+import gnu.trove.THashSet;
 import in.oneton.idea.spring.assistant.plugin.initializr.ProjectCreationRequest;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.DependencyComposite.DependencyGroup;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.DependencyComposite.DependencyGroup.Dependency;
@@ -66,9 +67,8 @@ public class PerGroupDependencyTableModel extends AbstractTableModel
     this.request = request;
     this.dependencyGroup = dependencyGroup;
     this.bootVersion = bootVersion;
-    this.incompatibleDependencyIndexes =
-        dependencyGroup.getIncompatibleDependencyIndexes(bootVersion);
     this.filteredGroupAndDependencies = filteredGroupAndDependencies;
+    reindex();
 
     perGroupDependencyTable.setModel(this);
     resetTableLookAndFeelToSingleSelect(perGroupDependencyTable);
@@ -184,8 +184,7 @@ public class PerGroupDependencyTableModel extends AbstractTableModel
   @Override
   public Object getValueAt(int rowIndex, int columnIndex) {
     Dependency dependency = getFilteredDependencies().get(rowIndex);
-    return columnIndex == CHECKBOX_COL_INDEX ? request.containsDependency(dependency) :
-        dependency;
+    return columnIndex == CHECKBOX_COL_INDEX ? request.containsDependency(dependency) : dependency;
   }
 
   private Dependency getDependencyAt(int selectedRow) {
@@ -209,7 +208,7 @@ public class PerGroupDependencyTableModel extends AbstractTableModel
   public void update(@Nullable DependencyGroup dependencyGroup) {
     this.dependencyGroup = dependencyGroup;
     if (dependencyGroup != null) {
-      incompatibleDependencyIndexes = dependencyGroup.getIncompatibleDependencyIndexes(bootVersion);
+      reindex();
     } else {
       incompatibleDependencyIndexes = null;
     }
@@ -236,10 +235,7 @@ public class PerGroupDependencyTableModel extends AbstractTableModel
   @Override
   public void onVersionUpdated(Version newVersion) {
     this.bootVersion = newVersion;
-    if (dependencyGroup != null) {
-      incompatibleDependencyIndexes = dependencyGroup.getIncompatibleDependencyIndexes(bootVersion);
-    }
-    fireTableDataChanged();
+    reindexAndFireUpdate();
   }
 
   @Override
@@ -270,6 +266,23 @@ public class PerGroupDependencyTableModel extends AbstractTableModel
 
   public void setSelection(Dependency selection) {
     onDependencySelected(selection);
+  }
+
+  public void reindexAndFireUpdate() {
+    reindex();
+    fireTableDataChanged();
+  }
+
+  private void reindex() {
+    if (dependencyGroup != null) {
+      incompatibleDependencyIndexes = new THashSet<>();
+      List<Dependency> dependencies = filteredGroupAndDependencies.get(dependencyGroup);
+      for (int i = 0; i < dependencies.size(); i++) {
+        if (!dependencies.get(i).isVersionCompatible(bootVersion)) {
+          incompatibleDependencyIndexes.add(i);
+        }
+      }
+    }
   }
 
 }

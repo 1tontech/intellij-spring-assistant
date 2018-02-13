@@ -109,7 +109,7 @@
                       <text value="Spring Boot version"/>
                     </properties>
                   </component>
-                  <component id="9c5fc" class="javax.swing.JComboBox" binding="bootVersion">
+                  <component id="9c5fc" class="com.intellij.openapi.ui.ComboBox" binding="bootVersion">
                     <constraints>
                       <grid row="0" column="4" row-span="1" col-span="1" vsize-policy="0" hsize-policy="2" anchor="8" fill="1" indent="0" use-parent-layout="false"/>
                     </constraints>

@@ -108,7 +108,7 @@
               <focusAccelerator value="K"/>
             </properties>
           </component>
-          <component id="cd784" class="javax.swing.JComboBox" binding="packagingType">
+          <component id="cd784" class="com.intellij.openapi.ui.ComboBox" binding="packagingType">
             <constraints>
               <grid row="5" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="2" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
             </constraints>
@@ -130,7 +130,7 @@
               <text value="Java version"/>
             </properties>
           </component>
-          <component id="ffe50" class="javax.swing.JComboBox" binding="javaVersion">
+          <component id="ffe50" class="com.intellij.openapi.ui.ComboBox" binding="javaVersion">
             <constraints>
               <grid row="6" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="2" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
             </constraints>
@@ -144,7 +144,7 @@
               <text value="Project type"/>
             </properties>
           </component>
-          <component id="df729" class="javax.swing.JComboBox" binding="projectType">
+          <component id="df729" class="com.intellij.openapi.ui.ComboBox" binding="projectType">
             <constraints>
               <grid row="3" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
             </constraints>
@@ -158,7 +158,7 @@
               <text value="Language"/>
             </properties>
           </component>
-          <component id="b2f69" class="javax.swing.JComboBox" binding="projectLanguage">
+          <component id="b2f69" class="com.intellij.openapi.ui.ComboBox" binding="projectLanguage">
             <constraints>
               <grid row="4" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
             </constraints>
@@ -203,6 +203,7 @@
             </constraints>
             <properties>
               <font style="1"/>
+              <fontColor value="BRIGHTER"/>
               <text value="Project properties"/>
             </properties>
           </component>
