@@ -122,9 +122,10 @@ public class ClassMetadataProxy implements MetadataProxy {
   @Nullable
   @Override
   public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
+      String originalValue) {
     return doWithTargetAndReturn(module,
-        target -> target.getDocumentationForValue(module, nodeNavigationPathDotDelimited, value),
+        target -> target.getDocumentationForValue(module, nodeNavigationPathDotDelimited,
+            originalValue),
         null);
   }
 

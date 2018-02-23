@@ -147,11 +147,11 @@ public class EnumClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected String doGetDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
+      String originalValue) {
     if (childLookup != null) {
-      PsiField type = childLookup.get(value);
-      return "<b>" + nodeNavigationPathDotDelimited + "</b> = <b>" + unescapeValue(value) + "</b>"
-          + new JavaDocumentationProvider().generateDoc(type, type);
+      PsiField type = childLookup.get(sanitise(originalValue));
+      return "<b>" + nodeNavigationPathDotDelimited + "</b> = <b>" + unescapeValue(originalValue)
+          + "</b>" + new JavaDocumentationProvider().generateDoc(type, type);
     }
     return null;
   }

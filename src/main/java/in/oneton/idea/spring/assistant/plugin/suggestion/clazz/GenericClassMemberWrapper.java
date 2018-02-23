@@ -189,8 +189,8 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
 
   @Override
   public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
-    return "<b>" + nodeNavigationPathDotDelimited + "</b> =  <b>" + unescapeValue(value) + "</b>"
+      String originalValue) {
+    return "<b>" + nodeNavigationPathDotDelimited + "</b> =  <b>" + unescapeValue(originalValue) + "</b>"
         + new JavaDocumentationProvider().generateDoc(member, member);
   }
 

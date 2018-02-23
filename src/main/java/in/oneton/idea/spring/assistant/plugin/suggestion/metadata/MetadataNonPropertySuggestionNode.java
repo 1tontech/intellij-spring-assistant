@@ -412,7 +412,7 @@ public class MetadataNonPropertySuggestionNode extends MetadataSuggestionNode {
   @Nullable
   @Override
   public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
+      String originalValue) {
     throw new IllegalAccessError("Should never be called");
   }
 

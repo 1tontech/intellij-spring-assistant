@@ -288,7 +288,7 @@ public class SuggestionServiceImpl implements SuggestionService {
             if (startSearchFrom.isLeaf(module)) {
               suggestions = startSearchFrom.findValueSuggestionsForPrefix(module, fileType,
                   unmodifiableList(matchesRootToDeepest),
-                  truncateIdeaDummyIdentifier(element.getText()), siblingsToExclude);
+                  sanitise(truncateIdeaDummyIdentifier(element.getText())), siblingsToExclude);
             } else {
               suggestions = startSearchFrom.findKeySuggestionsForQueryPrefix(module, fileType,
                   unmodifiableList(matchesRootToDeepest), matchesRootToDeepest.size(),

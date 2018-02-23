@@ -186,8 +186,8 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
   @Nullable
   @Override
   public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
-    return property.getDocumentationForValue(module, nodeNavigationPathDotDelimited, value);
+      String originalValue) {
+    return property.getDocumentationForValue(module, nodeNavigationPathDotDelimited, originalValue);
   }
 
   @Override

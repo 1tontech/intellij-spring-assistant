@@ -71,8 +71,8 @@ class IterableKeySuggestionNode implements SuggestionNode {
 
   @Override
   public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
-    return unwrapped.getDocumentationForValue(module, nodeNavigationPathDotDelimited, value);
+      String originalValue) {
+    return unwrapped.getDocumentationForValue(module, nodeNavigationPathDotDelimited, originalValue);
   }
 
   @Override

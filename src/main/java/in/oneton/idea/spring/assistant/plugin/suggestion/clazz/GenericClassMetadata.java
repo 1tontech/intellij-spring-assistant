@@ -203,7 +203,7 @@ public class GenericClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected String doGetDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
+      String originalValue) {
     throw new IllegalAccessError("Method should never be called for a generic class");
   }
 

@@ -35,7 +35,10 @@ import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.removeGene
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.shortenedType;
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.updateClassNameAsJavadocHtml;
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.safeGetValidType;
+import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.ENUM;
+import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.MAP;
 import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
+import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.VALUES;
 import static in.oneton.idea.spring.assistant.plugin.suggestion.clazz.ClassSuggestionNodeFactory.newMetadataProxy;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.compare;
@@ -311,7 +314,7 @@ public class SpringConfigurationMetadataProperty
       List<SuggestionNode> matchesRootTillContainerProperty, String prefix,
       @Nullable Set<String> siblingsToExclude) {
     assert isLeaf(module);
-    if (nodeType == SuggestionNodeType.VALUES) {
+    if (nodeType == VALUES) {
       Collection<SpringConfigurationMetadataHintValue> matches =
           requireNonNull(genericOrKeyHint).findHintValuesWithPrefix(prefix);
       if (!isEmpty(matches)) {
@@ -359,9 +362,9 @@ public class SpringConfigurationMetadataProperty
 
   private void updateNodeType() {
     if (isMapWithPredefinedKeys() || isMapWithPredefinedValues()) {
-      nodeType = SuggestionNodeType.MAP;
+      nodeType = MAP;
     } else if (isLeafWithKnownValues()) {
-      nodeType = SuggestionNodeType.VALUES;
+      nodeType = VALUES;
     }
   }
 
@@ -441,7 +444,7 @@ public class SpringConfigurationMetadataProperty
   @Nullable
   private PsiType getMapKeyType(Module module) {
     SuggestionNodeType nodeType = getSuggestionNodeType(module);
-    if (nodeType == SuggestionNodeType.MAP) {
+    if (nodeType == MAP) {
       return doWithDelegateOrReturnNull(module, delegate -> {
         assert delegate instanceof MapClassMetadataProxy;
         return MapClassMetadataProxy.class.cast(delegate).getMapKeyType(module);
@@ -453,7 +456,7 @@ public class SpringConfigurationMetadataProperty
   @Nullable
   private PsiType getMapValueType(Module module) {
     SuggestionNodeType nodeType = getSuggestionNodeType(module);
-    if (nodeType == SuggestionNodeType.MAP) {
+    if (nodeType == MAP) {
       return doWithDelegateOrReturnNull(module, delegate -> {
         assert delegate instanceof MapClassMetadataProxy;
         return MapClassMetadataProxy.class.cast(delegate).getMapValueType(module);
@@ -472,6 +475,10 @@ public class SpringConfigurationMetadataProperty
         return hintValueWithName
             .getDocumentationForValue(nodeNavigationPathDotDelimited, getMapValueType(module));
       }
+    } else {
+      // possible this represents an enum
+      return doWithDelegateOrReturnNull(module, delegate -> delegate
+          .getDocumentationForValue(module, nodeNavigationPathDotDelimited, value));
     }
     return null;
   }
@@ -588,18 +595,18 @@ public class SpringConfigurationMetadataProperty
     @Nullable
     @Override
     public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-        String value) {
+        String originalValue) {
       if (isMapWithPredefinedValues()) {
         assert valueHint != null;
         Collection<SpringConfigurationMetadataHintValue> matches =
-            valueHint.findHintValuesWithPrefix(value);
+            valueHint.findHintValuesWithPrefix(originalValue);
         assert matches != null && matches.size() == 1;
         SpringConfigurationMetadataHintValue hint = matches.iterator().next();
         return hint
             .getDocumentationForValue(nodeNavigationPathDotDelimited, getMapValueType(module));
       } else {
         return doWithDelegateOrReturnNull(module, delegate -> delegate
-            .getDocumentationForValue(module, nodeNavigationPathDotDelimited, value));
+            .getDocumentationForValue(module, nodeNavigationPathDotDelimited, originalValue));
       }
     }
 
@@ -621,7 +628,7 @@ public class SpringConfigurationMetadataProperty
     @Override
     public SuggestionNodeType getSuggestionNodeType(Module module) {
       if (isLeafWithKnownValues() || isMapWithPredefinedValues()) { // predefined values
-        return SuggestionNodeType.ENUM;
+        return ENUM;
       }
       return PsiCustomUtil.getSuggestionNodeType(getMapValueType(module));
     }

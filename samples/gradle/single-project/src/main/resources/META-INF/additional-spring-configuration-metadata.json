@@ -80,8 +80,12 @@
       "name": "custom.deprecated.autowarning",
       "type": "java.lang.Boolean",
       "deprecation": {
-        "replacement": "spring.flyway.baseline-on-migrate"
+        "replacement": "custom.replacement"
       }
+    },
+    {
+      "name": "custom.replacement",
+      "type": "java.lang.Boolean"
     },
     {
       "deprecated": true,

@@ -59,7 +59,7 @@ public interface MetadataProxy {
 
   @Nullable
   String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value);
+      String originalValue);
 
   boolean isLeaf(Module module);
 

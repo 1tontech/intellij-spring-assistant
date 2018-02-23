@@ -137,9 +137,9 @@ public class IterableClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected String doGetDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
+      String originalValue) {
     return doWithDelegateAndReturn(delegate -> delegate
-        .getDocumentationForValue(module, nodeNavigationPathDotDelimited, value), null);
+        .getDocumentationForValue(module, nodeNavigationPathDotDelimited, originalValue), null);
   }
 
   @Override

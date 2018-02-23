@@ -1,3 +1,7 @@
+### Since 0.10.0 (23 Feb 2017):
+
+  - Fixed issues with documentation for enum values + case sensitive enum suggestions
+
 ### Since 0.9.0 (23 Feb 2017):
 
   - Fixed issue with deprecated property/groups at higher levels shadowing valid suggestions deep inside

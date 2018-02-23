@@ -118,7 +118,7 @@ public class BooleanClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected String doGetDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
+      String originalValue) {
     // Format for the documentation is as follows
     /*
      * <p><b>a.b.c</b> ({@link com.acme.Generic}<{@link com.acme.Class1}, {@link com.acme.Class2}>)</p>
@@ -135,7 +135,7 @@ public class BooleanClassMetadata extends ClassMetadata {
     createHyperlink(linkBuilder, classFqn, classFqn, false);
     builder.append(" (").append(linkBuilder.toString()).append(")");
 
-    builder.append("<p>").append(value).append("</p>");
+    builder.append("<p>").append(originalValue).append("</p>");
 
     return builder.toString();
   }

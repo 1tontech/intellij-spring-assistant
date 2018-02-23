@@ -18,9 +18,9 @@ public interface DocumentationProvider {
   /**
    * @param module                         module
    * @param nodeNavigationPathDotDelimited node path
-   * @param value                          value selected/typed by user for the current node used as key
+   * @param originalValue                          value selected/typed by user for the current node used as key
    * @return Documentation for selected value with current node as key
    */
   String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value);
+      String originalValue);
 }

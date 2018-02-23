@@ -152,9 +152,10 @@ public class MapClassMetadata extends ClassMetadata {
   @Nullable
   @Override
   protected String doGetDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
+      String originalValue) {
     return doWithValueDelegateOrReturnNull(
-        proxy -> proxy.getDocumentationForValue(module, nodeNavigationPathDotDelimited, value));
+        proxy -> proxy.getDocumentationForValue(module, nodeNavigationPathDotDelimited,
+            originalValue));
   }
 
   @Override
@@ -291,9 +292,10 @@ public class MapClassMetadata extends ClassMetadata {
 
     @Override
     public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-        String value) {
+        String originalValue) {
       return doWithValueDelegateOrReturnNull(
-          proxy -> proxy.getDocumentationForValue(module, nodeNavigationPathDotDelimited, value));
+          proxy -> proxy.getDocumentationForValue(module, nodeNavigationPathDotDelimited,
+              originalValue));
     }
 
     @Override

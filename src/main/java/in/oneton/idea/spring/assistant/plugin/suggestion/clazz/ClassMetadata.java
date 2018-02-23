@@ -132,14 +132,14 @@ public abstract class ClassMetadata {
 
   @Nullable
   public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
-      String value) {
+      String originalValue) {
     initIfNotAlready(module);
-    return doGetDocumentationForValue(module, nodeNavigationPathDotDelimited, value);
+    return doGetDocumentationForValue(module, nodeNavigationPathDotDelimited, originalValue);
   }
 
   @Nullable
   protected abstract String doGetDocumentationForValue(Module module,
-      String nodeNavigationPathDotDelimited, String value);
+      String nodeNavigationPathDotDelimited, String originalValue);
 
   public boolean isLeaf(Module module) {
     initIfNotAlready(module);
