@@ -39,6 +39,7 @@ import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.safeGetV
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.commons.collections4.CollectionUtils.isEmpty;
 
 /**
  * Represents a node in the hierarchy of suggestions
@@ -283,21 +284,38 @@ public class MetadataNonPropertySuggestionNode extends MetadataSuggestionNode {
         SortedMap<String, MetadataSuggestionNode> sortedPrefixToMetadataNode =
             childrenTrie.prefixMap(querySegmentPrefix);
         Collection<MetadataSuggestionNode> matchedChildren = sortedPrefixToMetadataNode.values();
+
+        Set<MetadataSuggestionNode> exclusionMembers = null;
+        if (siblingsToExclude != null) {
+          exclusionMembers = siblingsToExclude.stream().map(childLookup::get).collect(toSet());
+        }
+
+        if (!isEmpty(exclusionMembers) && !isEmpty(matchedChildren)) {
+          Set<MetadataSuggestionNode> finalExclusionMembers = exclusionMembers;
+          matchedChildren =
+              matchedChildren.stream().filter(value -> !finalExclusionMembers.contains(value))
+                  .collect(toList());
+        }
+
         if (matchedChildren.size() != 0) {
-          if (siblingsToExclude != null) {
-            Set<MetadataSuggestionNode> exclusionMembers =
-                siblingsToExclude.stream().map(childLookup::get).collect(toSet());
-            matchedChildren =
-                matchedChildren.stream().filter(value -> !exclusionMembers.contains(value))
-                    .collect(toList());
+          SortedSet<Suggestion> suggestions =
+              addChildToMatchesAndSearchInNextLevel(module, fileType, matchesRootTillMe,
+                  numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex + 1,
+                  matchedChildren);
+          // If the leaf is deprecated (management.context-path), it will shadow deeper match (management.server.servlet.context-path)
+          if (suggestions != null) {
+            return suggestions;
+          } else {
+            // lets search in the next level
+            return addChildToMatchesAndSearchInNextLevel(module, fileType, matchesRootTillMe,
+                numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex,
+                computeChildrenToIterateOver(childLookup, exclusionMembers));
           }
-          return addChildToMatchesAndSearchInNextLevel(module, fileType, matchesRootTillMe,
-              numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex + 1,
-              matchedChildren);
         } else {
+          // lets search in the next level
           return addChildToMatchesAndSearchInNextLevel(module, fileType, matchesRootTillMe,
               numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex,
-              childrenTrie.values());
+              computeChildrenToIterateOver(childLookup, exclusionMembers));
         }
       }
       return null;
@@ -435,6 +453,20 @@ public class MetadataNonPropertySuggestionNode extends MetadataSuggestionNode {
       assert childLookup != null;
       childLookup.values().forEach(child -> child.refreshClassProxy(module));
     }
+  }
+
+  private Collection<MetadataSuggestionNode> computeChildrenToIterateOver(
+      @NotNull Map<String, MetadataSuggestionNode> childLookup,
+      Set<MetadataSuggestionNode> exclusionMembers) {
+    Collection<MetadataSuggestionNode> childrenToIterateOver;
+    if (!isEmpty(exclusionMembers)) {
+      childrenToIterateOver =
+          childLookup.values().stream().filter(value -> !exclusionMembers.contains(value))
+              .collect(toList());
+    } else {
+      childrenToIterateOver = childLookup.values();
+    }
+    return childrenToIterateOver;
   }
 
   private void addProperty(SpringConfigurationMetadataProperty property, String originalName,

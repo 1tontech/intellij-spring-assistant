@@ -1,3 +1,7 @@
+### Since 0.9.0 (23 Feb 2017):
+
+  - Fixed issue with deprecated property/groups at higher levels shadowing valid suggestions deep inside
+
 ### Since 0.8.0 (23 Feb 2017):
 
   - Fixed issue with property & group names. Now hiphens & underscores in the names will be retained correctly

@@ -28,6 +28,7 @@ import static com.intellij.psi.util.CachedValuesManager.getCachedValue;
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.computeDependencies;
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.toValidPsiClass;
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.typeToFqn;
+import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
 import static in.oneton.idea.spring.assistant.plugin.suggestion.clazz.ClassSuggestionNodeFactory.newClassMetadata;
 import static java.util.Objects.requireNonNull;
 
@@ -135,8 +136,7 @@ public class ClassMetadataProxy implements MetadataProxy {
   @NotNull
   @Override
   public SuggestionNodeType getSuggestionNodeType(Module module) {
-    return doWithTargetAndReturn(module, ClassMetadata::getSuggestionNodeType,
-        SuggestionNodeType.UNKNOWN_CLASS);
+    return doWithTargetAndReturn(module, ClassMetadata::getSuggestionNodeType, UNKNOWN_CLASS);
   }
 
   @Nullable

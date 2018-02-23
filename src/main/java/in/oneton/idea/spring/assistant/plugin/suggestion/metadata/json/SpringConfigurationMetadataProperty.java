@@ -35,6 +35,7 @@ import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.removeGene
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.shortenedType;
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.updateClassNameAsJavadocHtml;
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.safeGetValidType;
+import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
 import static in.oneton.idea.spring.assistant.plugin.suggestion.clazz.ClassSuggestionNodeFactory.newMetadataProxy;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.compare;
@@ -261,7 +262,7 @@ public class SpringConfigurationMetadataProperty
         }
 
         if (nodeType == null) {
-          nodeType = SuggestionNodeType.UNKNOWN_CLASS;
+          nodeType = UNKNOWN_CLASS;
         }
       } else {
         nodeType = SuggestionNodeType.UNDEFINED;
@@ -280,11 +281,14 @@ public class SpringConfigurationMetadataProperty
       if (validTypeExists) {
         if (delegate == null) {
           delegate = newMetadataProxy(module, type);
+          // lets force the nodeType to recalculated
+          nodeType = null;
         }
       }
       // In the previous refresh, class was available in classpath. Now it is no longer available
       if (!validTypeExists && delegate != null) {
         delegate = null;
+        nodeType = UNKNOWN_CLASS;
       }
     }
     delegateCreationAttempted = true;
