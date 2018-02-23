@@ -229,25 +229,25 @@ public class MetadataNonPropertySuggestionNode extends MetadataSuggestionNode {
   }
 
   public void addChildren(Module module, SpringConfigurationMetadataGroup group,
-      String[] pathSegments, int startIndex, String belongsTo) {
+      String[] rawPathSegments, int startIndex, String belongsTo) {
     MetadataNonPropertySuggestionNode groupNode =
-        addChildren(pathSegments, startIndex, pathSegments.length - 1, belongsTo);
+        addChildren(rawPathSegments, startIndex, rawPathSegments.length - 1, belongsTo);
     groupNode.setGroup(module, group);
   }
 
-  public void addChildren(SpringConfigurationMetadataProperty property, String[] pathSegments,
+  public void addChildren(SpringConfigurationMetadataProperty property, String[] rawPathSegments,
       int startIndex, String belongsTo) {
     MetadataNonPropertySuggestionNode parentNode;
     // since last property is the actual property, lets only add children only till last but one
-    int endIndexIncl = pathSegments.length - 2;
+    int endIndexIncl = rawPathSegments.length - 2;
     if (startIndex <= endIndexIncl) {
-      parentNode = addChildren(pathSegments, startIndex, endIndexIncl, belongsTo);
+      parentNode = addChildren(rawPathSegments, startIndex, endIndexIncl, belongsTo);
     } else {
       parentNode = this;
       addRefCascadeTillRoot(belongsTo);
     }
 
-    parentNode.addProperty(property, pathSegments[pathSegments.length - 1], belongsTo);
+    parentNode.addProperty(property, rawPathSegments[rawPathSegments.length - 1], belongsTo);
   }
 
   @Override
@@ -437,7 +437,7 @@ public class MetadataNonPropertySuggestionNode extends MetadataSuggestionNode {
     }
   }
 
-  private void addProperty(SpringConfigurationMetadataProperty property, String pathSegment,
+  private void addProperty(SpringConfigurationMetadataProperty property, String originalName,
       String belongsTo) {
     addRefCascadeTillRoot(belongsTo);
     if (!hasChildren()) {
@@ -448,13 +448,14 @@ public class MetadataNonPropertySuggestionNode extends MetadataSuggestionNode {
     assert childLookup != null;
     assert childrenTrie != null;
     MetadataSuggestionNode childNode =
-        MetadataPropertySuggestionNode.newInstance(pathSegment, property, this, belongsTo);
+        MetadataPropertySuggestionNode.newInstance(originalName, property, this, belongsTo);
 
-    childLookup.put(pathSegment, childNode);
-    childrenTrie.put(pathSegment, childNode);
+    String name = SuggestionNode.sanitise(originalName);
+    childLookup.put(name, childNode);
+    childrenTrie.put(name, childNode);
   }
 
-  private MetadataNonPropertySuggestionNode addChildren(String[] pathSegments, int startIndex,
+  private MetadataNonPropertySuggestionNode addChildren(String[] rawPathSegments, int startIndex,
       int endIndexIncl, String belongsTo) {
     addRefCascadeTillRoot(belongsTo);
     if (!hasChildren()) {
@@ -465,11 +466,12 @@ public class MetadataNonPropertySuggestionNode extends MetadataSuggestionNode {
     assert childLookup != null;
     assert childrenTrie != null;
 
-    String pathSegment = pathSegments[startIndex];
+    String rawPathSegment = rawPathSegments[startIndex];
+    String pathSegment = SuggestionNode.sanitise(rawPathSegment);
     MetadataNonPropertySuggestionNode childNode =
         MetadataNonPropertySuggestionNode.class.cast(childLookup.get(pathSegment));
     if (childNode == null) {
-      childNode = MetadataNonPropertySuggestionNode.newInstance(pathSegment, this, belongsTo);
+      childNode = MetadataNonPropertySuggestionNode.newInstance(rawPathSegment, this, belongsTo);
       childNode.setParent(this);
 
       childLookup.put(pathSegment, childNode);
@@ -480,7 +482,7 @@ public class MetadataNonPropertySuggestionNode extends MetadataSuggestionNode {
     if (startIndex >= endIndexIncl) {
       return childNode;
     } else {
-      return childNode.addChildren(pathSegments, startIndex + 1, endIndexIncl, belongsTo);
+      return childNode.addChildren(rawPathSegments, startIndex + 1, endIndexIncl, belongsTo);
     }
   }
 

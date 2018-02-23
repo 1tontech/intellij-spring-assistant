@@ -1,3 +1,7 @@
+### Since 0.8.0 (23 Feb 2017):
+
+  - Fixed issue with property & group names. Now hiphens & underscores in the names will be retained correctly
+
 ### Since 0.7.0 (13 Feb 2017):
 
   - Fixed issue in per group dependency section. Deleting a selected now retains the previously selected group

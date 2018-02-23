@@ -2,7 +2,7 @@ import com.vladsch.flexmark.ast.Document
 import com.vladsch.flexmark.html.HtmlRenderer
 import com.vladsch.flexmark.parser.Parser
 
-version '0.7.0'
+version '0.8.0'
 
 buildscript {
     apply plugin: 'groovy'
@@ -15,9 +15,12 @@ buildscript {
         maven {
             url 'http://dl.bintray.com/jetbrains/intellij-plugin-service'
         }
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
     }
     dependencies {
-        classpath "org.jetbrains.intellij.plugins:gradle-intellij-plugin:0.3.0-SNAPSHOT"
+        classpath "gradle.plugin.org.jetbrains.intellij.plugins:gradle-intellij-plugin:0.2.18"
         classpath 'org.junit.platform:junit-platform-gradle-plugin:1.0.1'
         classpath 'org.codehaus.groovy:groovy-all:2.4.13'
         classpath group: 'com.vladsch.flexmark', name: 'flexmark', version: '0.28.12'

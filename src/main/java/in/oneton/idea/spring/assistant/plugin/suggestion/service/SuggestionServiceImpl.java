@@ -501,19 +501,19 @@ public class SuggestionServiceImpl implements SuggestionService {
     properties.sort(comparing(SpringConfigurationMetadataProperty::getName));
     for (SpringConfigurationMetadataProperty property : properties) {
       String[] pathSegments = toSanitizedPathSegments(property.getName());
+      String[] rawPathSegments = toRawPathSegments(property.getName());
       MetadataSuggestionNode closestMetadata =
           findDeepestMetadataMatch(rootSearchIndex, pathSegments, false);
 
       int startIndex;
       if (closestMetadata == null) { // path does not have a corresponding root element
-        String unsanitisedRootSegment = firstPathSegment(property.getName());
         boolean onlyRootSegmentExists = pathSegments.length == 1;
         if (onlyRootSegmentExists) {
           closestMetadata = MetadataPropertySuggestionNode
-              .newInstance(unsanitisedRootSegment, property, null, containerArchiveOrFileRef);
+              .newInstance(rawPathSegments[0], property, null, containerArchiveOrFileRef);
         } else {
           closestMetadata = MetadataNonPropertySuggestionNode
-              .newInstance(unsanitisedRootSegment, null, containerArchiveOrFileRef);
+              .newInstance(rawPathSegments[0], null, containerArchiveOrFileRef);
         }
         rootSearchIndex.put(pathSegments[0], closestMetadata);
 
@@ -523,12 +523,12 @@ public class SuggestionServiceImpl implements SuggestionService {
         startIndex = closestMetadata.numOfHopesToRoot() + 1;
       }
 
-      boolean haveMoreSegmentsLeft = startIndex < pathSegments.length;
+      boolean haveMoreSegmentsLeft = startIndex < rawPathSegments.length;
 
       if (haveMoreSegmentsLeft) {
         if (!closestMetadata.isProperty()) {
           MetadataNonPropertySuggestionNode.class.cast(closestMetadata)
-              .addChildren(property, pathSegments, startIndex, containerArchiveOrFileRef);
+              .addChildren(property, rawPathSegments, startIndex, containerArchiveOrFileRef);
         } else {
           log.warn("Detected conflict between a new group & existing property for suggestion path "
               + closestMetadata.getPathFromRoot(module)
@@ -562,17 +562,18 @@ public class SuggestionServiceImpl implements SuggestionService {
       groups.sort(comparing(SpringConfigurationMetadataGroup::getName));
       for (SpringConfigurationMetadataGroup group : groups) {
         String[] pathSegments = toSanitizedPathSegments(group.getName());
+        String[] rawPathSegments = toRawPathSegments(group.getName());
+
         MetadataSuggestionNode closestMetadata = MetadataSuggestionNode.class
             .cast(findDeepestMetadataMatch(rootSearchIndex, pathSegments, false));
 
         int startIndex;
         if (closestMetadata == null) { // path does not have a corresponding root element
           // lets build just the root element. Rest of the path segments will be taken care of by the addChildren method
-          String unsanitisedRootSegment = firstPathSegment(group.getName());
           boolean onlyRootSegmentExists = pathSegments.length == 1;
           MetadataNonPropertySuggestionNode newGroupSuggestionNode =
               MetadataNonPropertySuggestionNode
-                  .newInstance(unsanitisedRootSegment, null, containerArchiveOrFileRef);
+                  .newInstance(rawPathSegments[0], null, containerArchiveOrFileRef);
           if (onlyRootSegmentExists) {
             newGroupSuggestionNode.setGroup(module, group);
           }
@@ -598,10 +599,10 @@ public class SuggestionServiceImpl implements SuggestionService {
               MetadataNonPropertySuggestionNode.class.cast(closestMetadata);
           groupSuggestionNode.addRefCascadeTillRoot(containerArchiveOrFileRef);
 
-          boolean haveMoreSegmentsLeft = startIndex < pathSegments.length;
+          boolean haveMoreSegmentsLeft = startIndex < rawPathSegments.length;
           if (haveMoreSegmentsLeft) {
             groupSuggestionNode
-                .addChildren(module, group, pathSegments, startIndex, containerArchiveOrFileRef);
+                .addChildren(module, group, rawPathSegments, startIndex, containerArchiveOrFileRef);
           } else {
             // Node is an intermediate node that has neither group nor property assigned to it, lets assign this group to it
             // Can happen when `a.b.c` is already added to the metadata tree from an earlier metadata source & now we are trying to add a group for `a.b`
