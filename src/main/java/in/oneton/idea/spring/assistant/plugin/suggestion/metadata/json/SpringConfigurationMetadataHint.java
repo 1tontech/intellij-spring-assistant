@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNode.sanitise;
+import static in.oneton.idea.spring.assistant.plugin.suggestion.metadata.json.SpringConfigurationMetadataValueProviderType.any;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -78,10 +80,18 @@ public class SpringConfigurationMetadataHint implements GsonPostProcessable {
 
   @Nullable
   public SpringConfigurationMetadataHintValue findHintValueWithName(String pathSegment) {
+    SpringConfigurationMetadataHintValue value = null;
     if (valueLookup != null) {
-      return valueLookup.get(sanitise(pathSegment));
+      value = valueLookup.get(sanitise(pathSegment));
     }
-    return null;
+
+    if (value == null) {
+      if (providers != null && stream(providers).anyMatch(provider -> provider.getType() == any)) {
+        value =
+            SpringConfigurationMetadataHintValue.builder().nameAsObjOrArray(pathSegment).build();
+      }
+    }
+    return value;
   }
 
   public Collection<SpringConfigurationMetadataHintValue> findHintValuesWithPrefix(

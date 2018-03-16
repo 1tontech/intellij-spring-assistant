@@ -50,6 +50,20 @@
           "value": "choice3"
         }
       ]
+    },
+    {
+      "name": "custom.hint.default.keys",
+      "values": [
+        {
+          "value": "key1",
+          "description": "Key 1"
+        }
+      ],
+      "providers": [
+        {
+          "name": "any"
+        }
+      ]
     }
   ],
   "groups": [
@@ -158,6 +172,10 @@
       "name": "custom.enum",
       "description": "enum property",
       "type": "com.acme.model.DynamicEnum"
+    },
+    {
+      "name": "custom.hint.default",
+      "type": "java.util.Map<java.lang.String,com.acme.model.DynamicRoot>"
     }
   ]
 }

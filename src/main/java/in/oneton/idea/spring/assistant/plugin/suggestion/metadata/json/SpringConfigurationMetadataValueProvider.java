@@ -1,5 +1,6 @@
 package in.oneton.idea.spring.assistant.plugin.suggestion.metadata.json;
 
+import com.google.gson.annotations.SerializedName;
 import lombok.Data;
 
 /**
@@ -10,7 +11,8 @@ public class SpringConfigurationMetadataValueProvider {
   /**
    * The name of the provider to use to offer additional content assistance for the element to which the hint refers.
    */
-  private SpringConfigurationMetadataValueProviderType name;
+  @SerializedName("name")
+  private SpringConfigurationMetadataValueProviderType type;
   /**
    * Any additional parameter that the provider supports (check the documentation of the provider for more details).
    */
