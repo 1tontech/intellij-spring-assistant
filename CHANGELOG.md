@@ -1,3 +1,7 @@
+### Since 0.11.0 (19 Mar 2017):
+
+  - Fixed issue with property hints with "any" providers
+
 ### Since 0.10.0 (23 Feb 2017):
 
   - Fixed issues with documentation for enum values + case sensitive enum suggestions
