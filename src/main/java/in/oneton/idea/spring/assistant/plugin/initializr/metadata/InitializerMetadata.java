@@ -130,7 +130,8 @@ public class InitializerMetadata {
         @Data
         public static class DependencyLinksContainer {
           @Nullable
-          private DependencyLink reference;
+          @SerializedName("reference")
+          private List<DependencyLink> references;
           @Nullable
           @SerializedName("guide")
           private List<DependencyLink> guides;

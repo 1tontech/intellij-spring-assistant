@@ -63,11 +63,11 @@ public class DependencyDetail
           guidesTitle.setVisible(true);
         }
 
-        DependencyLink reference = linksContainer.getReference();
-        if (reference != null) {
-          referenceContainer.add(newHyperLink(reference, version.toString()));
-          referenceTitle.setVisible(true);
+        List<DependencyLink> references = linksContainer.getReferences();
+        if (references != null) {
           referenceContainer.setVisible(true);
+          references.forEach(reference -> referenceContainer.add(newHyperLink(reference, version.toString())));
+          referenceTitle.setVisible(true);
         }
       }
     }
