@@ -9,6 +9,7 @@ import com.intellij.psi.codeStyle.CodeStyleSettingsManager;
 import com.intellij.psi.codeStyle.CommonCodeStyleSettings;
 import in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNode;
 import lombok.experimental.UtilityClass;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
@@ -36,161 +37,159 @@ import static java.util.stream.Collectors.joining;
 
 @UtilityClass
 public class GenericUtil {
-  private static final Pattern PACKAGE_REMOVAL_PATTERN =
-      Pattern.compile("[a-zA-Z_][a-zA-Z_0-9]*\\.");
-  private static final Pattern GENERIC_SECTION_REMOVAL_PATTERN =
-      Pattern.compile("<(?<commaDelimitedTypes>[^>]+)>");
-  //  private static final Pattern CLASSNAME_MATCH_PATTERN =
-  //      Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*(?:\\.[a-zA-Z_][a-zA-Z_0-9]*)*)");
 
-  private static Pattern methodToFragmentConverter = Pattern.compile("(.+)\\.(.+)\\(.*\\)");
+  private static final Pattern PACKAGE_REMOVAL_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z_0-9]*\\.");
 
-  public static String typeForDocumentationNavigation(String type) {
+  private static final Pattern GENERIC_SECTION_REMOVAL_PATTERN = Pattern.compile("<(?<commaDelimitedTypes>[^>]+)>");
+
+  private static final Pattern methodToFragmentConverter = Pattern.compile("(.+)\\.(.+)\\(.*\\)");
+
+  public static String typeForDocumentationNavigation(final String type) {
     return type.replaceAll("\\$", ".");
   }
 
-  public static void updateClassNameAsJavadocHtml(StringBuilder buffer, String type) {
-    Matcher matcher = GENERIC_SECTION_REMOVAL_PATTERN.matcher(type);
+  public static void updateClassNameAsJavadocHtml(final StringBuilder buffer, final String type) {
+    final Matcher matcher = GENERIC_SECTION_REMOVAL_PATTERN.matcher(type);
     String baseClass = type;
-    boolean parametersPresent = matcher.find();
+
+    final boolean parametersPresent = matcher.find();
     String[] typeParameters = null;
+
     if (parametersPresent) {
       typeParameters = matcher.group("commaDelimitedTypes").split(",");
-      baseClass = matcher.replaceAll("");
+      baseClass = matcher.replaceAll(StringUtils.EMPTY);
     }
+
     createHyperlink(buffer, typeForDocumentationNavigation(baseClass), baseClass, false);
     if (typeParameters != null) {
       buffer.append("&lt;");
+
       for (int i = 0; i < typeParameters.length; i++) {
         updateClassNameAsJavadocHtml(buffer, typeParameters[i]);
+
         if (i != typeParameters.length - 1) {
           buffer.append(", ");
         }
       }
+
       buffer.append("&gt;");
     }
   }
 
-  public static String methodForDocumentationNavigation(String typeAndMethod) {
+  public static String methodForDocumentationNavigation(final String typeAndMethod) {
     return methodToFragmentConverter.matcher(typeForDocumentationNavigation(typeAndMethod))
-        .replaceAll("$1#$2");
+            .replaceAll("$1#$2");
   }
 
   @NotNull
-  public static String getCodeStyleIntent(InsertionContext insertionContext) {
-    final CodeStyleSettings currentSettings =
-        CodeStyleSettingsManager.getSettings(insertionContext.getProject());
+  public static String getCodeStyleIntent(final InsertionContext insertionContext) {
+    final CodeStyleSettings currentSettings = CodeStyleSettingsManager.getSettings(insertionContext.getProject());
     final CommonCodeStyleSettings.IndentOptions indentOptions =
-        currentSettings.getIndentOptions(insertionContext.getFile().getFileType());
-    return indentOptions.USE_TAB_CHARACTER ?
-        "\t" :
-        StringUtil.repeatSymbol(' ', indentOptions.INDENT_SIZE);
+            currentSettings.getIndentOptions(insertionContext.getFile().getFileType());
+
+    return indentOptions.USE_TAB_CHARACTER ? "\t" : StringUtil.repeatSymbol(' ', indentOptions.INDENT_SIZE);
   }
 
   @NotNull
   public static String getFirstSentenceWithoutDot(String fullSentence) {
     if (containsChar(fullSentence, '.')) {
-      BreakIterator breakIterator = getSentenceInstance(Locale.US);
+      final BreakIterator breakIterator = getSentenceInstance(Locale.US);
       breakIterator.setText(fullSentence);
       fullSentence = fullSentence.substring(breakIterator.first(), breakIterator.next()).trim();
     }
 
     if (isNotEmpty(fullSentence)) {
-      String withoutDot = endsWithChar(fullSentence, '.') ?
-          fullSentence.substring(0, fullSentence.length() - 1) :
-          fullSentence;
-      return replace(withoutDot, "\n", "");
-    } else {
-      return "";
+      final String withoutDot = endsWithChar(fullSentence, '.') ?
+              fullSentence.substring(0, fullSentence.length() - 1) : fullSentence;
+
+      return replace(withoutDot, StringUtils.LF, StringUtils.EMPTY);
     }
+
+    return StringUtils.EMPTY;
   }
 
-  public static String moduleNamesAsStrCommaDelimited(List<Module> newModules,
-      boolean includeProjectName) {
+  public static String moduleNamesAsStrCommaDelimited(final List<Module> newModules, final boolean includeProjectName) {
     return moduleNamesAsStrCommaDelimited(newModules.stream(), includeProjectName);
   }
 
-  public static String moduleNamesAsStrCommaDelimited(Module[] newModules,
-      boolean includeProjectName) {
+  public static String moduleNamesAsStrCommaDelimited(final Module[] newModules, final boolean includeProjectName) {
     return moduleNamesAsStrCommaDelimited(stream(newModules), includeProjectName);
   }
 
-  private static String moduleNamesAsStrCommaDelimited(Stream<Module> moduleStream,
-      boolean includeProjectName) {
+  private static String moduleNamesAsStrCommaDelimited(final Stream<Module> moduleStream, final boolean includeProjectName) {
     return moduleStream.map(module -> includeProjectName ?
-        module.getProject().getName() + ":" + module.getName() :
-        module.getName()).collect(joining(", "));
+            module.getProject().getName() + ":" + module.getName() :
+            module.getName()).collect(joining(", "));
   }
 
-  public static String truncateIdeaDummyIdentifier(@NotNull PsiElement element) {
+  public static String truncateIdeaDummyIdentifier(@NotNull final PsiElement element) {
     return truncateIdeaDummyIdentifier(element.getText());
   }
 
-  public static String truncateIdeaDummyIdentifier(String text) {
-    return text.replace(DUMMY_IDENTIFIER_TRIMMED, "");
+  public static String truncateIdeaDummyIdentifier(final String text) {
+    return text.replace(DUMMY_IDENTIFIER_TRIMMED, StringUtils.EMPTY);
   }
 
   @SafeVarargs
-  public static <T> List<T> modifiableList(T... items) {
+  public static <T> List<T> modifiableList(final T... items) {
     return new ArrayList<>(asList(items));
   }
 
-  public static <T> List<T> newListWithMembers(List<T> itemsToCopy, T newItem) {
-    ArrayList<T> newModifiableList = new ArrayList<>(itemsToCopy);
+  public static <T> List<T> newListWithMembers(final List<T> itemsToCopy, final T newItem) {
+    final ArrayList<T> newModifiableList = new ArrayList<>(itemsToCopy);
     newModifiableList.add(newItem);
     return newModifiableList;
   }
 
-  public static String removeGenerics(String type) {
-    Matcher matcher = GENERIC_SECTION_REMOVAL_PATTERN.matcher(type);
+  public static String removeGenerics(final String type) {
+    final Matcher matcher = GENERIC_SECTION_REMOVAL_PATTERN.matcher(type);
     if (matcher.find()) {
-      return matcher.replaceAll("");
+      return matcher.replaceAll(StringUtils.EMPTY);
     }
     return type;
   }
 
-  public static String shortenedType(String type) {
+  public static String shortenedType(final String type) {
     if (type == null) {
       return null;
     }
-    Matcher matcher = PACKAGE_REMOVAL_PATTERN.matcher(type);
+    final Matcher matcher = PACKAGE_REMOVAL_PATTERN.matcher(type);
     if (matcher.find()) {
-      return matcher.replaceAll("");
+      return matcher.replaceAll(StringUtils.EMPTY);
     }
     return type;
   }
 
   public static String dotDelimitedOriginalNames(
-      List<? extends SuggestionNode> matchesTopFirstTillParentNode, SuggestionNode currentNode) {
-    StringBuilder builder = new StringBuilder();
+          final List<? extends SuggestionNode> matchesTopFirstTillParentNode, final SuggestionNode currentNode) {
+    final StringBuilder builder = new StringBuilder();
 
-    for (SuggestionNode aMatchesTopFirstTillParentNode : matchesTopFirstTillParentNode) {
-      String originalName = aMatchesTopFirstTillParentNode.getOriginalName();
+    for (final SuggestionNode aMatchesTopFirstTillParentNode : matchesTopFirstTillParentNode) {
+      final String originalName = aMatchesTopFirstTillParentNode.getOriginalName();
       if (originalName != null) {
         builder.append(originalName).append(".");
       }
     }
 
-    String originalName = currentNode.getOriginalName();
+    final String originalName = currentNode.getOriginalName();
     if (originalName != null) {
       builder.append(originalName);
     }
     return builder.toString();
   }
 
-  public static String dotDelimitedOriginalNames(List<? extends SuggestionNode> matches) {
+  public static String dotDelimitedOriginalNames(final List<? extends SuggestionNode> matches) {
     return dotDelimitedOriginalNames(matches, 0);
   }
 
-  public static String dotDelimitedOriginalNames(List<? extends SuggestionNode> matches,
-      int startIndex) {
-    StringBuilder builder = new StringBuilder();
+  public static String dotDelimitedOriginalNames(final List<? extends SuggestionNode> matches, final int startIndex) {
+    final StringBuilder builder = new StringBuilder();
 
     for (int i = startIndex; i < matches.size(); i++) {
-      String originalName = matches.get(i).getOriginalName();
+      final String originalName = matches.get(i).getOriginalName();
       if (originalName != null) {
         builder.append(originalName);
-        boolean appendDot = i < matches.size() - 1;
+        final boolean appendDot = i < matches.size() - 1;
         if (appendDot) {
           builder.append(".");
         }
@@ -200,33 +199,30 @@ public class GenericUtil {
   }
 
   @NotNull
-  public static String getIndent(String indent, int numOfHops) {
+  public static String getIndent(final String indent, final int numOfHops) {
     if (numOfHops == 0) {
-      return "";
+      return StringUtils.EMPTY;
     }
-    StringBuilder builder = new StringBuilder();
-    for (int i = 0; i < numOfHops; i++) {
-      builder.append(indent);
-    }
-    return builder.toString();
+
+    return String.valueOf(indent).repeat(Math.max(0, numOfHops));
   }
 
   @NotNull
-  public static String getOverallIndent(String existingIndentation, String indentPerLevel,
-      int numOfLevels) {
+  public static String getOverallIndent(final String existingIndentation, final String indentPerLevel, final int numOfLevels) {
     return existingIndentation + getIndent(indentPerLevel, numOfLevels);
   }
 
   @NotNull
-  public static <T extends Comparable<T>> SortedSet<T> newSingleElementSortedSet(T t) {
-    SortedSet<T> suggestions = new TreeSet<>();
+  public static <T extends Comparable<T>> SortedSet<T> newSingleElementSortedSet(final T t) {
+    final SortedSet<T> suggestions = new TreeSet<>();
     suggestions.add(t);
+
     return suggestions;
   }
 
   public static Optional<String> getKeyNameOfObject(final PsiElement psiElement) {
     return Optional.of(psiElement).filter(el -> el instanceof YAMLKeyValue)
-        .map(YAMLKeyValue.class::cast).map(YAMLKeyValue::getName);
+            .map(YAMLKeyValue.class::cast).map(YAMLKeyValue::getName);
   }
 
 }

@@ -1,61 +1,94 @@
-import com.vladsch.flexmark.ast.Document
 import com.vladsch.flexmark.html.HtmlRenderer
 import com.vladsch.flexmark.parser.Parser
-
-version '0.12.0'
+import com.vladsch.flexmark.util.ast.Document
 
 buildscript {
-    apply plugin: 'groovy'
-
-    repositories {
-        mavenCentral()
-        maven {
-            url "https://oss.sonatype.org/content/repositories/snapshots/"
-        }
-        maven {
-            url 'http://dl.bintray.com/jetbrains/intellij-plugin-service'
-        }
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
     dependencies {
-        classpath "gradle.plugin.org.jetbrains.intellij.plugins:gradle-intellij-plugin:0.2.18"
-        classpath 'org.junit.platform:junit-platform-gradle-plugin:1.0.1'
-        classpath 'org.codehaus.groovy:groovy-all:2.4.13'
-        classpath group: 'com.vladsch.flexmark', name: 'flexmark', version: '0.28.12'
+        classpath 'com.vladsch.flexmark:flexmark:0.62.2' // '0.28.12'
     }
 }
 
-apply plugin: 'java'
-apply plugin: 'org.jetbrains.intellij'
-apply plugin: 'org.junit.platform.gradle.plugin'
+plugins {
+    id 'java'
+    id 'idea'
+    id 'org.jetbrains.intellij' version '0.6.5'
+}
 
-sourceCompatibility = 1.8
+
+group = 'in.oneton.idea.spring'
+version = '1.0.0'
+
+sourceCompatibility = JavaVersion.VERSION_11
+targetCompatibility = JavaVersion.VERSION_11
+
+compileJava.options.encoding = 'UTF-8'
+compileTestJava.options.encoding = 'UTF-8'
+compileJava.options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
-dependencies {
-    compileOnly 'org.projectlombok:lombok:1.16.20'
-    compile 'org.apache.commons:commons-collections4:4.1'
-    compile 'com.miguelfonseca.completely:completely-core:0.8.0'
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+    testCompileOnly {
+        extendsFrom annotationProcessor
+    }
+}
 
-    testCompile 'org.junit.jupiter:junit-jupiter-api:5.0.1'
+dependencies {
+
+    ['annotationProcessor', 'compileOnly', 'testAnnotationProcessor', 'testCompileOnly']
+            .each { conf -> add(conf, 'org.projectlombok:lombok:1.18.16') }
+
+    implementation 'org.apache.commons:commons-collections4:4.1'
+    implementation 'com.miguelfonseca.completely:completely-core:0.8.0'
+    implementation 'com.vladsch.flexmark:flexmark:0.62.2'
+
+    testImplementation 'junit:junit:4.12'
+    testImplementation 'org.mockito:mockito-core:2.12.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.0.1'
     testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.0.1'
-    testCompile group: 'org.mockito', name: 'mockito-core', version: '2.12.0'
+}
+
+clean.doFirst {
+    delete 'build', 'out'
+}
+
+// See https://github.com/JetBrains/gradle-intellij-plugin/
+intellij {
+    type = 'IC'
+    version = '2020.3.2'
+//  version= '2020.2'
+    pluginName = 'intellij-spring-assistant'
+    plugins = ['java', 'properties', 'yaml', 'maven', 'gradle']
+//  updateSinceUntilBuild false
+}
+
+publishPlugin {
+    token System.getenv('IJ_PLUGIN_TOKEN')
+//    username System.getProperty('ij_plugin_portal_login')
+//    password System.getProperty('ij_plugin_portal_password')
+    channels 'eap', 'nightly', 'default'
+}
+
+
+patchPluginXml {
+    pluginDescription readmeXmlAsHtml()
+    changeNotes changeLogAsHtml()
 }
 
 String readmeXmlAsHtml() {
-    Parser parser = Parser.builder().build()
-    HtmlRenderer renderer = HtmlRenderer.builder().build()
-    String readmeContent = new File(rootProject.uri('README.md')).text
+    final String readmeContent = new File(rootProject.uri('README.md')).text
     // since these images needs to shown from within intellij, lest put absolute urls so that the images & changelog will be visible
-    readmeContent = readmeContent.replaceAll("help\\.gif", "https://raw.githubusercontent.com/1tontech/intellij-spring-assistant/" + version + "/help.gif")
-    readmeContent = readmeContent.replaceAll("CHANGELOG.md", "https://github.com/1tontech/intellij-spring-assistant/blob/" + version + "/CHANGELOG.md")
-    Document readmeDocument = parser.parse(readmeContent)
-    renderer.render(readmeDocument)
+            .replaceAll("help\\.gif", "https://raw.githubusercontent.com/1tontech/intellij-spring-assistant/" + version + "/help.gif")
+            .replaceAll("CHANGELOG.md", "https://github.com/1tontech/intellij-spring-assistant/blob/" + version + "/CHANGELOG.md")
+
+    final Document readmeDocument = Parser.builder().build().parse(readmeContent)
+    HtmlRenderer.builder().build().render(readmeDocument)
 }
 
 String changeLogAsHtml() {
@@ -65,18 +98,3 @@ String changeLogAsHtml() {
     renderer.render(changeLogDocument)
 }
 
-intellij {
-    version 'IC-2017.2'
-    plugins = ['properties', 'yaml', 'maven', 'gradle', 'Lombook Plugin:0.16-2017.2']
-    downloadSources true
-    patchPluginXml {
-        pluginDescription readmeXmlAsHtml()
-        changeNotes changeLogAsHtml()
-    }
-    publishPlugin {
-        username System.getProperty('ij_plugin_portal_login')
-        password System.getProperty('ij_plugin_portal_password')
-        channels 'eap', 'nightly', 'default'
-    }
-    updateSinceUntilBuild false
-}

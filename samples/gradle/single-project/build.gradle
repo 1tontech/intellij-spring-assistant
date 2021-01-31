@@ -1,45 +1,48 @@
-buildscript {
-    ext {
-        springBootVersion = '2.0.0.RC2'
-    }
-    repositories {
-        mavenCentral()
-        maven { url "https://repo.spring.io/snapshot" }
-        maven { url "https://repo.spring.io/milestone" }
-    }
-    dependencies {
-        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
-    }
+plugins {
+  id 'java'
+  id 'idea'
+  id 'org.springframework.boot' version '2.4.2'
+  id 'io.spring.dependency-management' version '1.0.11.RELEASE'
 }
-
-apply plugin: 'java'
-apply plugin: 'org.springframework.boot'
-apply plugin: 'io.spring.dependency-management'
 
 group = 'com.acme'
 version = '0.0.1-SNAPSHOT'
-sourceCompatibility = 1.8
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
+
+compileJava.options.encoding = "UTF-8"
+compileTestJava.options.encoding = "UTF-8"
+
+compileJava.dependsOn(processResources)
 
 repositories {
-    mavenCentral()
-    maven { url "https://repo.spring.io/snapshot" }
-    maven { url "https://repo.spring.io/milestone" }
+  mavenCentral()
+  maven { url "https://repo.spring.io/snapshot" }
+  maven { url "https://repo.spring.io/milestone" }
+}
+
+configurations {
+  compileOnly {
+    extendsFrom annotationProcessor
+  }
 }
 
 dependencies {
-    compileOnly 'org.projectlombok:lombok:1.16.18'
-//    compileOnly "org.springframework.boot:spring-boot-configuration-processor"
+  ['annotationProcessor', 'compileOnly', 'testAnnotationProcessor', 'testCompileOnly']
+    .each { conf -> add(conf, 'org.projectlombok:lombok') }
+
+  implementation 'org.springframework.boot:spring-boot-starter-actuator'
+  annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
 //    compile('org.springframework.boot:spring-boot')
 //    compile('org.springframework.boot:spring-boot-devtools')
 //    compile('org.springframework.boot:spring-boot-autoconfigure')
 //    compile('org.springframework.boot:spring-boot-starter-data-jpa')
 //    compile('org.springframework.boot:spring-boot-starter-security')
 //    compile('org.springframework.boot:spring-boot-starter-web')
-    compile('org.springframework.boot:spring-boot-starter-actuator')
 //    testCompile('org.springframework.boot:spring-boot-starter-test')
 //    testCompile('org.springframework.security:spring-security-test')
 //     https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-config
 //    compile group: 'org.springframework.cloud', name: 'spring-cloud-starter-config', version: '2.0.0.M4'
 }
 
-compileJava.dependsOn(processResources)

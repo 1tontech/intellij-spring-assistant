@@ -31,7 +31,8 @@ import static in.oneton.idea.spring.assistant.plugin.suggestion.completion.FileT
 import static java.util.Objects.requireNonNull;
 
 class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
-  @Override
+
+  @Override// TODO -> Refactor this method to reduce its Cognitive Complexity from 34 to the 15 allowed. [+18 locations
   protected void addCompletions(@NotNull final CompletionParameters completionParameters,
       final ProcessingContext processingContext, @NotNull final CompletionResultSet resultSet) {
 
@@ -58,27 +59,30 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
       return;
     }
     if (parent instanceof YAMLSequenceItem) {
+
       for (PsiElement child : parent.getParent().getChildren()) {
         if (child != parent) {
+
           if (child instanceof YAMLSequenceItem) {
-            YAMLValue value = YAMLSequenceItem.class.cast(child).getValue();
+            final YAMLValue value = ((YAMLSequenceItem) child).getValue();
             if (value != null) {
               siblingsToExclude = getNewIfNotPresent(siblingsToExclude);
               siblingsToExclude.add(sanitise(value.getText()));
             }
+
           } else if (child instanceof YAMLKeyValue) {
             siblingsToExclude = getNewIfNotPresent(siblingsToExclude);
-            siblingsToExclude.add(sanitise(YAMLKeyValue.class.cast(child).getKeyText()));
+            siblingsToExclude.add(sanitise(((YAMLKeyValue) child).getKeyText()));
           }
         }
       }
+
     } else if (parent instanceof YAMLMapping) {
-      for (PsiElement child : parent.getChildren()) {
-        if (child != elementContext) {
-          if (child instanceof YAMLKeyValue) {
+
+      for (final PsiElement child : parent.getChildren()) {
+        if (child != elementContext && child instanceof YAMLKeyValue) {
             siblingsToExclude = getNewIfNotPresent(siblingsToExclude);
-            siblingsToExclude.add(sanitise(YAMLKeyValue.class.cast(child).getKeyText()));
-          }
+            siblingsToExclude.add(sanitise(((YAMLKeyValue) child).getKeyText()));
         }
       }
     }
