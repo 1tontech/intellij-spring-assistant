@@ -1,37 +1,39 @@
 package in.oneton.idea.spring.assistant.plugin.initializr;
 
 import com.intellij.ide.util.newProjectWizard.AddModuleWizard;
-import com.intellij.openapi.externalSystem.service.project.ProjectDataManager;
 import com.intellij.openapi.module.Module;
-import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
-import org.jetbrains.plugins.gradle.service.project.wizard.GradleProjectImportBuilder;
-import org.jetbrains.plugins.gradle.service.project.wizard.GradleProjectImportProvider;
+import com.intellij.projectImport.ProjectImportBuilder;
+import com.intellij.projectImport.ProjectImportProvider;
 
-import static com.intellij.openapi.components.ServiceManager.getService;
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.findFileUnderRootInModule;
 
 public class GradleModuleBuilderPostProcessor implements ModuleBuilderPostProcessor {
+
+  /**
+   * TODO: Find a way to use GradleModuleBuilder instead of GradleProjectImportBuilder when adding a child module to the parent
+   */
   @Override
-  public boolean postProcess(Module module) {
-    // TODO: Find a way to use GradleModuleBuilder instead of GradleProjectImportBuilder when adding a child module to the parent
-    Project project = module.getProject();
-    VirtualFile gradleFile = findFileUnderRootInModule(module, "build.gradle");
-    if (gradleFile == null) { // not a gradle project
+  public boolean postProcess(final Module module) {
+    final VirtualFile gradleFile = findFileUnderRootInModule(module, "build.gradle");
+
+    if (gradleFile == null) {// not a gradle project
       return true;
-    } else {
-      ProjectDataManager projectDataManager = getService(ProjectDataManager.class);
-      GradleProjectImportBuilder importBuilder = new GradleProjectImportBuilder(projectDataManager);
-      GradleProjectImportProvider importProvider = new GradleProjectImportProvider(importBuilder);
-      AddModuleWizard addModuleWizard =
-          new AddModuleWizard(project, gradleFile.getPath(), importProvider);
-      if (addModuleWizard.getStepCount() > 0 && !addModuleWizard
-          .showAndGet()) { // user has cancelled import project prompt
-        return true;
-      } else { // user chose to import via the gradle import prompt
-        importBuilder.commit(project, null, null);
-        return false;
-      }
     }
+
+    final ProjectImportBuilder<?> importBuilder = ProjectImportBuilder.EXTENSIONS_POINT_NAME.getExtensions()[0];
+    final ProjectImportProvider importProvider = ProjectImportProvider.PROJECT_IMPORT_PROVIDER.getExtensions()[0];
+
+    final AddModuleWizard addModuleWizard = new AddModuleWizard(module.getProject(), gradleFile.getPath(), importProvider);
+
+    if (addModuleWizard.getStepCount() > 0 && !addModuleWizard.showAndGet()) { // user has cancelled import project prompt
+      return true;
+    }
+
+    // user chose to import via the gradle import prompt
+    importBuilder.commit(module.getProject(), null, null);
+
+    return false;
   }
+
 }

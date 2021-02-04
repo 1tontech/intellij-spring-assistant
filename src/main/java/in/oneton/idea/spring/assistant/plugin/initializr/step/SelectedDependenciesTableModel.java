@@ -26,8 +26,7 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.intellij.icons.AllIcons.Modules.DeleteContentFolder;
-import static com.intellij.icons.AllIcons.Modules.DeleteContentFolderRollover;
+import static com.intellij.icons.AllIcons.Modules.ExcludeRoot;
 import static com.intellij.ui.speedSearch.SpeedSearchUtil.applySpeedSearchHighlighting;
 import static in.oneton.idea.spring.assistant.plugin.initializr.misc.InitializrUtil.resetTableLookAndFeelToSingleSelect;
 import static java.awt.event.MouseEvent.BUTTON1;
@@ -189,7 +188,7 @@ public class SelectedDependenciesTableModel extends AbstractTableModel
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
         boolean hasFocus, int row, int column) {
       InplaceButton inplaceButton = new InplaceButton(
-          new IconButton("Click to delete", DeleteContentFolder, DeleteContentFolderRollover),
+          new IconButton("Click to delete", ExcludeRoot, ExcludeRoot),
           e -> {
           });
       Couple<Color> colors = UIUtil.getCellColors(table, isSelected, row, column);

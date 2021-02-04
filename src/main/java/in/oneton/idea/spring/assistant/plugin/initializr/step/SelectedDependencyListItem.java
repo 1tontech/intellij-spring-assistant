@@ -6,10 +6,10 @@ import com.intellij.ui.components.JBLabel;
 
 import javax.swing.*;
 
-import static com.intellij.icons.AllIcons.Modules.DeleteContentFolder;
-import static com.intellij.icons.AllIcons.Modules.DeleteContentFolderRollover;
+import static com.intellij.icons.AllIcons.Modules.ExcludeRoot;
 
 public class SelectedDependencyListItem {
+
   private SelectedDependencyListItemListener listener;
 
   private InplaceButton deleteButton;
@@ -18,17 +18,15 @@ public class SelectedDependencyListItem {
 
   public void init(String name, SelectedDependencyListItemListener listener) {
     this.listener = listener;
-    nameLabel.setText(name);
+    this.nameLabel.setText(name);
   }
 
   private void createUIComponents() {
-    deleteButton = new InplaceButton(
-        new IconButton("Click to delete", DeleteContentFolder, DeleteContentFolderRollover),
-        e -> listener.onDeleteClicked());
+    this.deleteButton = new InplaceButton(new IconButton("Click to delete", ExcludeRoot, ExcludeRoot), e -> this.listener.onDeleteClicked());
   }
 
   public JPanel getRoot() {
-    return root;
+    return this.root;
   }
 
   interface SelectedDependencyListItemListener {
