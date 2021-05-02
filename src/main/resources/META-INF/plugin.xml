@@ -3,7 +3,6 @@
     <id>in.1ton.idea.spring.assistant.plugin</id>
     <name>Spring Assistant</name>
     <!-- Will be auto populated by plugin -->
-    <version>1.0.0</version>
     <vendor email="dev@1ton.in" url="https://github.com/eltonsandre">
         eltonsandre and Development Team @ 1Ton Technologies
     </vendor>
@@ -25,8 +24,6 @@
             - test: IntelliJ IDEA 2020.3.2 (Community Edition) Build #IC-203.xx
           ]]>]
     </change-notes>
-
-    <idea-version since-build="203"/>
 
     <depends>com.intellij.modules.java</depends>
     <depends>com.intellij.modules.lang</depends>

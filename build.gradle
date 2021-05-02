@@ -16,7 +16,7 @@ plugins {
 
 
 group = 'in.oneton.idea.spring'
-version = '1.0.0'
+version = '1.0.1'
 
 sourceCompatibility = JavaVersion.VERSION_11
 targetCompatibility = JavaVersion.VERSION_11
@@ -61,11 +61,10 @@ clean.doFirst {
 // See https://github.com/JetBrains/gradle-intellij-plugin/
 intellij {
     type = 'IC'
-    version = '2020.3.2'
-//  version= '2020.2'
+    version = '2021.1.1'
     pluginName = 'intellij-spring-assistant'
     plugins = ['java', 'properties', 'yaml', 'maven', 'gradle']
-//  updateSinceUntilBuild false
+    updateSinceUntilBuild false
 }
 
 publishPlugin {
@@ -77,6 +76,8 @@ publishPlugin {
 
 
 patchPluginXml {
+    sinceBuild '203.1.0'
+    untilBuild '211.*'
     pluginDescription readmeXmlAsHtml()
     changeNotes changeLogAsHtml()
 }
