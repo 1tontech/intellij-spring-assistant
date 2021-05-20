@@ -44,7 +44,7 @@ dependencies {
     ['annotationProcessor', 'compileOnly', 'testAnnotationProcessor', 'testCompileOnly']
             .each { conf -> add(conf, 'org.projectlombok:lombok:1.18.16') }
 
-    implementation 'org.apache.commons:commons-collections4:4.1'
+    implementation 'org.apache.commons:commons-collections4:4.4'
     implementation 'com.miguelfonseca.completely:completely-core:0.8.0'
     implementation 'com.vladsch.flexmark:flexmark:0.62.2'
 
