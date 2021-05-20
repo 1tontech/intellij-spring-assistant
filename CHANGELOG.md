@@ -1,3 +1,11 @@
+### Since 1.0.0 (1 Feb 2021):
+
+  - Fixed bugs
+  - Refactor build.gradle upgrade dependence versions
+  - Upgrade JDK 11
+  - improve code and clean code refactors
+  - test: IntelliJ IDEA 2020.3.2 (Community Edition) Build #IC-203.xx
+
 ### Since 0.12.0 (11 Apr 2018):
 
   - Fixed issues with metadata that contains multiple references
@@ -49,5 +57,5 @@
   - Updated correct path for animation in plugin.xml
 
 ### Since 0.1.0 (30 Nov 2017):
-  
+
   - Initial support for Spring Assistant from both libraries & `@ConfigurationProperties` classes

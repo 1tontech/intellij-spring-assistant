@@ -16,6 +16,7 @@ import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMet
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.IdAndNameComposite;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.ProjectTypeComposite;
 import in.oneton.idea.spring.assistant.plugin.initializr.metadata.InitializerMetadata.ProjectTypeComposite.ProjectType;
+import org.jetbrains.jps.model.java.JpsJavaSdkType;
 
 import javax.swing.*;
 import java.util.List;
@@ -178,12 +179,10 @@ public class ProjectDetails {
       throw new ConfigurationException("Invalid package", "Invalid Data");
     } else if (!request.hasCompatibleJavaVersion(moduleBuilder, wizardContext)) {
       JavaSdkVersion wizardSdkVersion = from(wizardContext, moduleBuilder);
-      throw new ConfigurationException("Selected Java version " + requireNonNull(
-          IdAndName.class.cast(javaVersion.getSelectedItem())).getName()
-          + " is not supported. Max supported version is (" + requireNonNull(wizardSdkVersion)
-          .getMaxLanguageLevel().getCompilerComplianceDefaultOption()
-          + ").\n\n You can go back to first screen and change the Project/Module SDK version there if you need support for newer Java versions",
-          "Java Compatibility");
+      throw new ConfigurationException("Selected Java version " + requireNonNull((IdAndName) this.javaVersion.getSelectedItem()).getName()
+              + " is not supported. Max supported version is (" + JpsJavaSdkType.complianceOption(wizardSdkVersion.getMaxLanguageLevel().toJavaVersion())
+              + ").\n\n You can go back to first screen and change the Project/Module SDK version there if you need support for newer Java versions",
+              "Java Compatibility");
     }
     return true;
   }

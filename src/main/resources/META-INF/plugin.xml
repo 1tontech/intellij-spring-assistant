@@ -1,23 +1,37 @@
-<idea-plugin url="https://github.com/1tontech/intellij-spring-assistant">
+<idea-plugin url="https://github.com/eltonsandre/intellij-spring-assistant">
 
     <id>in.1ton.idea.spring.assistant.plugin</id>
     <name>Spring Assistant</name>
     <!-- Will be auto populated by plugin -->
-    <version/>
-    <vendor email="dev@1ton.in" url="http://1ton.in/">Development Team @ 1Ton Technologies</vendor>
+    <vendor email="dev@1ton.in" url="https://github.com/eltonsandre">
+        eltonsandre and Development Team @ 1Ton Technologies
+    </vendor>
 
     <!-- Will be auto populated by plugin -->
-    <description/>
-    <change-notes/>
+    <description>
+        <![CDATA[
+              <h3>Autocomplete wizard for configuration property with spring</h3>
+              application.(properties/yaml)；
 
-    <idea-version since-build="172"/>
+              Fix and refactor: IC-2020.3.+
+          ]]>]
+    </description>
+    <change-notes>
+        <![CDATA[
+        Fix and refactor:
+            - fix bugs and refactor build.gradle upgrade dependence versions
+            - upgrade JDK 11
+            - test: IntelliJ IDEA 2020.3.2 (Community Edition) Build #IC-203.xx
+          ]]>]
+    </change-notes>
 
     <depends>com.intellij.modules.java</depends>
     <depends>com.intellij.modules.lang</depends>
     <depends>org.jetbrains.plugins.yaml</depends>
     <depends>com.intellij.properties</depends>
     <depends config-file="maven.xml" optional="true">org.jetbrains.idea.maven</depends>
-    <depends config-file="gradle.xml" optional="true">org.jetbrains.plugins.gradle</depends>
+    <depends config-file="gradle.xml" optional="true">com.intellij.gradle</depends>
+    <!--    <depends config-file="gradle.xml" optional="true">org.jetbrains.plugins.gradle</depends>-->
 
     <extensionPoints>
         <extensionPoint qualifiedName="spring.assistant.initializr.moduleBuilderPostProcessor"
