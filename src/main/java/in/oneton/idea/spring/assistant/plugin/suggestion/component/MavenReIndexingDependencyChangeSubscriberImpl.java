@@ -1,12 +1,12 @@
 package in.oneton.idea.spring.assistant.plugin.suggestion.component;
 
-import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.startup.StartupActivity;
 import com.intellij.util.messages.MessageBusConnection;
 import in.oneton.idea.spring.assistant.plugin.suggestion.service.SuggestionService;
 import org.jetbrains.annotations.NotNull;
@@ -14,38 +14,23 @@ import org.jetbrains.idea.maven.project.MavenImportListener;
 
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.moduleNamesAsStrCommaDelimited;
 
-public class MavenReIndexingDependencyChangeSubscriberImpl
-    implements MavenReIndexingDependencyChangeSubscriber, ProjectComponent {
+public class MavenReIndexingDependencyChangeSubscriberImpl implements StartupActivity, StartupActivity.DumbAware {
 
   private static final Logger log =
       Logger.getInstance(MavenReIndexingDependencyChangeSubscriberImpl.class);
 
-  private final Project project;
-  private MessageBusConnection connection;
-
-  public MavenReIndexingDependencyChangeSubscriberImpl(Project project) {
-    this.project = project;
-  }
-
-  @NotNull
   @Override
-  public String getComponentName() {
-    return "Maven reindexing dependency change subscriber";
-  }
-
-  @Override
-  public void projectOpened() {
+  public void runActivity(@NotNull Project project) {
     // This will trigger indexing
     SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
 
     try {
       debug(() -> log
           .debug("Subscribing to maven dependency updates for project " + project.getName()));
-      connection = project.getMessageBus().connect();
+      MessageBusConnection connection = project.getMessageBus().connect();
       connection.subscribe(MavenImportListener.TOPIC, (importedProjects, newModules) -> {
         boolean proceed = importedProjects.stream().anyMatch(
-            project -> this.project.getName().equals(project.getName()) && project.getDirectory()
-                .equals(this.project.getBasePath()));
+            p -> project.getName().equals(p.getName()) && p.getDirectory().equals(project.getBasePath()));
 
         if (proceed) {
           debug(() -> log.debug("Maven dependencies are updated for project " + project.getName()));
@@ -76,19 +61,6 @@ public class MavenReIndexingDependencyChangeSubscriberImpl
     }
   }
 
-  @Override
-  public void projectClosed() {
-    // TODO: Need to remove current project from index
-    connection.disconnect();
-  }
-
-  @Override
-  public void initComponent() {
-  }
-
-  @Override
-  public void disposeComponent() {
-  }
 
   /**
    * Debug logging can be enabled by adding fully classified class name/package name with # prefix

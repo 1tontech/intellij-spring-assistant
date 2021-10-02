@@ -7,6 +7,7 @@ import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.startup.StartupActivity;
 import com.intellij.util.messages.MessageBusConnection;
 import in.oneton.idea.spring.assistant.plugin.suggestion.service.SuggestionService;
 import org.jetbrains.annotations.NotNull;
@@ -15,26 +16,13 @@ import java.io.IOException;
 
 import static com.intellij.openapi.compiler.CompilerTopics.COMPILATION_STATUS;
 
-public class BootstrapImpl implements Bootstrap, ProjectComponent {
+public class BootstrapImpl implements StartupActivity, StartupActivity.DumbAware {
 
   private static final Logger log = Logger.getInstance(BootstrapImpl.class);
 
-  private final Project project;
-  private MessageBusConnection connection;
-
-  public BootstrapImpl(Project project) {
-    this.project = project;
-  }
-
-  @NotNull
   @Override
-  public String getComponentName() {
-    return "Compilation event subscriber";
-  }
-
-  @Override
-  public void projectOpened() {
-    // This will trigger indexing
+  public void runActivity(@NotNull Project project) {
+        // This will trigger indexing
     SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
 
     try {
@@ -48,7 +36,7 @@ public class BootstrapImpl implements Bootstrap, ProjectComponent {
 
     try {
       debug(() -> log.debug("Subscribing to compilation events for project " + project.getName()));
-      connection = project.getMessageBus().connect();
+      MessageBusConnection connection = project.getMessageBus().connect();
       connection.subscribe(COMPILATION_STATUS, new CompilationStatusListener() {
         @Override
         public void compilationFinished(boolean aborted, int errors, int warnings,
@@ -85,20 +73,6 @@ public class BootstrapImpl implements Bootstrap, ProjectComponent {
     } catch (Throwable e) {
       log.error("Failed to subscribe to compilation events for project " + project.getName(), e);
     }
-  }
-
-  @Override
-  public void projectClosed() {
-    // TODO: Need to remove current project from index
-    connection.disconnect();
-  }
-
-  @Override
-  public void initComponent() {
-  }
-
-  @Override
-  public void disposeComponent() {
   }
 
   /**
