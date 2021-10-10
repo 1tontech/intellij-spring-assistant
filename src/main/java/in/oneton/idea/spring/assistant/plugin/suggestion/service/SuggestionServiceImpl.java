@@ -109,7 +109,7 @@ public class SuggestionServiceImpl implements SuggestionService {
           indexingInProgress = false;
           timer.stop();
           debug(() -> log
-              .debug("<- Indexing took " + timer.toString() + " for project " + project.getName()));
+              .debug("<- Indexing took " + timer + " for project " + project.getName()));
         }
       });
     });
@@ -124,7 +124,7 @@ public class SuggestionServiceImpl implements SuggestionService {
     }
     //noinspection CodeBlock2Expr
     currentExecution = getApplication().executeOnPooledThread(() -> {
-      getApplication().runReadAction(() -> {
+      DumbService.getInstance(project).runReadActionInSmartMode(() -> {
         debug(() -> log.debug(
             "-> Indexing requested for a subset of modules of project " + project.getName()));
         indexingInProgress = true;
@@ -140,7 +140,7 @@ public class SuggestionServiceImpl implements SuggestionService {
             } finally {
               moduleTimer.stop();
               debug(() -> log.debug(
-                  "<-- Indexing took " + moduleTimer.toString() + " for module " + module
+                  "<-- Indexing took " + moduleTimer + " for module " + module
                       .getName()));
             }
           }
@@ -148,7 +148,7 @@ public class SuggestionServiceImpl implements SuggestionService {
           indexingInProgress = false;
           timer.stop();
           debug(() -> log
-              .debug("<- Indexing took " + timer.toString() + " for project " + project.getName()));
+              .debug("<- Indexing took " + timer + " for project " + project.getName()));
         }
       });
     });
@@ -283,7 +283,7 @@ public class SuggestionServiceImpl implements SuggestionService {
       return null;
     } finally {
       timer.stop();
-      debug(() -> log.debug("Search took " + timer.toString()));
+      debug(() -> log.debug("Search took " + timer));
     }
   }
 
@@ -464,7 +464,7 @@ public class SuggestionServiceImpl implements SuggestionService {
     while (searchIndexIterator.hasNext()) {
       SuggestionNode root = rootSearchIndex.get(searchIndexIterator.next());
       if (root != null) {
-        boolean removeTree = MetadataSuggestionNode.class.cast(root)
+        boolean removeTree = ((MetadataSuggestionNode) root)
             .removeRefCascadeDown(
                 metadataContainerInfo.getContainerArchiveOrFileRef());
         if (removeTree) {
@@ -495,8 +495,7 @@ public class SuggestionServiceImpl implements SuggestionService {
         String[] pathSegments = toSanitizedPathSegments(group.getName());
         String[] rawPathSegments = toRawPathSegments(group.getName());
 
-        MetadataSuggestionNode closestMetadata = MetadataSuggestionNode.class
-            .cast(findDeepestMetadataMatch(rootSearchIndex, pathSegments, false));
+        MetadataSuggestionNode closestMetadata = (MetadataSuggestionNode) findDeepestMetadataMatch(rootSearchIndex, pathSegments, false);
 
         int startIndex;
         if (closestMetadata == null) { // path does not have a corresponding root element
@@ -527,7 +526,7 @@ public class SuggestionServiceImpl implements SuggestionService {
         } else {
           // lets add container as a reference till root
           MetadataNonPropertySuggestionNode groupSuggestionNode =
-              MetadataNonPropertySuggestionNode.class.cast(closestMetadata);
+              (MetadataNonPropertySuggestionNode) closestMetadata;
           groupSuggestionNode.addRefCascadeTillRoot(containerArchiveOrFileRef);
 
           boolean haveMoreSegmentsLeft = startIndex < rawPathSegments.length;
@@ -579,7 +578,7 @@ public class SuggestionServiceImpl implements SuggestionService {
 
       if (haveMoreSegmentsLeft) {
         if (!closestMetadata.isProperty()) {
-          MetadataNonPropertySuggestionNode.class.cast(closestMetadata)
+          ((MetadataNonPropertySuggestionNode) closestMetadata)
               .addChildren(property, rawPathSegments, startIndex,
                   containerArchiveOrFileRef);
         } else {
@@ -627,7 +626,7 @@ public class SuggestionServiceImpl implements SuggestionService {
                     + "), New hint belongs " + containerPath);
           } else {
             MetadataPropertySuggestionNode propertySuggestionNode =
-                MetadataPropertySuggestionNode.class.cast(closestMetadata);
+                (MetadataPropertySuggestionNode) closestMetadata;
             if (hint.representsValueOfMap()) {
               propertySuggestionNode.getProperty().setValueHint(hint);
             } else {

@@ -3,8 +3,6 @@ package in.oneton.idea.spring.assistant.plugin.suggestion.component;
 import com.intellij.openapi.compiler.CompilationStatusListener;
 import com.intellij.openapi.compiler.CompileContext;
 import com.intellij.openapi.compiler.CompileScope;
-import com.intellij.openapi.components.ProjectComponent;
-import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.StartupActivity;
@@ -16,14 +14,14 @@ import java.io.IOException;
 
 import static com.intellij.openapi.compiler.CompilerTopics.COMPILATION_STATUS;
 
-public class BootstrapImpl implements StartupActivity, StartupActivity.DumbAware {
+public class BootstrapImpl implements StartupActivity {
 
   private static final Logger log = Logger.getInstance(BootstrapImpl.class);
 
   @Override
   public void runActivity(@NotNull Project project) {
-        // This will trigger indexing
-    SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
+    // This will trigger indexing
+    SuggestionService service = project.getService(SuggestionService.class);
 
     try {
       debug(() -> log.debug("Project " + project.getName() + " is opened, indexing will start"));
@@ -40,7 +38,7 @@ public class BootstrapImpl implements StartupActivity, StartupActivity.DumbAware
       connection.subscribe(COMPILATION_STATUS, new CompilationStatusListener() {
         @Override
         public void compilationFinished(boolean aborted, int errors, int warnings,
-            CompileContext compileContext) {
+                                        @NotNull CompileContext compileContext) {
           debug(() -> log
               .debug("Received compilation status event for project " + project.getName()));
           if (errors == 0) {
@@ -56,17 +54,6 @@ public class BootstrapImpl implements StartupActivity, StartupActivity.DumbAware
             debug(() -> log
                 .debug("Skipping reindexing completely as there are " + errors + " errors"));
           }
-        }
-
-        @Override
-        public void automakeCompilationFinished(int errors, int warnings,
-            CompileContext compileContext) {
-
-        }
-
-        @Override
-        public void fileGenerated(String outputRoot, String relativePath) {
-
         }
       });
       debug(() -> log.debug("Subscribe to compilation events for project " + project.getName()));

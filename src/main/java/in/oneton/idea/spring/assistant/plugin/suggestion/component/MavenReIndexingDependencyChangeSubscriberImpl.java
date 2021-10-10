@@ -1,6 +1,5 @@
 package in.oneton.idea.spring.assistant.plugin.suggestion.component;
 
-import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
@@ -14,7 +13,7 @@ import org.jetbrains.idea.maven.project.MavenImportListener;
 
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.moduleNamesAsStrCommaDelimited;
 
-public class MavenReIndexingDependencyChangeSubscriberImpl implements StartupActivity, StartupActivity.DumbAware {
+public class MavenReIndexingDependencyChangeSubscriberImpl implements StartupActivity {
 
   private static final Logger log =
       Logger.getInstance(MavenReIndexingDependencyChangeSubscriberImpl.class);
@@ -22,7 +21,7 @@ public class MavenReIndexingDependencyChangeSubscriberImpl implements StartupAct
   @Override
   public void runActivity(@NotNull Project project) {
     // This will trigger indexing
-    SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
+    SuggestionService service = project.getService(SuggestionService.class);
 
     try {
       debug(() -> log
@@ -30,7 +29,7 @@ public class MavenReIndexingDependencyChangeSubscriberImpl implements StartupAct
       MessageBusConnection connection = project.getMessageBus().connect();
       connection.subscribe(MavenImportListener.TOPIC, (importedProjects, newModules) -> {
         boolean proceed = importedProjects.stream().anyMatch(
-            p -> project.getName().equals(p.getName()) && p.getDirectory().equals(project.getBasePath()));
+            p -> project.getName().equals(p.getDisplayName()) && p.getDirectory().equals(project.getBasePath()));
 
         if (proceed) {
           debug(() -> log.debug("Maven dependencies are updated for project " + project.getName()));

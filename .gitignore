@@ -14,3 +14,5 @@ out/
 **/*.ipl
 *.iwl
 **/*.iwl
+/chain.crt
+/private.pem

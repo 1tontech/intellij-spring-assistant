@@ -35,7 +35,9 @@
   <!-- Plugin version
        Recommended format is BRANCH.BUILD.FIX (MAJOR.MINOR.FIX)
        Displayed in the "Plugins" settings dialog and the plugin repository Web interface.  -->
+  <!-- Will be auto populated by plugin
   <version>1.0.0</version>
+  -->
 
   <!-- The vendor of the plugin.
        The optional "url" attribute specifies the URL of the vendor homepage.
@@ -61,7 +63,9 @@
   <depends config-file="gradle.xml" optional="true">com.intellij.gradle</depends>
 
   <!-- Minimum and maximum build of IDE compatible with the plugin -->
+  <!-- Will be auto populated from CHANGELOG.md by plugin
   <idea-version since-build="212" until-build="212.*"/>
+  -->
 
   <!-- Extensions which the plugin adds to extension points
        defined by the IntelliJ Platform or by other plugins.
