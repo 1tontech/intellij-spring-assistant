@@ -1,4 +1,4 @@
-Spring Boot Assistant - IntelliJ plugin that assists you in developing spring boot applications
+Spring Boot Assistant - IntelliJ-based plugin that assists you in developing spring boot applications
 =====================================================================================
 
 ![Plugin in action](help.gif)
@@ -96,7 +96,7 @@ See [here](CHANGELOG.md).
 
 ## License
 
-Spring Boot Assistant - IntelliJ Plugin is open-sourced software licensed under
+Spring Boot Assistant - IntelliJ-based Plugin is open-sourced software licensed under
 the [MIT License](http://opensource.org/licenses/MIT).
 
 ## About
