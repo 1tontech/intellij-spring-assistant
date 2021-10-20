@@ -22,7 +22,7 @@ plugins {
 }
 
 group "dev.flikas"
-version '0.2.1'
+version '0.2.2'
 
 sourceCompatibility = 1.8
 
@@ -44,7 +44,7 @@ String readmeXmlAsHtml() {
     HtmlRenderer renderer = HtmlRenderer.builder().build()
     String readmeContent = new File(rootProject.uri('README.md')).text
     // since these images needs to shown from within intellij, lest put absolute urls so that the images & changelog will be visible
-    readmeContent = readmeContent.replaceAll("help\\.gif", "https://raw.githubusercontent.com/flikas/idea-spring-boot-assistant/" + version + "/help.gif")
+    readmeContent = readmeContent.replaceAll("!\\[Plugin in action]\\(help\\.gif\\)", "")
     readmeContent = readmeContent.replaceAll("CHANGELOG.md", "https://github.com/flikas/idea-spring-boot-assistant/blob/" + version + "/CHANGELOG.md")
     Document readmeDocument = parser.parse(readmeContent)
     renderer.withOptions()
@@ -68,7 +68,7 @@ intellij {
 
 patchPluginXml {
     sinceBuild = '193.5233.102'
-    untilBuild = '212.5284.*'
+    untilBuild = '213.4928.*'
     pluginDescription = readmeXmlAsHtml()
     changeNotes = changeLogAsHtml()
 }
@@ -81,5 +81,5 @@ signPlugin {
 
 publishPlugin {
     token = System.getenv("PUBLISH_TOKEN")
-    channels = ['eap', 'nightly', 'default']
+//    channels = ['eap', 'nightly', 'default']
 }
