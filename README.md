@@ -5,17 +5,27 @@ Spring Boot Assistant - IntelliJ-based plugin that assists you in developing spr
 
 ## What does the plugin do
 
-This plugins provides the following features as of now.
+<!-- Plugin description -->
 
-1. Auto completion of the configuration properties in your `yaml` files based on the spring boot's auto configuration
-   jars are present in the classpath
-2. Auto completion of the configuration properties in your `yaml` files if you have classes annotated
+This plugin adds auto-completion support for Spring Boot configuration files (application.yml, etc.).
+
+### Features:
+
+1. Auto-completion of the configuration properties in your `yaml` files based on the spring boot's autoconfiguration
+   jars are present in the classpath.
+
+2. Auto-completion of the configuration properties in your `yaml` files if you have classes annotated
    with `@ConfigurationProperties`
-   , [if your build is properly configured](#setup-for-showing-configurationproperties-as-suggestions-within-current-module)
+   , [if your build is properly configured](https://docs.spring.io/spring-boot/docs/current/reference/html/configuration-metadata.html#configuration-metadata.annotation-processor)
+   .
+
 3. Short form search & search for element deep within is also supported. i.e, `sp.d` will show you `spring.data`
-   , `spring.datasource`, also, `port` would show `server.port` as a suggestion
+   , `spring.datasource`, also, `port` would show `server.port` as a suggestion.
+
 4. Quick documentation for groups & properties (not all groups & properties will have documentation, depends on whether
-   the original author specified documentation or not for any given element)
+   the original author specified documentation or not for any given element).
+
+<!-- Plugin description end -->
 
 ## Installation (in 3 easy steps)
 
@@ -42,12 +52,13 @@ For this to work, you need to ensure the following steps are followed for your p
 
 ### Setup for showing ConfigurationProperties as suggestions within current module
 
-1. Make sure `Enable annotation processing` is checked under `Settings > Build, Execution & Deployment > Compiler > Annotation Processors`
-2. Make sure you add the following changes to  to your project
+1. Make sure `Enable annotation processing` is checked
+   under `Settings > Build, Execution & Deployment > Compiler > Annotation Processors`
+2. Make sure you add the following changes to your project
 
-    *For Maven*
+   *For Maven*
 
-    Add the following dependency
+   Add the following dependency
 
     ```xml
     <dependency>
@@ -57,10 +68,10 @@ For this to work, you need to ensure the following steps are followed for your p
     </dependency>
     ```
 
-    *For Gradle*
+   *For Gradle*
 
    Add the following build configuration. You can use
-   the [propdeps-plugin](https://github.com/spring-gradle-plugins/propdeps-plugin) for `optional` scope (as we dont
+   the [propdeps-plugin](https://github.com/spring-gradle-plugins/propdeps-plugin) for `optional` scope (as we don't
    need `spring-boot-configuration-processor` as a dependency in the generated jar/war)
 
     ```gradle

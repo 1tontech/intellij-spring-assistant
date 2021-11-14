@@ -1,23 +1,17 @@
-import com.vladsch.flexmark.html.HtmlRenderer
-import com.vladsch.flexmark.parser.Parser
 import org.gradle.api.JavaVersion.VERSION_1_8
-import java.nio.charset.StandardCharsets.UTF_8
+import org.jetbrains.changelog.date
+import org.jetbrains.changelog.markdownToHTML
 
 buildscript {
     repositories {
         mavenCentral()
     }
-
-    dependencies {
-//        classpath("org.junit.platform:junit-platform-gradle-plugin:1.0.1")
-//        classpath("org.codehaus.groovy:groovy-all:2.4.13")
-        classpath("com.vladsch.flexmark:flexmark:0.28.12")
-    }
 }
 
 plugins {
     java
-    id("org.jetbrains.intellij") version "1.2.0"
+    id("org.jetbrains.intellij") version "1.2.1"
+    id("org.jetbrains.changelog") version "1.2.1"
     id("io.freefair.lombok") version "6.2.0"
 }
 
@@ -26,7 +20,7 @@ java {
 }
 
 group = "dev.flikas"
-version = "0.2.2"
+version = "0.2.3-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -41,49 +35,56 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter", "junit-jupiter-engine", "5.8.1")
 }
 
-fun readmeXmlAsHtml(): String {
-    val parser = Parser.builder().build()
-    val renderer = HtmlRenderer.builder().build()
-    var readmeContent = rootProject.file("README.md").readText(UTF_8)
-    // since these images needs to shown from within intellij, lest put absolute urls so that the images & changelog will be visible
-    readmeContent = readmeContent.replace("![Plugin in action](help.gif)", "")
-    readmeContent = readmeContent.replace(
-        "CHANGELOG.md",
-        "https://github.com/flikas/idea-spring-boot-assistant/blob/" + version + "/CHANGELOG.md"
-    )
-    val readmeDocument = parser.parse(readmeContent)
-    return renderer.render(readmeDocument)
-}
-
-fun changeLogAsHtml(): String {
-    val parser = Parser.builder().build()
-    val renderer = HtmlRenderer.builder().build()
-    val changeLogDocument = parser.parse(rootProject.file("CHANGELOG.md").readText(UTF_8))
-    return renderer.render(changeLogDocument)
-}
-
 // See https://github.com/JetBrains/gradle-intellij-plugin/
 intellij {
     type.set("IC")
     version.set("2019.3")
-    plugins.addAll("properties", "yaml", "maven", "gradle", "com.intellij.java")
+    plugins.set(listOf("properties", "yaml", "maven", "gradle", "com.intellij.java"))
     downloadSources.set(true)
 }
 
-tasks.patchPluginXml {
-    sinceBuild.set("193.5233.102")
-    untilBuild.set("213.4928.*")
-    pluginDescription.set(readmeXmlAsHtml())
-//    changeNotes = changeLogAsHtml()
+changelog {
+    header.set(provider { "[${version.get()}] - ${date()}" })
 }
 
-tasks.signPlugin {
-    certificateChainFile.set(rootProject.file("chain.crt"))
-    privateKeyFile.set(rootProject.file("private.pem"))
-    password.set(System.getenv("PRIVATE_KEY_PASSWORD"))
-}
+tasks {
+    patchPluginXml {
+        sinceBuild.set("193.5233.102")
+        untilBuild.set("213.4928.*")
 
-tasks.publishPlugin {
-    token.set(System.getenv("PUBLISH_TOKEN"))
+        // Extract the <!-- Plugin description --> section from README.md and provide for the plugin's manifest
+        pluginDescription.set(
+            projectDir.resolve("README.md").readText().lines().run {
+                val start = "<!-- Plugin description -->"
+                val end = "<!-- Plugin description end -->"
+
+                if (!containsAll(listOf(start, end))) {
+                    throw GradleException("Plugin description section not found in README.md:\n$start ... $end")
+                }
+                subList(indexOf(start) + 1, indexOf(end))
+            }.joinToString(
+                separator = "\n",
+                postfix = "\nProject [document](https://github.com/flikas/idea-spring-boot-assistant/#readme)\n"
+            ).run { markdownToHTML(this) }
+        )
+
+        changeNotes.set(provider {
+            changelog.run {
+                getOrNull(version.get()) ?: getLatest()
+            }.toHTML()
+        })
+    }
+
+    signPlugin {
+        certificateChainFile.set(rootProject.file("chain.crt"))
+        privateKeyFile.set(rootProject.file("private.pem"))
+        password.set(System.getenv("PRIVATE_KEY_PASSWORD"))
+    }
+
+    publishPlugin {
+        dependsOn("patchChangelog")
+        token.set(System.getenv("PUBLISH_TOKEN"))
+        channels.set(listOf(version.toString().split('-').getOrElse(1) { "default" }.split('.').first()))
 //    channels = ["eap", "nightly", "default"]
+    }
 }
