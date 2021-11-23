@@ -2,7 +2,6 @@ package in.oneton.idea.spring.assistant.plugin.suggestion.component;
 
 import com.intellij.openapi.compiler.CompilationStatusListener;
 import com.intellij.openapi.compiler.CompileContext;
-import com.intellij.openapi.compiler.CompileScope;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.StartupActivity;
@@ -39,16 +38,9 @@ public class BootstrapImpl implements StartupActivity {
         @Override
         public void compilationFinished(boolean aborted, int errors, int warnings,
                                         @NotNull CompileContext compileContext) {
-          debug(() -> log
-              .debug("Received compilation status event for project " + project.getName()));
+          debug(() -> log.debug("Received compilation status event for project " + project.getName()));
           if (errors == 0) {
-            CompileScope projectCompileScope = compileContext.getProjectCompileScope();
-            CompileScope compileScope = compileContext.getCompileScope();
-            if (projectCompileScope == compileScope) {
-              service.reIndex(project);
-            } else {
-              service.reindex(project, compileContext.getCompileScope().getAffectedModules());
-            }
+            service.reindex(project, compileContext.getCompileScope().getAffectedModules());
             debug(() -> log.debug("Compilation status processed for project " + project.getName()));
           } else {
             debug(() -> log

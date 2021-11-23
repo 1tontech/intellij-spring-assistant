@@ -11,10 +11,10 @@ import lombok.ToString;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static com.intellij.openapi.fileTypes.FileTypes.ARCHIVE;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.of;
 
@@ -47,17 +47,9 @@ public class MetadataContainerInfo {
           findMetadataFile(fileContainer, SPRING_CONFIGURATION_METADATA_JSON);
       VirtualFile additionalMetadataFile =
           findMetadataFile(fileContainer, ADDITIONAL_SPRING_CONFIGURATION_METADATA_JSON);
-      if (metadataFile == null && additionalMetadataFile == null) {
-        return of(fileContainer.getUrl());
-      } else {
-        if (metadataFile == null) {
-          return of(additionalMetadataFile.getUrl());
-        } else if (additionalMetadataFile == null) {
-          return of(metadataFile.getUrl());
-        } else {
-          return of(metadataFile.getUrl(), additionalMetadataFile.getUrl());
-        }
-      }
+      return of(fileContainer, metadataFile, additionalMetadataFile)
+          .filter(Objects::nonNull)
+          .map(VirtualFile::getUrl);
     }
   }
 
@@ -72,7 +64,7 @@ public class MetadataContainerInfo {
   private static VirtualFile findMetadataFile(VirtualFile root, String metadataFileName) {
     if (!root.is(VFileProperty.SYMLINK)) {
       //noinspection UnsafeVfsRecursion
-      for (VirtualFile child : asList(root.getChildren())) {
+      for (VirtualFile child : root.getChildren()) {
         if (child.getName().equals(metadataFileName)) {
           return child;
         }
@@ -105,7 +97,7 @@ public class MetadataContainerInfo {
   }
 
   private static MetadataContainerInfo newInstance(VirtualFile fileContainer,
-      VirtualFile containerFile, String metadataFileName, boolean archive) {
+                                                   VirtualFile containerFile, String metadataFileName, boolean archive) {
     MetadataContainerInfoBuilder builder = MetadataContainerInfo.builder().archive(archive);
     VirtualFile metadataFile = findMetadataFile(fileContainer, metadataFileName);
     if (metadataFile != null) {

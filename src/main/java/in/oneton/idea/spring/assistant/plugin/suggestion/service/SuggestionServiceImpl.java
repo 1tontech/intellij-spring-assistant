@@ -9,6 +9,7 @@ import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.OrderEnumerator;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.psi.PsiElement;
 import gnu.trove.THashMap;
 import gnu.trove.THashSet;
@@ -124,33 +125,34 @@ public class SuggestionServiceImpl implements SuggestionService {
     }
     //noinspection CodeBlock2Expr
     currentExecution = getApplication().executeOnPooledThread(() -> {
-      DumbService.getInstance(project).runReadActionInSmartMode(() -> {
-        debug(() -> log.debug(
-            "-> Indexing requested for a subset of modules of project " + project.getName()));
-        indexingInProgress = true;
-        StopWatch timer = new StopWatch();
-        timer.start();
-        try {
-          for (Module module : modules) {
-            debug(() -> log.debug("--> Indexing requested for module " + module.getName()));
-            StopWatch moduleTimer = new StopWatch();
-            moduleTimer.start();
+      VirtualFileManager.getInstance().asyncRefresh(() ->
+          DumbService.getInstance(project).runReadActionInSmartMode(() -> {
+            debug(() -> log.debug(
+                "-> Indexing requested for a subset of modules of project " + project.getName()));
+            indexingInProgress = true;
+            StopWatch timer = new StopWatch();
+            timer.start();
             try {
-              reindexModule(emptyList(), emptyList(), module);
+              for (Module module : modules) {
+                debug(() -> log.debug("--> Indexing requested for module " + module.getName()));
+                StopWatch moduleTimer = new StopWatch();
+                moduleTimer.start();
+                try {
+                  reindexModule(emptyList(), emptyList(), module);
+                } finally {
+                  moduleTimer.stop();
+                  debug(() -> log.debug(
+                      "<-- Indexing took " + moduleTimer + " for module " + module
+                          .getName()));
+                }
+              }
             } finally {
-              moduleTimer.stop();
-              debug(() -> log.debug(
-                  "<-- Indexing took " + moduleTimer + " for module " + module
-                      .getName()));
+              indexingInProgress = false;
+              timer.stop();
+              debug(() -> log
+                  .debug("<- Indexing took " + timer + " for project " + project.getName()));
             }
-          }
-        } finally {
-          indexingInProgress = false;
-          timer.stop();
-          debug(() -> log
-              .debug("<- Indexing took " + timer + " for project " + project.getName()));
-        }
-      });
+          }));
     });
   }
 
@@ -495,7 +497,7 @@ public class SuggestionServiceImpl implements SuggestionService {
         String[] pathSegments = toSanitizedPathSegments(group.getName());
         String[] rawPathSegments = toRawPathSegments(group.getName());
 
-        MetadataSuggestionNode closestMetadata = (MetadataSuggestionNode) findDeepestMetadataMatch(rootSearchIndex, pathSegments, false);
+        MetadataSuggestionNode closestMetadata = findDeepestMetadataMatch(rootSearchIndex, pathSegments, false);
 
         int startIndex;
         if (closestMetadata == null) { // path does not have a corresponding root element
