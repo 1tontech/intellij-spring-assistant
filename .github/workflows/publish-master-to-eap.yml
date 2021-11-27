@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-
+    environment: JetBrains Marketplace
     runs-on: ubuntu-latest
     permissions:
       contents: read
