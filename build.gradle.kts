@@ -20,7 +20,7 @@ java {
 }
 
 group = "dev.flikas"
-version = "0.2.3-nightly"
+version = "0.2.3-alpha"
 
 repositories {
     mavenCentral()
@@ -51,6 +51,16 @@ tasks {
     patchPluginXml {
         sinceBuild.set("193.5233.102")
         untilBuild.set("213.4928.*")
+        version.set(
+            project.version.toString().run {
+                val pieces = split('-')
+                if (pieces.size > 1) {
+                    pieces[0] + "." + (System.currentTimeMillis() / 1000 - 1633046400) / 60
+                } else {
+                    pieces[0]
+                }
+            }
+        )
 
         // Extract the <!-- Plugin description --> section from README.md and provide for the plugin's manifest
         pluginDescription.set(
