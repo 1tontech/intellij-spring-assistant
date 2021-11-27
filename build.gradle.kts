@@ -20,7 +20,7 @@ java {
 }
 
 group = "dev.flikas"
-version = "0.2.3-SNAPSHOT"
+version = "0.2.3-EAP"
 
 repositories {
     mavenCentral()
@@ -76,8 +76,19 @@ tasks {
     }
 
     signPlugin {
-        certificateChainFile.set(rootProject.file("chain.crt"))
-        privateKeyFile.set(rootProject.file("private.pem"))
+        cliVersion.set("0.1.8")
+        val chain = rootProject.file("chain.crt")
+        if (chain.exists()) {
+            certificateChainFile.set(chain)
+        } else {
+            certificateChain.set(System.getenv("CERTIFICATE_CHAIN"))
+        }
+        val private = rootProject.file("private.pem")
+        if (private.exists()) {
+            privateKeyFile.set(rootProject.file("private.pem"))
+        } else {
+            privateKey.set(System.getenv("PRIVATE_KEY"))
+        }
         password.set(System.getenv("PRIVATE_KEY_PASSWORD"))
     }
 
@@ -85,6 +96,5 @@ tasks {
         dependsOn("patchChangelog")
         token.set(System.getenv("PUBLISH_TOKEN"))
         channels.set(listOf(version.toString().split('-').getOrElse(1) { "default" }.split('.').first()))
-//    channels = ["eap", "nightly", "default"]
     }
 }
