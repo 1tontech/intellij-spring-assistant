@@ -20,7 +20,7 @@ java {
 }
 
 group = "dev.flikas"
-version = "0.2.3-EAP"
+version = "0.2.3-nightly"
 
 repositories {
     mavenCentral()
@@ -93,7 +93,9 @@ tasks {
     }
 
     publishPlugin {
-        dependsOn("patchChangelog")
+        if (!version.toString().contains('-')) {
+            dependsOn("patchChangelog")
+        }
         token.set(System.getenv("PUBLISH_TOKEN"))
         channels.set(listOf(version.toString().split('-').getOrElse(1) { "default" }.split('.').first()))
     }
