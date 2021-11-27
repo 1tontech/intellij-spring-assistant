@@ -34,7 +34,7 @@ public class MetadataContainerInfo {
   private String fileUrl;
   private boolean archive;
   /**
-   * If containerPath points to archive, then represents the timestamp of the archive
+   * If containerPath points to archive, then represents the timestamp of the archive,
    * else, represents the length of the generated metadata file
    */
   private long marker;
@@ -84,14 +84,10 @@ public class MetadataContainerInfo {
     MetadataContainerInfo containerInfo =
         newInstance(fileContainer, containerFile, SPRING_CONFIGURATION_METADATA_JSON, archive);
     containerInfos.add(containerInfo);
-    if (!archive) {
-      // Even after enabling annotation processor support in intellij, for the projects with `spring-boot-configuration-processor` in classpath, intellij is not merging `spring-configuration-metadata.json` & the generated `additional-spring-configuration-metadata.json`. So lets merge these two ourselves if root is not an archive
-      MetadataContainerInfo additionalContainerInfo =
-          newInstance(fileContainer, containerFile, ADDITIONAL_SPRING_CONFIGURATION_METADATA_JSON,
-              false);
-      if (additionalContainerInfo != null) {
-        containerInfos.add(additionalContainerInfo);
-      }
+    MetadataContainerInfo additionalContainerInfo =
+        newInstance(fileContainer, containerFile, ADDITIONAL_SPRING_CONFIGURATION_METADATA_JSON, false);
+    if (additionalContainerInfo != null) {
+      containerInfos.add(additionalContainerInfo);
     }
     return containerInfos;
   }
