@@ -38,7 +38,7 @@ dependencies {
 // See https://github.com/JetBrains/gradle-intellij-plugin/
 intellij {
     type.set("IC")
-    version.set("2021.2.3")
+    version.set("2021.3")
     plugins.set(listOf("properties", "yaml", "maven", "gradle", "com.intellij.java"))
     downloadSources.set(true)
 }
@@ -50,7 +50,7 @@ changelog {
 tasks {
     patchPluginXml {
         sinceBuild.set("193.5233.102")
-        untilBuild.set("213.4928.*")
+        untilBuild.set("")
         version.set(
             project.version.toString().run {
                 val pieces = split('-')

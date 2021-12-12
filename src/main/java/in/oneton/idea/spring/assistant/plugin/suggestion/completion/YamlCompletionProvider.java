@@ -3,10 +3,8 @@ package in.oneton.idea.spring.assistant.plugin.suggestion.completion;
 import com.intellij.codeInsight.completion.CompletionParameters;
 import com.intellij.codeInsight.completion.CompletionProvider;
 import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.components.ServiceManager;
+import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.openapi.module.Module;
-import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.ProcessingContext;
@@ -40,12 +38,13 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
       return;
     }
 
-    Project project = element.getProject();
     Module module = findModule(element);
+    if (module == null) {
+      return;
+    }
+    SuggestionService service = module.getService(SuggestionService.class);
 
-    SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
-
-    if ((module == null || !service.canProvideSuggestions(project, module))) {
+    if (!service.canProvideSuggestions()) {
       return;
     }
 
@@ -61,14 +60,14 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
       for (PsiElement child : parent.getParent().getChildren()) {
         if (child != parent) {
           if (child instanceof YAMLSequenceItem) {
-            YAMLValue value = YAMLSequenceItem.class.cast(child).getValue();
+            YAMLValue value = ((YAMLSequenceItem) child).getValue();
             if (value != null) {
               siblingsToExclude = getNewIfNotPresent(siblingsToExclude);
               siblingsToExclude.add(sanitise(value.getText()));
             }
           } else if (child instanceof YAMLKeyValue) {
             siblingsToExclude = getNewIfNotPresent(siblingsToExclude);
-            siblingsToExclude.add(sanitise(YAMLKeyValue.class.cast(child).getKeyText()));
+            siblingsToExclude.add(sanitise(((YAMLKeyValue) child).getKeyText()));
           }
         }
       }
@@ -77,13 +76,13 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
         if (child != elementContext) {
           if (child instanceof YAMLKeyValue) {
             siblingsToExclude = getNewIfNotPresent(siblingsToExclude);
-            siblingsToExclude.add(sanitise(YAMLKeyValue.class.cast(child).getKeyText()));
+            siblingsToExclude.add(sanitise(((YAMLKeyValue) child).getKeyText()));
           }
         }
       }
     }
 
-    List<LookupElementBuilder> suggestions;
+    List<LookupElement> suggestions;
     // For top level element, since there is no parent parentKeyValue would be null
     String queryWithDotDelimitedPrefixes = truncateIdeaDummyIdentifier(element);
 
@@ -99,9 +98,8 @@ class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
       context = requireNonNull(context).getParent();
     } while (context != null);
 
-    suggestions = service
-        .findSuggestionsForQueryPrefix(project, module, yaml, element, ancestralKeys,
-            queryWithDotDelimitedPrefixes, siblingsToExclude);
+    suggestions = service.findSuggestionsForQueryPrefix(yaml, element, ancestralKeys, queryWithDotDelimitedPrefixes,
+        siblingsToExclude);
 
     if (suggestions != null) {
       suggestions.forEach(resultSet::addElement);

@@ -7,7 +7,7 @@ import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.StartupActivity;
 import com.intellij.util.messages.MessageBusConnection;
-import in.oneton.idea.spring.assistant.plugin.suggestion.service.SuggestionService;
+import in.oneton.idea.spring.assistant.plugin.suggestion.service.ProjectSuggestionService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.idea.maven.project.MavenImportListener;
 
@@ -21,7 +21,7 @@ public class MavenReIndexingDependencyChangeSubscriberImpl implements StartupAct
   @Override
   public void runActivity(@NotNull Project project) {
     // This will trigger indexing
-    SuggestionService service = project.getService(SuggestionService.class);
+    ProjectSuggestionService service = project.getService(ProjectSuggestionService.class);
 
     try {
       debug(() -> log
@@ -38,7 +38,7 @@ public class MavenReIndexingDependencyChangeSubscriberImpl implements StartupAct
             try {
               Module[] modules = ModuleManager.getInstance(project).getModules();
               if (modules.length > 0) {
-                service.reindex(project, modules);
+                service.reindex(modules);
               } else {
                 debug(() -> log.debug("Skipping indexing for project " + project.getName()
                     + " as there are no modules"));

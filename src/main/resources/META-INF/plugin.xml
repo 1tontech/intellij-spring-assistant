@@ -102,6 +102,9 @@
     <!--language="yaml"/>-->
 
     <projectService
+        serviceInterface="in.oneton.idea.spring.assistant.plugin.suggestion.service.ProjectSuggestionService"
+        serviceImplementation="in.oneton.idea.spring.assistant.plugin.suggestion.service.ProjectSuggestionServiceImpl"/>
+    <moduleService
         serviceInterface="in.oneton.idea.spring.assistant.plugin.suggestion.service.SuggestionService"
         serviceImplementation="in.oneton.idea.spring.assistant.plugin.suggestion.service.SuggestionServiceImpl"/>
 

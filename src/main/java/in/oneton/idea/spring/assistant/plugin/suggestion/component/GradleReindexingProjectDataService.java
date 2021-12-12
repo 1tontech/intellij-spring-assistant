@@ -1,6 +1,5 @@
 package in.oneton.idea.spring.assistant.plugin.suggestion.component;
 
-import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.externalSystem.model.DataNode;
 import com.intellij.openapi.externalSystem.model.Key;
@@ -13,7 +12,7 @@ import com.intellij.openapi.externalSystem.util.Order;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
-import in.oneton.idea.spring.assistant.plugin.suggestion.service.SuggestionService;
+import in.oneton.idea.spring.assistant.plugin.suggestion.service.ProjectSuggestionService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,7 +47,7 @@ public class GradleReindexingProjectDataService
               + project.getName()));
       DumbService.getInstance(project).smartInvokeLater(() -> {
         log.debug("Will attempt to trigger indexing for project " + project.getName());
-        SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
+        ProjectSuggestionService service = project.getService(ProjectSuggestionService.class);
 
         try {
           Module[] validModules = stream(modelsProvider.getModules()).filter(module -> {
@@ -58,7 +57,7 @@ public class GradleReindexingProjectDataService
           }).toArray(Module[]::new);
 
           if (validModules.length > 0) {
-            service.reindex(project, validModules);
+            service.reindex(validModules);
           } else {
             debug(() -> log.debug(
                 "None of the modules " + moduleNamesAsStrCommaDelimited(modelsProvider.getModules(),

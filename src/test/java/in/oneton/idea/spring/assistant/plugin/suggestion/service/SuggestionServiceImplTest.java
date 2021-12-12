@@ -40,9 +40,9 @@ class SuggestionServiceImplTest {
   }
 
   class SuggestionServiceImpl
-      extends in.oneton.idea.spring.assistant.plugin.suggestion.service.SuggestionServiceImpl {
+      extends in.oneton.idea.spring.assistant.plugin.suggestion.service.ProjectSuggestionServiceImpl {
     SuggestionServiceImpl(Project project) {
-      super();
+      super(project);
     }
   }
 }

@@ -2,10 +2,8 @@ package in.oneton.idea.spring.assistant.plugin.suggestion.completion;
 
 import com.intellij.lang.Language;
 import com.intellij.lang.documentation.AbstractDocumentationProvider;
-import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.module.Module;
-import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
@@ -32,7 +30,7 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
   @Override
   public String generateDoc(PsiElement element, @Nullable PsiElement originalElement) {
     if (element instanceof DocumentationProxyElement) {
-      DocumentationProxyElement proxyElement = DocumentationProxyElement.class.cast(element);
+      DocumentationProxyElement proxyElement = (DocumentationProxyElement) element;
       DocumentationProvider target = proxyElement.target;
 
       // Intermediate nodes will not have documentation
@@ -58,7 +56,7 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       @Nullable PsiElement element) {
     if (object instanceof Suggestion) {
       //noinspection unchecked
-      Suggestion suggestion = Suggestion.class.cast(object);
+      Suggestion suggestion = (Suggestion) object;
       return new DocumentationProxyElement(psiManager, INSTANCE, suggestion.getFullPath(),
           suggestion.getMatchesTopFirst().get(suggestion.getMatchesTopFirst().size() - 1),
           suggestion.isForValue(), suggestion.getSuggestionToDisplay());
@@ -74,11 +72,11 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
       List<SuggestionNode> matchedNodesFromRootTillLeaf;
       boolean requestedForTargetValue = false;
 
-      SuggestionService suggestionService =
-          ServiceManager.getService(element.getProject(), SuggestionService.class);
-
-      Project project = element.getProject();
       Module module = findModule(element);
+      if (module == null) {
+        return super.getCustomDocumentationElement(editor, file, element);
+      }
+      SuggestionService suggestionService = module.getService(SuggestionService.class);
 
       List<String> ancestralKeys = null;
       PsiElement elementContext = element.getContext();
@@ -104,13 +102,13 @@ public class YamlDocumentationProvider extends AbstractDocumentationProvider {
 
       if (ancestralKeys != null) {
         matchedNodesFromRootTillLeaf =
-            suggestionService.findMatchedNodesRootTillEnd(project, module, ancestralKeys);
+            suggestionService.findMatchedNodesRootTillEnd(ancestralKeys);
         if (matchedNodesFromRootTillLeaf != null) {
           SuggestionNode target =
               matchedNodesFromRootTillLeaf.get(matchedNodesFromRootTillLeaf.size() - 1);
           String targetNavigationPathDotDelimited =
               matchedNodesFromRootTillLeaf.stream().map(v -> v.getNameForDocumentation(module))
-                  .collect(joining("."));
+                                          .collect(joining("."));
           return new DocumentationProxyElement(file.getManager(), file.getLanguage(),
               targetNavigationPathDotDelimited, target, requestedForTargetValue, value);
         }

@@ -1,6 +1,5 @@
 package in.oneton.idea.spring.assistant.plugin.suggestion.component;
 
-import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.DumbService;
@@ -32,14 +31,13 @@ public class MavenProcessorTask implements MavenProjectsProcessorTask {
       log.debug("Will attempt to trigger indexing for project " + project.getName());
 
       try {
-        SuggestionService service = ServiceManager.getService(project, SuggestionService.class);
+        SuggestionService service = module.getService(SuggestionService.class);
 
-        if (!service.canProvideSuggestions(project, module)) {
-          service.reindex(project, module);
+        if (!service.canProvideSuggestions()) {
+          service.reindex();
         } else {
-          debug(() -> log.debug(
-              "Index is already built, no point in rebuilding index for project " + project
-                  .getName()));
+          debug(
+              () -> log.debug("Index is already built, no point in rebuilding index for project " + project.getName()));
         }
       } catch (Throwable e) {
         log.error("Error occurred while indexing project " + project.getName(), e);
