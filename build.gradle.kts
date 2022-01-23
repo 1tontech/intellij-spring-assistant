@@ -1,4 +1,4 @@
-import org.gradle.api.JavaVersion.VERSION_1_8
+import org.gradle.api.JavaVersion.VERSION_11
 import org.jetbrains.changelog.date
 import org.jetbrains.changelog.markdownToHTML
 
@@ -10,17 +10,17 @@ buildscript {
 
 plugins {
     java
-    id("org.jetbrains.intellij") version "1.2.1"
-    id("org.jetbrains.changelog") version "1.2.1"
-    id("io.freefair.lombok") version "6.2.0"
+    id("org.jetbrains.intellij") version "1.3.1"
+    id("org.jetbrains.changelog") version "1.3.1"
+    id("io.freefair.lombok") version "6.3.0"
 }
 
 java {
-    sourceCompatibility = VERSION_1_8
+    sourceCompatibility = VERSION_11
 }
 
 group = "dev.flikas"
-version = "0.2.3-alpha"
+version = "0.13.0-eap1"
 
 repositories {
     mavenCentral()
@@ -38,7 +38,8 @@ dependencies {
 // See https://github.com/JetBrains/gradle-intellij-plugin/
 intellij {
     type.set("IC")
-    version.set("2021.3")
+    version.set("2019.3.1")
+    sameSinceUntilBuild.set(false)
     plugins.set(listOf("properties", "yaml", "maven", "gradle", "com.intellij.java"))
     downloadSources.set(true)
 }
@@ -49,12 +50,12 @@ changelog {
 
 tasks {
     patchPluginXml {
-        sinceBuild.set("193.5233.102")
-        untilBuild.set("")
+        sinceBuild.set("193.5622.53")
         version.set(
             project.version.toString().run {
                 val pieces = split('-')
                 if (pieces.size > 1) {
+                    //if this is not a release version, generate a sub version number from count of minutes from 2021-10-01.
                     pieces[0] + "." + (System.currentTimeMillis() / 1000 - 1633046400) / 60
                 } else {
                     pieces[0]

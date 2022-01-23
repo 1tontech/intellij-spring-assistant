@@ -21,12 +21,15 @@ import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.List;
 
+import static com.intellij.lang.documentation.DocumentationMarkup.CONTENT_END;
+import static com.intellij.lang.documentation.DocumentationMarkup.CONTENT_START;
+import static com.intellij.lang.documentation.DocumentationMarkup.DEFINITION_END;
+import static com.intellij.lang.documentation.DocumentationMarkup.DEFINITION_START;
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.newListWithMembers;
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.shortenedType;
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.updateClassNameAsJavadocHtml;
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.toClassFqn;
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.toClassNonQualifiedName;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.handler.YamlValueInsertHandler.unescapeValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -62,7 +65,7 @@ public class SpringConfigurationMetadataHintValue {
       }
       return builder.append("]").toString();
     } else if (nameAsObjOrArray instanceof Collection) {
-      Collection nameAsCollection = Collection.class.cast(nameAsObjOrArray);
+      Collection nameAsCollection = (Collection) nameAsObjOrArray;
       StringBuilder builder = new StringBuilder("[");
       for (int i = 0; i < nameAsCollection.size(); i++) {
         Object arrayElement = Array.get(nameAsObjOrArray, i);
@@ -80,7 +83,7 @@ public class SpringConfigurationMetadataHintValue {
   }
 
   public boolean representsSingleValue() {
-    return !nameAsObjOrArray.getClass().isArray() && !Collection.class.isInstance(nameAsObjOrArray);
+    return !nameAsObjOrArray.getClass().isArray() && !(nameAsObjOrArray instanceof Collection);
   }
 
   @NotNull
@@ -89,8 +92,9 @@ public class SpringConfigurationMetadataHintValue {
       @Nullable PsiType keyType) {
     List<SuggestionNode> matchesRootTillMe = newListWithMembers(matchesRootTillParentNode, match);
     Suggestion.SuggestionBuilder builder = Suggestion.builder().suggestionToDisplay(
-        GenericUtil.dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors))
-        .description(description).numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe);
+                                                         GenericUtil.dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors))
+                                                     .description(description).numOfAncestors(numOfAncestors)
+                                                     .matchesTopFirst(matchesRootTillMe);
 
     if (keyType != null) {
       builder.shortType(toClassNonQualifiedName(keyType));
@@ -102,23 +106,19 @@ public class SpringConfigurationMetadataHintValue {
   @NotNull
   public String getDocumentationForKey(Module module, String nodeNavigationPathDotDelimited,
       @Nullable MetadataProxy delegate) {
-    StringBuilder builder =
-        new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
-
+    StringBuilder doc = new StringBuilder(DEFINITION_START);
     if (delegate != null && delegate.getPsiType(module) != null) {
       String classFqn = toClassFqn(requireNonNull(delegate.getPsiType(module)));
       if (classFqn != null) {
-        builder.append(" (");
-        updateClassNameAsJavadocHtml(builder, classFqn);
-        builder.append(")");
+        updateClassNameAsJavadocHtml(doc, classFqn);
+        doc.append(" ");
       }
     }
-
+    doc.append(nodeNavigationPathDotDelimited).append(DEFINITION_END);
     if (description != null) {
-      builder.append("<p>").append(description).append("</p>");
+      doc.append(CONTENT_START).append(description).append(CONTENT_END);
     }
-
-    return builder.toString();
+    return doc.toString();
   }
 
   @NotNull
@@ -127,7 +127,7 @@ public class SpringConfigurationMetadataHintValue {
       @Nullable PsiType valueType) {
     Suggestion.SuggestionBuilder builder =
         Suggestion.builder().suggestionToDisplay(toString()).description(description).forValue(true)
-            .matchesTopFirst(matchesRootTillLeaf).numOfAncestors(matchesRootTillLeaf.size());
+                  .matchesTopFirst(matchesRootTillLeaf).numOfAncestors(matchesRootTillLeaf.size());
 
     if (valueType != null) {
       builder.shortType(shortenedType(valueType.getCanonicalText()));
@@ -141,22 +141,17 @@ public class SpringConfigurationMetadataHintValue {
   @NotNull
   public String getDocumentationForValue(@NotNull String nodeNavigationPathDotDelimited,
       @Nullable PsiType mapValueType) {
-    StringBuilder builder =
-        new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>= <b>")
-            .append(unescapeValue(unescapeValue(toString()))).append("</b>");
-
+    StringBuilder doc = new StringBuilder(DEFINITION_START);
     if (mapValueType != null) {
       String className = mapValueType.getCanonicalText();
-      builder.append(" (");
-      updateClassNameAsJavadocHtml(builder, className);
-      builder.append(")");
+      updateClassNameAsJavadocHtml(doc, className);
+      doc.append(' ');
     }
-
+    doc.append(nodeNavigationPathDotDelimited);
     if (description != null) {
-      builder.append("<p>").append(description).append("</p>");
+      doc.append(CONTENT_START).append(description).append(CONTENT_END);
     }
-
-    return builder.toString();
+    return doc.toString();
   }
 
 }

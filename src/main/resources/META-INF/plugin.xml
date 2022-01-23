@@ -81,7 +81,18 @@
         implementation="in.oneton.idea.spring.assistant.plugin.suggestion.component.BootstrapImpl"/>
     <completion.contributor language="yaml"
                             implementationClass="in.oneton.idea.spring.assistant.plugin.suggestion.completion.YamlCompletionContributor"/>
-
+    <fileType name="spring-boot-properties-yaml"
+              implementationClass="dev.flikas.spring.boot.assistant.idea.plugin.suggestion.filetype.YamlPropertiesFileType"
+              fieldName="INSTANCE"
+              fileNames="application.yml;application.yaml"
+              patterns="application-*.yaml;application-*.yml"/>
+    <fileType name="spring-boot-properties"
+              implementationClass="dev.flikas.spring.boot.assistant.idea.plugin.suggestion.filetype.PropertiesFileType"
+              fieldName="INSTANCE"
+              fileNames="application.properties"
+              patterns="application-*.properties"/>
+    <psi.referenceContributor
+        implementation="dev.flikas.spring.boot.assistant.idea.plugin.suggestion.reference.YamlReferenceContributor"/>
     <!--<completion.contributor language="Properties"-->
     <!--implementationClass="in.oneton.idea.spring.assistant.plugin.suggestion.completion.PropertiesCompletionContributor"/>-->
 

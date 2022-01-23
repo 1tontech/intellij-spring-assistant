@@ -2,13 +2,13 @@ package in.oneton.idea.spring.assistant.plugin.misc;
 
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.daemon.impl.analysis.JavaGenericsUtil;
-import com.intellij.codeInsight.javadoc.JavaDocInfoGenerator;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.JavaPsiFacade;
+import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiArrayType;
 import com.intellij.psi.PsiCapturedWildcardType;
 import com.intellij.psi.PsiClass;
@@ -23,6 +23,7 @@ import com.intellij.psi.PsiType;
 import com.intellij.psi.PsiTypeParameter;
 import com.intellij.psi.PsiWildcardType;
 import com.intellij.psi.javadoc.PsiDocComment;
+import com.intellij.psi.javadoc.PsiDocToken;
 import com.intellij.psi.util.CachedValue;
 import com.intellij.psi.util.PropertyUtil;
 import com.intellij.util.IncorrectOperationException;
@@ -64,22 +65,7 @@ import static com.intellij.psi.util.PsiTypesUtil.hasUnresolvedComponents;
 import static com.intellij.psi.util.PsiUtil.extractIterableTypeParameter;
 import static com.intellij.psi.util.PsiUtil.resolveGenericsClassInType;
 import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNode.sanitise;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.ARRAY;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.BOOLEAN;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.BYTE;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.CHAR;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.DOUBLE;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.ENUM;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.FLOAT;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.INT;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.ITERABLE;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.KNOWN_CLASS;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.LONG;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.MAP;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.SHORT;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.STRING;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.UNDEFINED;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.UNKNOWN_CLASS;
+import static in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType.*;
 import static java.util.Objects.requireNonNull;
 
 @UtilityClass
@@ -102,13 +88,13 @@ public class PsiCustomUtil {
     try {
       // Intellij expects inner classes to be referred via `.` instead of `$`
       PsiType type = JavaPsiFacade.getInstance(module.getProject()).getParserFacade()
-          .createTypeFromText(fqn.replaceAll("\\$", "."), null);
+                                  .createTypeFromText(fqn.replaceAll("\\$", "."), null);
       boolean typeValid = isValidType(type);
       if (typeValid) {
         if (type instanceof PsiClassType) {
-          return PsiClassType.class.cast(type);
+          return (PsiClassType) type;
         } else if (type instanceof PsiArrayType) {
-          return PsiArrayType.class.cast(type);
+          return (PsiArrayType) type;
         }
       }
       return null;
@@ -145,7 +131,7 @@ public class PsiCustomUtil {
       return null;
     } else if (type instanceof PsiClassType) {
       PsiClassType.ClassResolveResult resolveResult =
-          PsiClassType.class.cast(type).resolveGenerics();
+          ((PsiClassType) type).resolveGenerics();
       if (resolveResult.isValidResult()) {
         return resolveResult.getSubstitutor().getSubstitutionMap();
       }
@@ -245,7 +231,7 @@ public class PsiCustomUtil {
   @Nullable
   public static String toClassFqn(@NotNull PsiType type) {
     if (type instanceof PsiArrayType) {
-      String componentLongName = toClassFqn(PsiArrayType.class.cast(type).getComponentType());
+      String componentLongName = toClassFqn(((PsiArrayType) type).getComponentType());
       if (componentLongName != null) {
         return componentLongName + "[]";
       }
@@ -261,7 +247,7 @@ public class PsiCustomUtil {
   public static String toClassNonQualifiedName(@NotNull PsiType type) {
     if (type instanceof PsiArrayType) {
       String componentLongName =
-          toClassNonQualifiedName(PsiArrayType.class.cast(type).getComponentType());
+          toClassNonQualifiedName(((PsiArrayType) type).getComponentType());
       if (componentLongName != null) {
         return componentLongName + "[]";
       }
@@ -274,8 +260,10 @@ public class PsiCustomUtil {
   }
 
   private static boolean isMap(@NotNull PsiClass psiClass) {
-    return isClassSameOrDescendantOf(psiClass, JAVA_UTIL_MAP) || isClassSameOrDescendantOf(psiClass,
-        "java.util.Hashtable");
+    return isClassSameOrDescendantOf(psiClass, JAVA_UTIL_MAP) || isClassSameOrDescendantOf(
+        psiClass,
+        "java.util.Hashtable"
+    );
   }
 
   private static boolean isIterable(@NotNull PsiClass psiClass) {
@@ -299,7 +287,7 @@ public class PsiCustomUtil {
   public static String typeToFqn(Module module, @NotNull PsiType type) {
     if (isValidType(type)) {
       if (type instanceof PsiArrayType) {
-        type = PsiArrayType.class.cast(type).getComponentType();
+        type = ((PsiArrayType) type).getComponentType();
         return type.getCanonicalText();
       } else if (type instanceof PsiPrimitiveType) {
         return getBoxedTypeFromPrimitiveType(module, (PsiPrimitiveType) type).getCanonicalText();
@@ -315,7 +303,7 @@ public class PsiCustomUtil {
     PsiType originalType = type;
     if (isValidType(type)) {
       if (type instanceof PsiArrayType) {
-        return computeDependencies(module, PsiArrayType.class.cast(type).getComponentType());
+        return computeDependencies(module, ((PsiArrayType) type).getComponentType());
       } else if (type instanceof PsiPrimitiveType) {
         type = getBoxedTypeFromPrimitiveType(module, (PsiPrimitiveType) type);
       } else if (type instanceof PsiWildcardType) {
@@ -381,7 +369,7 @@ public class PsiCustomUtil {
       }
     }
     if (type instanceof PsiArrayType) {
-      return isValidType(PsiArrayType.class.cast(type).getComponentType());
+      return isValidType(((PsiArrayType) type).getComponentType());
     } else if (type instanceof PsiWildcardType) {
       PsiType bound = ((PsiWildcardType) type).getBound();
       return bound != null && isValidType(bound);
@@ -435,19 +423,20 @@ public class PsiCustomUtil {
       @Nullable PsiClass psiClass) {
     if (psiClass != null) {
       return getCachedValue(psiClass, SPRING_ASSISTANT_PLUGIN_PROPERTY_TO_CLASS_MEMBER_WRAPPER_KEY,
-          () -> create(prepareWritableProperties(psiClass), JAVA_STRUCTURE_MODIFICATION_COUNT));
+          () -> create(prepareWritableProperties(psiClass), JAVA_STRUCTURE_MODIFICATION_COUNT)
+      );
     }
     return null;
   }
 
   @NotNull
-  private static Map<String, GenericClassMemberWrapper> prepareWritableProperties(
-      @NotNull PsiClass psiClass) {
+  private static Map<String, GenericClassMemberWrapper> prepareWritableProperties(@NotNull PsiClass psiClass) {
     final Map<String, GenericClassMemberWrapper> memberNameToMemberWrapper = new THashMap<>();
     for (PsiMethod method : psiClass.getAllMethods()) {
       if (method.hasModifierProperty(STATIC) || !method.hasModifierProperty(PUBLIC)) {
         continue;
       }
+      // The class member is a property only if it has a getter and a setter, or a getter which returns a collection.
       if (isSimplePropertyGetter(method)) {
         PsiMember acceptableMember = method;
         final String propertyName = getPropertyName(method);
@@ -465,7 +454,7 @@ public class PsiCustomUtil {
           }
         } else {
           final PsiType returnType = method.getReturnType();
-          if (returnType != null && representsCollection(psiClass, returnType)) {
+          if (representsCollection(psiClass, returnType)) {
             final PsiField field = psiClass.findFieldByName(propertyName, true);
             if (field != null && !field.hasModifierProperty(STATIC)) {
               final PsiType fieldType = getWritablePropertyType(psiClass, field);
@@ -480,6 +469,34 @@ public class PsiCustomUtil {
         if (acceptableMember != null)
           memberNameToMemberWrapper
               .put(sanitise(propertyName), new GenericClassMemberWrapper(acceptableMember));
+      }
+    }
+    // For using lombok to generate getter and setter.
+    PsiAnnotation classData = psiClass.getAnnotation("lombok.Data");
+    PsiAnnotation classGetter = psiClass.getAnnotation("lombok.Getter");
+    PsiAnnotation classSetter = psiClass.getAnnotation("lombok.Setter");
+    for (PsiField field : psiClass.getFields()) {
+      if (field.hasModifierProperty(STATIC)) {
+        continue;
+      }
+      PsiField acceptableMember = null;
+      if (classData != null) {
+        acceptableMember = field;
+      } else {
+        PsiAnnotation getter = field.getAnnotation("lombok.Getter");
+        if (getter != null || classGetter != null) {
+          PsiAnnotation setter = field.getAnnotation("lombok.Setter");
+          if (setter != null || classSetter != null) {
+            acceptableMember = field;
+          } else if (representsCollection(psiClass, getFieldType(field))) {
+            acceptableMember = field;
+          }
+        }
+      }
+      if (acceptableMember != null) {
+        String propertyName = getPropertyName(field);
+        assert propertyName != null;
+        memberNameToMemberWrapper.put(sanitise(propertyName), new GenericClassMemberWrapper(acceptableMember));
       }
     }
     return memberNameToMemberWrapper;
@@ -552,7 +569,7 @@ public class PsiCustomUtil {
       return null;
     }
     return getElementFactory(containingClass.getProject()).createRawSubstitutor(containingClass)
-        .substitute(psiType);
+                                                          .substitute(psiType);
   }
 
   private static PsiType getGetterReturnType(@NotNull PsiMethod method) {
@@ -588,21 +605,32 @@ public class PsiCustomUtil {
     return findModuleForFile(context.getFile().getVirtualFile(), context.getProject());
   }
 
+  /**
+   * First Line.
+   * Next Line.
+   * <p>
+   * Description.
+   *
+   * @param member
+   * @return
+   */
   @Nullable
   public static String computeDocumentation(PsiMember member) {
     PsiDocComment docComment;
     if (member instanceof PsiField) {
-      docComment = PsiField.class.cast(member).getDocComment();
+      docComment = ((PsiField) member).getDocComment();
     } else if (member instanceof PsiMethod) {
-      docComment = PsiMethod.class.cast(member).getDocComment();
+      docComment = ((PsiMethod) member).getDocComment();
     } else {
       throw new RuntimeException("Method supports targets of type PsiField & PsiMethod only");
     }
     if (docComment != null) {
-      StringBuilder builder = new StringBuilder();
-      new JavaDocInfoGenerator(member.getProject(), member)
-          .generateCommonSection(builder, docComment);
-      return builder.toString().trim();
+      PsiElement[] descriptionElements = docComment.getDescriptionElements();
+      for (PsiElement descriptionElement : descriptionElements) {
+        if (descriptionElement instanceof PsiDocToken) {
+          return descriptionElement.getText().trim();
+        }
+      }
     }
     return null;
   }
@@ -623,10 +651,7 @@ public class PsiCustomUtil {
   public static VirtualFile findFileUnderRootInModule(@NotNull VirtualFile contentRoot,
       String targetFileName) {
     VirtualFile childFile = contentRoot.findChild(targetFileName);
-    if (childFile != null) {
-      return childFile;
-    }
-    return null;
+    return childFile;
   }
 
   /**

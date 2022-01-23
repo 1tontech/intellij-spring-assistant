@@ -11,6 +11,7 @@ import in.oneton.idea.spring.assistant.plugin.suggestion.SuggestionNodeType;
 import in.oneton.idea.spring.assistant.plugin.suggestion.completion.FileType;
 import in.oneton.idea.spring.assistant.plugin.suggestion.completion.SuggestionDocumentationHelper;
 import in.oneton.idea.spring.assistant.plugin.suggestion.metadata.json.SpringConfigurationMetadataDeprecationLevel;
+import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -23,7 +24,6 @@ import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.computeD
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.getReferredPsiType;
 import static in.oneton.idea.spring.assistant.plugin.misc.PsiCustomUtil.toClassNonQualifiedName;
 import static in.oneton.idea.spring.assistant.plugin.suggestion.clazz.ClassSuggestionNodeFactory.newMetadataProxy;
-import static in.oneton.idea.spring.assistant.plugin.suggestion.handler.YamlValueInsertHandler.unescapeValue;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
@@ -33,6 +33,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocumentationHelper {
 
+  @Getter
   private final PsiMember member;
 
   @NotNull
@@ -76,7 +77,8 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
       int pathSegmentStartIndex) {
     return doWithMemberReferredClassProxy(module, proxy -> proxy
         .findDeepestSuggestionNode(module, matchesRootTillParentNode, pathSegments,
-            pathSegmentStartIndex), null);
+            pathSegmentStartIndex
+        ), null);
   }
 
   @Nullable
@@ -86,7 +88,8 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
       int querySegmentPrefixStartIndex) {
     return doWithMemberReferredClassProxy(module, proxy -> proxy
         .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
-            querySegmentPrefixes, querySegmentPrefixStartIndex), null);
+            querySegmentPrefixes, querySegmentPrefixStartIndex
+        ), null);
   }
 
   @Nullable
@@ -96,7 +99,8 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
       int querySegmentPrefixStartIndex, @Nullable Set<String> siblingsToExclude) {
     return doWithMemberReferredClassProxy(module, proxy -> proxy
         .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
-            querySegmentPrefixes, querySegmentPrefixStartIndex, siblingsToExclude), null);
+            querySegmentPrefixes, querySegmentPrefixStartIndex, siblingsToExclude
+        ), null);
   }
 
   @NotNull
@@ -130,7 +134,8 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
       @Nullable Set<String> siblingsToExclude) {
     return doWithMemberReferredClassProxy(module, proxy -> proxy
         .findValueSuggestionsForPrefix(module, fileType, matchesRootTillMe, prefix,
-            siblingsToExclude), null);
+            siblingsToExclude
+        ), null);
   }
 
   @Override
@@ -145,12 +150,12 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
 
   private boolean computeDeprecationStatus() {
     if (member instanceof PsiField) {
-      return stream(PsiField.class.cast(member).getType().getAnnotations()).anyMatch(annotation -> {
+      return stream(((PsiField) member).getType().getAnnotations()).anyMatch(annotation -> {
         String fqn = annotation.getQualifiedName();
         return fqn != null && fqn.equals("java.lang.Deprecated");
       });
     } else if (member instanceof PsiMethod) {
-      return stream(requireNonNull(PsiMethod.class.cast(member).getReturnType()).getAnnotations())
+      return stream(requireNonNull(((PsiMethod) member).getReturnType()).getAnnotations())
           .anyMatch(annotation -> {
             String fqn = annotation.getQualifiedName();
             return fqn != null && fqn.equals("java.lang.Deprecated");
@@ -164,11 +169,12 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
   public Suggestion buildSuggestionForKey(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
     Icon icon = doWithMemberReferredClassProxy(module, proxy -> proxy.getSuggestionNodeType(module),
-        SuggestionNodeType.UNKNOWN_CLASS).getIcon();
+        SuggestionNodeType.UNKNOWN_CLASS
+    ).getIcon();
     Suggestion.SuggestionBuilder builder =
         Suggestion.builder().suggestionToDisplay(originalName).description(documentation)
-            .shortType(shortType).numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
-            .icon(icon);
+                  .shortType(shortType).numOfAncestors(numOfAncestors).matchesTopFirst(matchesRootTillMe)
+                  .icon(icon);
     if (deprecated) {
       builder.deprecationLevel(SpringConfigurationMetadataDeprecationLevel.warning);
     }
@@ -183,14 +189,14 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
   @NotNull
   @Override
   public String getDocumentationForKey(Module module, String nodeNavigationPathDotDelimited) {
-    return "<b>" + nodeNavigationPathDotDelimited + "</b>" + new JavaDocumentationProvider()
-        .generateDoc(member, member);
+    return "<div class='definition'>" + nodeNavigationPathDotDelimited + "</div>"
+        + new JavaDocumentationProvider().generateDoc(member, member);
   }
 
   @Override
   public String getDocumentationForValue(Module module, String nodeNavigationPathDotDelimited,
       String originalValue) {
-    return "<b>" + nodeNavigationPathDotDelimited + "</b> =  <b>" + unescapeValue(originalValue) + "</b>"
+    return "<div class='definition'>" + nodeNavigationPathDotDelimited + "</div>"
         + new JavaDocumentationProvider().generateDoc(member, member);
   }
 
@@ -198,7 +204,8 @@ public class GenericClassMemberWrapper implements SuggestionNode, SuggestionDocu
   @Override
   public SuggestionNodeType getSuggestionNodeType(Module module) {
     return doWithMemberReferredClassProxy(module, proxy -> proxy.getSuggestionNodeType(module),
-        SuggestionNodeType.UNKNOWN_CLASS);
+        SuggestionNodeType.UNKNOWN_CLASS
+    );
   }
 
   private interface ProxyInvoker<T> {

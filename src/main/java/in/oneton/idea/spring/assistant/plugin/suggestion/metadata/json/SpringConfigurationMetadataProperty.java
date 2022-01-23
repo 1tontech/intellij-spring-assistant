@@ -29,6 +29,15 @@ import java.util.TreeSet;
 import java.util.stream.Stream;
 
 import static com.intellij.codeInsight.documentation.DocumentationManager.createHyperlink;
+import static com.intellij.lang.documentation.DocumentationMarkup.CONTENT_END;
+import static com.intellij.lang.documentation.DocumentationMarkup.CONTENT_START;
+import static com.intellij.lang.documentation.DocumentationMarkup.DEFINITION_END;
+import static com.intellij.lang.documentation.DocumentationMarkup.DEFINITION_START;
+import static com.intellij.lang.documentation.DocumentationMarkup.SECTIONS_END;
+import static com.intellij.lang.documentation.DocumentationMarkup.SECTIONS_START;
+import static com.intellij.lang.documentation.DocumentationMarkup.SECTION_END;
+import static com.intellij.lang.documentation.DocumentationMarkup.SECTION_HEADER_START;
+import static com.intellij.lang.documentation.DocumentationMarkup.SECTION_SEPARATOR;
 import static com.intellij.util.containers.ContainerUtil.isEmpty;
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.methodForDocumentationNavigation;
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.removeGenerics;
@@ -43,6 +52,7 @@ import static in.oneton.idea.spring.assistant.plugin.suggestion.clazz.ClassSugge
 import static java.util.Comparator.comparing;
 import static java.util.Objects.compare;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
 
@@ -71,6 +81,7 @@ public class SpringConfigurationMetadataProperty
    */
   @Nullable
   @Setter
+  @Getter
   private String sourceType;
   /**
    * Specify whether the PROPERTY is deprecated. If the field is not deprecated or if that information is not known, it may be omitted. The next table offers more detail about the springConfigurationMetadataDeprecation attribute.
@@ -128,14 +139,16 @@ public class SpringConfigurationMetadataProperty
             if (!isMapWithPredefinedValues()) {
               return doWithDelegateOrReturnNull(module, delegate -> delegate
                   .findDeepestSuggestionNode(module, matchesRootTillParentNode, pathSegments,
-                      pathSegmentStartIndex));
+                      pathSegmentStartIndex
+                  ));
             }
           }
         }
       } else {
         return doWithDelegateOrReturnNull(module, delegate -> delegate
             .findDeepestSuggestionNode(module, matchesRootTillParentNode, pathSegments,
-                pathSegmentStartIndex));
+                pathSegmentStartIndex
+            ));
       }
     }
     return null;
@@ -160,12 +173,14 @@ public class SpringConfigurationMetadataProperty
           HintAwareSuggestionNode suggestionNode = new HintAwareSuggestionNode(hintValue);
           return hintValue
               .buildSuggestionForKey(fileType, matchesRootTillMe, numOfAncestors, suggestionNode,
-                  getMapKeyType(module));
+                  getMapKeyType(module)
+              );
         }).collect(toCollection(TreeSet::new));
       } else {
         return doWithDelegateOrReturnNull(module, delegate -> delegate
             .findKeySuggestionsForQueryPrefix(module, fileType, matchesRootTillMe, numOfAncestors,
-                querySegmentPrefixes, querySegmentPrefixStartIndex, siblingsToExclude));
+                querySegmentPrefixes, querySegmentPrefixStartIndex, siblingsToExclude
+            ));
       }
     }
     return null;
@@ -174,17 +189,21 @@ public class SpringConfigurationMetadataProperty
   @NotNull
   public Suggestion buildKeySuggestion(Module module, FileType fileType,
       List<SuggestionNode> matchesRootTillMe, int numOfAncestors) {
-    Suggestion.SuggestionBuilder builder = Suggestion.builder().suggestionToDisplay(
-        GenericUtil.dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors))
-        .description(description).shortType(shortenedType(className))
-        .defaultValue(getDefaultValueAsStr()).numOfAncestors(numOfAncestors)
-        .matchesTopFirst(matchesRootTillMe).icon(getSuggestionNodeType(module).getIcon());
+    Suggestion.SuggestionBuilder builder = Suggestion
+        .builder()
+        .suggestionToDisplay(GenericUtil.dotDelimitedOriginalNames(matchesRootTillMe, numOfAncestors))
+        .description(description)
+        .shortType(shortenedType(className))
+        .defaultValue(getDefaultValueAsStr())
+        .numOfAncestors(numOfAncestors)
+        .matchesTopFirst(matchesRootTillMe)
+        .icon(getSuggestionNodeType(module).getIcon())
+        .fileType(fileType);
     if (deprecation != null) {
-      builder.deprecationLevel(deprecation.getLevel() != null ?
-          deprecation.getLevel() :
-          SpringConfigurationMetadataDeprecationLevel.warning);
+      builder.deprecationLevel(
+          requireNonNullElse(deprecation.getLevel(), SpringConfigurationMetadataDeprecationLevel.warning));
     }
-    return builder.fileType(fileType).build();
+    return builder.build();
   }
 
   @NotNull
@@ -200,53 +219,71 @@ public class SpringConfigurationMetadataProperty
      * <b>WARNING:</b>
      * @deprecated Due to something something. Replaced by <b>c.d.e</b>
      */
-    StringBuilder builder =
-        new StringBuilder().append("<b>").append(nodeNavigationPathDotDelimited).append("</b>");
-
+    StringBuilder doc = new StringBuilder()
+        .append(DEFINITION_START);
     if (className != null) {
-      builder.append(" (");
-      updateClassNameAsJavadocHtml(builder, className);
-      builder.append(")");
+      int l = updateClassNameAsJavadocHtml(doc, className);
+      if (l > 20) {
+        doc.append('\n');
+      } else {
+        doc.append(' ');
+      }
     }
+    doc.append(nodeNavigationPathDotDelimited);
+    if (defaultValue != null) {
+      doc.append(" = ").append(getDefaultValueAsStr());
+    }
+    doc.append(DEFINITION_END);
 
     if (description != null) {
-      builder.append("<p>").append(description).append("</p>");
+      doc.append(CONTENT_START).append(description).append(CONTENT_END);
     }
 
+    doc.append(SECTIONS_START);
     if (defaultValue != null) {
-      builder.append("<p><em>Default value: </em>").append(getDefaultValueAsStr()).append("</p>");
+      doc.append(SECTION_HEADER_START)
+         .append("<p style='white-space:nowrap'>Default value:</p>")
+         .append(SECTION_SEPARATOR)
+         .append(getDefaultValueAsStr())
+         .append(SECTION_END);
     }
 
     if (sourceType != null) {
       String sourceTypeInJavadocFormat = removeGenerics(sourceType);
-
       // lets show declaration point only if does not match the type
       if (!sourceTypeInJavadocFormat.equals(removeGenerics(className))) {
         StringBuilder buffer = new StringBuilder();
         createHyperlink(buffer, methodForDocumentationNavigation(sourceTypeInJavadocFormat),
-            sourceTypeInJavadocFormat, false);
+            sourceTypeInJavadocFormat, false
+        );
         sourceTypeInJavadocFormat = buffer.toString();
-
-        builder.append("<p>Declared at ").append(sourceTypeInJavadocFormat).append("</p>");
+        doc.append(SECTION_HEADER_START)
+           .append("<p style='white-space:nowrap'>Declared at:</p>")
+           .append(SECTION_SEPARATOR)
+           .append(sourceTypeInJavadocFormat)
+           .append(SECTION_END);
       }
     }
 
     if (deprecation != null) {
-      builder.append("<p><b>").append(isDeprecatedError() ?
-          "ERROR: DO NOT USE THIS PROPERTY AS IT IS COMPLETELY UNSUPPORTED" :
-          "WARNING: PROPERTY IS DEPRECATED").append("</b></p>");
-
+      doc.append(SECTION_HEADER_START)
+         .append("Deprecation:")
+         .append(SECTION_SEPARATOR)
+         .append("<p><b>").append(isDeprecatedError() ?
+             "ERROR: DO NOT USE THIS PROPERTY AS IT IS COMPLETELY UNSUPPORTED" :
+             "WARNING: PROPERTY IS DEPRECATED").append("</b></p>");
       if (deprecation.getReason() != null) {
-        builder.append("@deprecated Reason: ").append(deprecation.getReason());
+        doc.append("@deprecated Reason: ").append(deprecation.getReason());
       }
-
       if (deprecation.getReplacement() != null) {
-        builder.append("<p>Replaced by property <b>").append(deprecation.getReplacement())
-            .append("</b></p>");
+        doc.append("<p>Replaced by property <b>").append(deprecation.getReplacement())
+           .append("</b></p>");
       }
+      doc.append(SECTION_END);
     }
+    doc.append(SECTIONS_END);
 
-    return builder.toString();
+    return doc.toString();
   }
 
   public boolean isLeaf(Module module) {
@@ -323,12 +360,14 @@ public class SpringConfigurationMetadataProperty
 
         return matchesStream.map(match -> match
             .buildSuggestionForValue(fileType, matchesRootTillContainerProperty,
-                getDefaultValueAsStr(), getPsiType(module))).collect(toCollection(TreeSet::new));
+                getDefaultValueAsStr(), getPsiType(module)
+            )).collect(toCollection(TreeSet::new));
       }
     } else {
       return doWithDelegateOrReturnNull(module, delegate -> delegate
           .findValueSuggestionsForPrefix(module, fileType, matchesRootTillContainerProperty, prefix,
-              siblingsToExclude));
+              siblingsToExclude
+          ));
     }
 
     return null;
@@ -352,7 +391,7 @@ public class SpringConfigurationMetadataProperty
     if (siblingsToExclude != null) {
       Set<SpringConfigurationMetadataHintValue> exclusionMembers =
           siblingsToExclude.stream().map(hintFindValueAgainst::findHintValueWithName)
-              .collect(toSet());
+                           .collect(toSet());
       matchesStream = matches.stream().filter(value -> !exclusionMembers.contains(value));
     } else {
       matchesStream = matches.stream();
@@ -389,8 +428,8 @@ public class SpringConfigurationMetadataProperty
   }
 
   @Contract("_, _, !null -> !null; _, _, null -> null")
-  private <T> T doWithDelegateOrReturnDefault(Module module,
-      MetadataProxyInvokerWithReturnValue<T> invoker, T defaultValue) {
+  private <T> T doWithDelegateOrReturnDefault(Module module, MetadataProxyInvokerWithReturnValue<T> invoker,
+      T defaultValue) {
     MetadataProxy delegate = getDelegate(module);
     if (delegate != null) {
       return invoker.invoke(delegate);
@@ -399,8 +438,7 @@ public class SpringConfigurationMetadataProperty
   }
 
   @Nullable
-  private <T> T doWithDelegateOrReturnNull(Module module,
-      MetadataProxyInvokerWithReturnValue<T> invoker) {
+  private <T> T doWithDelegateOrReturnNull(Module module, MetadataProxyInvokerWithReturnValue<T> invoker) {
     return doWithDelegateOrReturnDefault(module, invoker, null);
   }
 
@@ -409,7 +447,7 @@ public class SpringConfigurationMetadataProperty
     MetadataProxy delegate = getDelegate(module);
     if (delegate != null) {
       assert delegate instanceof MapClassMetadataProxy;
-      return invoker.invoke(MapClassMetadataProxy.class.cast(delegate));
+      return invoker.invoke((MapClassMetadataProxy) delegate);
     }
     return null;
   }
@@ -447,7 +485,7 @@ public class SpringConfigurationMetadataProperty
     if (nodeType == MAP) {
       return doWithDelegateOrReturnNull(module, delegate -> {
         assert delegate instanceof MapClassMetadataProxy;
-        return MapClassMetadataProxy.class.cast(delegate).getMapKeyType(module);
+        return ((MapClassMetadataProxy) delegate).getMapKeyType(module);
       });
     }
     return null;
@@ -459,7 +497,7 @@ public class SpringConfigurationMetadataProperty
     if (nodeType == MAP) {
       return doWithDelegateOrReturnNull(module, delegate -> {
         assert delegate instanceof MapClassMetadataProxy;
-        return MapClassMetadataProxy.class.cast(delegate).getMapValueType(module);
+        return ((MapClassMetadataProxy) delegate).getMapValueType(module);
       });
     }
     return null;
@@ -508,10 +546,15 @@ public class SpringConfigurationMetadataProperty
     public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
         List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
         int querySegmentPrefixStartIndex) {
-      return doWithMapDelegateOrReturnNull(module,
-          delegate -> MapClassMetadataProxy.class.cast(delegate)
-              .findChildKeySuggestionForQueryPrefix(module, fileType, matchesRootTillMe,
-                  numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex));
+      return doWithMapDelegateOrReturnNull(
+          module,
+          delegate -> ((MapClassMetadataProxy) delegate)
+              .findChildKeySuggestionForQueryPrefix(module, fileType,
+                  matchesRootTillMe,
+                  numOfAncestors, querySegmentPrefixes,
+                  querySegmentPrefixStartIndex
+              )
+      );
     }
 
     @Nullable
@@ -519,11 +562,15 @@ public class SpringConfigurationMetadataProperty
     public SortedSet<Suggestion> findKeySuggestionsForQueryPrefix(Module module, FileType fileType,
         List<SuggestionNode> matchesRootTillMe, int numOfAncestors, String[] querySegmentPrefixes,
         int querySegmentPrefixStartIndex, @Nullable Set<String> siblingsToExclude) {
-      return doWithMapDelegateOrReturnNull(module,
-          delegate -> MapClassMetadataProxy.class.cast(delegate)
-              .findChildKeySuggestionForQueryPrefix(module, fileType, matchesRootTillMe,
+      return doWithMapDelegateOrReturnNull(
+          module,
+          delegate -> ((MapClassMetadataProxy) delegate)
+              .findChildKeySuggestionForQueryPrefix(module, fileType,
+                  matchesRootTillMe,
                   numOfAncestors, querySegmentPrefixes, querySegmentPrefixStartIndex,
-                  siblingsToExclude));
+                  siblingsToExclude
+              )
+      );
     }
 
     @Override
@@ -545,8 +592,7 @@ public class SpringConfigurationMetadataProperty
     @Nullable
     @Override
     public String getDocumentationForKey(Module module, String nodeNavigationPathDotDelimited) {
-      return target
-          .getDocumentationForKey(module, nodeNavigationPathDotDelimited, getDelegate(module));
+      return target.getDocumentationForKey(module, nodeNavigationPathDotDelimited, getDelegate(module));
     }
 
     @Nullable
@@ -560,7 +606,8 @@ public class SpringConfigurationMetadataProperty
         if (matches != null && matches.size() != 0) {
           return matches.stream().map(match -> match
               .buildSuggestionForValue(fileType, matchesRootTillMe, getDefaultValueAsStr(),
-                  getMapValueType(module))).collect(toCollection(TreeSet::new));
+                  getMapValueType(module)
+              )).collect(toCollection(TreeSet::new));
         }
       } else {
         return doWithDelegateOrReturnNull(module, delegate -> delegate
@@ -583,7 +630,8 @@ public class SpringConfigurationMetadataProperty
               getMatchesAfterExcludingSiblings(valueHint, matches, siblingsToExclude);
           return matchesStream.map(match -> match
               .buildSuggestionForValue(fileType, matchesRootTillMe, getDefaultValueAsStr(),
-                  getMapValueType(module))).collect(toCollection(TreeSet::new));
+                  getMapValueType(module)
+              )).collect(toCollection(TreeSet::new));
         }
       } else {
         return doWithDelegateOrReturnNull(module, delegate -> delegate

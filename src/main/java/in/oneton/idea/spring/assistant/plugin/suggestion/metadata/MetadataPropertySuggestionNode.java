@@ -66,13 +66,14 @@ public class MetadataPropertySuggestionNode extends MetadataSuggestionNode {
   public static MetadataPropertySuggestionNode newInstance(String originalName,
       @NotNull SpringConfigurationMetadataProperty property,
       @Nullable MetadataNonPropertySuggestionNode parent, String belongsTo) {
-    MetadataPropertySuggestionNode.MetadataPropertySuggestionNodeBuilder builder =
-        MetadataPropertySuggestionNode.builder().name(sanitise(originalName))
-            .originalName(originalName).property(property).parent(parent);
     Set<String> belongsToSet = new THashSet<>();
     belongsToSet.add(belongsTo);
-    builder.belongsTo(belongsToSet);
-    return builder.build();
+    return builder().name(sanitise(originalName))
+                    .originalName(originalName)
+                    .property(property)
+                    .parent(parent)
+                    .belongsTo(belongsToSet)
+                    .build();
   }
 
   /**

@@ -4,6 +4,7 @@ import com.google.gson.GsonBuilder;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.roots.OrderEnumerator;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
@@ -39,7 +40,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.concurrent.Future;
 
+import static com.intellij.openapi.application.ApplicationManager.getApplication;
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.modifiableList;
 import static in.oneton.idea.spring.assistant.plugin.misc.GenericUtil.truncateIdeaDummyIdentifier;
 import static in.oneton.idea.spring.assistant.plugin.suggestion.Suggestion.PERIOD_DELIMITER;
@@ -60,12 +63,13 @@ public class SuggestionServiceImpl implements SuggestionService {
   private static final Logger log = Logger.getInstance(SuggestionServiceImpl.class);
 
   private final Module module;
-
   private final Map<String, MetadataContainerInfo> seenContainerPathToContainerInfo;
   /**
    * Within the trie, all keys are stored in sanitised format to enable us find keys without worrying about hyphens, underscores, e.t.c in the keys themselves
    */
   private final Trie<String, MetadataSuggestionNode> rootSearchIndex;
+  private Future<?> indexExecution;
+  private boolean indexAvailable = false;
 
 
   SuggestionServiceImpl(Module module) {
@@ -115,7 +119,7 @@ public class SuggestionServiceImpl implements SuggestionService {
 
   @Override
   public boolean canProvideSuggestions() {
-    return rootSearchIndex != null && rootSearchIndex.size() != 0;
+    return indexAvailable && rootSearchIndex.size() != 0;
   }
 
   @Override
@@ -247,10 +251,27 @@ public class SuggestionServiceImpl implements SuggestionService {
 
   @Override
   public void reindex() {
-    OrderEnumerator moduleOrderEnumerator = OrderEnumerator.orderEntries(module);
-    List<MetadataContainerInfo> newModuleContainersToProcess = computeNewContainersToProcess(moduleOrderEnumerator);
-    List<MetadataContainerInfo> moduleContainersToRemove = computeContainersToRemove(moduleOrderEnumerator);
-    processContainers(newModuleContainersToProcess, moduleContainersToRemove);
+    if (indexExecution != null && !indexExecution.isDone()) {
+      indexExecution.cancel(false);
+    }
+    indexExecution = getApplication().executeOnPooledThread(() ->
+        DumbService.getInstance(module.getProject()).runReadActionInSmartMode(() -> {
+          debug(() -> log.debug("--> Indexing requested for module " + module.getName()));
+          StopWatch moduleTimer = new StopWatch();
+          moduleTimer.start();
+          try {
+            indexAvailable = false;
+            OrderEnumerator moduleOrderEnumerator = OrderEnumerator.orderEntries(module);
+            List<MetadataContainerInfo> newModuleContainersToProcess = computeNewContainersToProcess(
+                moduleOrderEnumerator);
+            List<MetadataContainerInfo> moduleContainersToRemove = computeContainersToRemove(moduleOrderEnumerator);
+            processContainers(newModuleContainersToProcess, moduleContainersToRemove);
+            indexAvailable = true;
+          } finally {
+            moduleTimer.stop();
+            debug(() -> log.debug("<-- Indexing took " + moduleTimer + " for module " + module.getName()));
+          }
+        }));
   }
 
   private List<MetadataContainerInfo> computeNewContainersToProcess(OrderEnumerator orderEnumerator) {
@@ -474,6 +495,9 @@ public class SuggestionServiceImpl implements SuggestionService {
                   + containerArchiveOrFileRef);
         } else {
           closestMetadata.addRefCascadeTillRoot(containerArchiveOrFileRef);
+          // TODO according to Spring Doc: https://docs.spring.io/spring-boot/docs/current/reference/html/configuration-metadata.html#configuration-metadata.format.repeated-items
+          // merge metadata from additional-spring-configuration-metadata.json to spring-configuration-metadata.json
+          // and support multiple properties or groups with the same name.
           log.debug("Detected a duplicate metadata property for suggestion path " + closestMetadata
               .getPathFromRoot(module) + ". Ignoring property. Existing property belongs to ("
               + closestMetadata.getBelongsTo().stream().collect(joining(","))

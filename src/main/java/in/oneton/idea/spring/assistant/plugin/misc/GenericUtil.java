@@ -1,6 +1,7 @@
 package in.oneton.idea.spring.assistant.plugin.misc;
 
 import com.intellij.codeInsight.completion.InsertionContext;
+import com.intellij.lang.jvm.types.JvmPrimitiveTypeKind;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiElement;
@@ -43,37 +44,80 @@ public class GenericUtil {
   //  private static final Pattern CLASSNAME_MATCH_PATTERN =
   //      Pattern.compile("([a-zA-Z_][a-zA-Z_0-9]*(?:\\.[a-zA-Z_][a-zA-Z_0-9]*)*)");
 
-  private static Pattern methodToFragmentConverter = Pattern.compile("(.+)\\.(.+)\\(.*\\)");
+  private static final Pattern methodToFragmentConverter = Pattern.compile("(.+)\\.(.+)\\(.*\\)");
 
   public static String typeForDocumentationNavigation(String type) {
+
     return type.replaceAll("\\$", ".");
   }
 
-  public static void updateClassNameAsJavadocHtml(StringBuilder buffer, String type) {
-    Matcher matcher = GENERIC_SECTION_REMOVAL_PATTERN.matcher(type);
-    String baseClass = type;
-    boolean parametersPresent = matcher.find();
-    String[] typeParameters = null;
-    if (parametersPresent) {
-      typeParameters = matcher.group("commaDelimitedTypes").split(",");
-      baseClass = matcher.replaceAll("");
+  public static String shortenFrequentJavaType(CharSequence type) {
+    JvmPrimitiveTypeKind ptk = JvmPrimitiveTypeKind.getKindByFqn(type.toString());
+    if (ptk != null) {
+      return ptk.getName();
     }
-    createHyperlink(buffer, typeForDocumentationNavigation(baseClass), baseClass, false);
-    if (typeParameters != null) {
-      buffer.append("&lt;");
-      for (int i = 0; i < typeParameters.length; i++) {
-        updateClassNameAsJavadocHtml(buffer, typeParameters[i]);
-        if (i != typeParameters.length - 1) {
+    type = trimJavaPackage(type, "java.lang");
+    type = trimJavaPackage(type, "java.util");
+    type = trimJavaPackage(type, "java.util.concurrent");
+    return type.toString();
+  }
+
+  public static CharSequence trimJavaPackage(CharSequence type, CharSequence packageName) {
+    String prefix = packageName + ".";
+    if (type.toString().startsWith(prefix)
+        && type.toString().indexOf('.', prefix.length()) < 0) {
+      return type.subSequence(prefix.length(), type.length());
+    }
+    return type;
+  }
+
+  /**
+   * @return length of rendered class name.
+   */
+  public static int updateClassNameAsJavadocHtml(StringBuilder buffer, String typeList) {
+    int len = 0;
+    char[] chars = typeList.toCharArray();
+    StringBuilder baseClass = new StringBuilder();
+    for (char c : chars) {
+      if (Character.isJavaIdentifierPart(c) || c == '.') {
+        baseClass.append(c);
+      } else {
+        String shortenName = shortenFrequentJavaType(baseClass.toString());
+        createHyperlink(
+            buffer,
+            typeForDocumentationNavigation(baseClass.toString()),
+            shortenName,
+            false
+        );
+        baseClass.setLength(0);
+        if (c == '<') {
+          buffer.append("&lt;");
+        } else if (c == '>') {
+          buffer.append("&gt;");
+        } else if (c == ',') {
           buffer.append(", ");
+        } else {
+          buffer.append(c);
         }
+        len += shortenName.length() + 1;
       }
-      buffer.append("&gt;");
     }
+    if (baseClass.length() > 0) {
+      String shortenName = shortenFrequentJavaType(baseClass.toString());
+      createHyperlink(
+          buffer,
+          typeForDocumentationNavigation(baseClass.toString()),
+          shortenName,
+          false
+      );
+      len += shortenName.length();
+    }
+    return len;
   }
 
   public static String methodForDocumentationNavigation(String typeAndMethod) {
     return methodToFragmentConverter.matcher(typeForDocumentationNavigation(typeAndMethod))
-        .replaceAll("$1#$2");
+                                    .replaceAll("$1#$2");
   }
 
   @NotNull
@@ -226,7 +270,7 @@ public class GenericUtil {
 
   public static Optional<String> getKeyNameOfObject(final PsiElement psiElement) {
     return Optional.of(psiElement).filter(el -> el instanceof YAMLKeyValue)
-        .map(YAMLKeyValue.class::cast).map(YAMLKeyValue::getName);
+                   .map(YAMLKeyValue.class::cast).map(YAMLKeyValue::getName);
   }
 
 }
