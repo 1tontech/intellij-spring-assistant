@@ -20,7 +20,7 @@ java {
 }
 
 group = "dev.flikas"
-version = "0.13.0-eap1"
+version = "0.13.0-eap"
 
 repositories {
     mavenCentral()
@@ -51,6 +51,7 @@ changelog {
 tasks {
     patchPluginXml {
         sinceBuild.set("193.5622.53")
+        untilBuild.set("")
         version.set(
             project.version.toString().run {
                 val pieces = split('-')

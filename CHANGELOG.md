@@ -10,7 +10,8 @@ to [Semantic Versioning](https://semver.org).
 ### Added
 
 - Inspection: If the property is not defined.
-- Inspection: If the property value is in wrong format.
+- Inspection: If the property value's type is wrong.
+- Inspection: If the property key is duplicated.
 - Intelligence insertion: add new property anywhere, insertion will happen at right place.
 - Bug reporting.
 - Support
@@ -22,25 +23,25 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
-## [0.13.0-eap1]
+## [0.13.0-eap]
 
 ### Added
 
-- Spring properties (yaml) file have got a new icon.
-- 'Go to declaration(Ctrl-B or Ctrl-Click)' will navigate to the source code of the property in yaml file.
+- Spring yaml properties file have got a new icon.
+- 'Go to declaration(Ctrl-B or Ctrl-Click)' will navigate to the source code of the property in yaml properties file.
 
 ### Changed
 
-- This plugin will be activated only in application*.properties/yml/yaml files by default, this will avoid some annoying
-  side effect while you are editing other yaml/properties files, these settings can be changed at Settings->Editor->File
-  Types->Spring (yaml) properties file.
+- This plugin will be activated only in application*.yml/yaml files by default, this will avoid some annoying side
+  effects while you are editing other yaml/properties files, these settings can be changed at Settings->Editor->File
+  Types->"Spring yaml properties file".
 - The document of properties is better formatted.
 
 ### Fixed
 
 - After rebuild, generated metadata files in project is not correctly reindex-ed.
 - 'additional-spring-configuration-metadata.json' file is not been correctly processed sometimes.
-- Lack of document if @ConfigurationProperties annotated class is using lombok @Getter @Setter feature.
+- Document is missing while @ConfigurationProperties annotated class is using lombok to generate properties.
 
 ## [0.2.2] - 2021-10-20
 
